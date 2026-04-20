@@ -1,9 +1,28 @@
+/**
+ * MainMenu — APEX PROTOCOL career-style boot UI.
+ *
+ * Three-column editorial layout: operator (L) · play (C) · intel (R)
+ * Six tabs along the top: PLAY · LOADOUT · CAREER · CONTRACTS · COSMETICS · SETTINGS
+ *
+ * ALL styling lives in src/styles/index.css.  This file only builds
+ * the DOM and wires events — the old 700-line `injectStyles()` function
+ * has been removed.  If something looks wrong visually, edit index.css;
+ * if something behaves wrong, edit here.
+ *
+ * Public API (unchanged):
+ *   initMainMenu(onStart, onTraining)
+ *   showMainMenu()
+ *   hideMainMenu()
+ */
+
 import {
   getProfile, subscribeProfile, getXpProgress, getOverallKD, getWinRate,
   MAX_LEVEL, prestige,
 } from '@/core/PlayerProfile';
-import { getLoadouts, setActiveLoadout, updateLoadout,
-  PERKS, FIELD_UPGRADES, LETHALS, TACTICALS } from '@/config/Loadouts';
+import {
+  getLoadouts, setActiveLoadout, updateLoadout,
+  PERKS, FIELD_UPGRADES, LETHALS, TACTICALS,
+} from '@/config/Loadouts';
 import { getContracts, claimAllCompleted, getActiveContractCount } from './ContractSystem';
 import type { GameMode } from '@/core/GameModes';
 
@@ -11,12 +30,13 @@ import type { GameMode } from '@/core/GameModes';
 //  STATE
 // ─────────────────────────────────────────────────────────────────────
 
+type Tab = 'play' | 'career' | 'loadout' | 'contracts' | 'cosmetics' | 'settings';
+
 interface MenuState {
   visible: boolean;
-  activeTab: 'play' | 'career' | 'loadout' | 'contracts' | 'cosmetics' | 'settings';
+  activeTab: Tab;
   selectedMode: GameMode;
   editingLoadoutIndex: number;
-  loadoutEditSlot: 'primary' | 'secondary' | 'lethal' | 'tactical' | 'perk1' | 'perk2' | 'perk3' | 'field' | null;
   onStart: ((mode: GameMode, loadoutIndex: number) => void) | null;
   onTraining: (() => void) | null;
   container: HTMLDivElement | null;
@@ -28,7 +48,6 @@ const state: MenuState = {
   activeTab: 'play',
   selectedMode: 'tdm',
   editingLoadoutIndex: 0,
-  loadoutEditSlot: null,
   onStart: null,
   onTraining: null,
   container: null,
@@ -36,7 +55,7 @@ const state: MenuState = {
 };
 
 // ─────────────────────────────────────────────────────────────────────
-//  MODE DEFINITIONS  (6 primary modes shown in 3×2 grid)
+//  MODE DEFINITIONS — 6 primary modes in a 3×2 grid
 // ─────────────────────────────────────────────────────────────────────
 
 const MODES: Array<{ id: GameMode; name: string; subtitle: string; players: string; icon: string }> = [
@@ -79,7 +98,7 @@ const MODES: Array<{ id: GameMode; name: string; subtitle: string; players: stri
 ];
 
 // ─────────────────────────────────────────────────────────────────────
-//  LEFT COLUMN — operator card + career stats + XP rail
+//  LEFT COLUMN — operator portrait + stats + XP rail
 // ─────────────────────────────────────────────────────────────────────
 
 function renderLeftCol(): string {
@@ -147,7 +166,7 @@ function renderLeftCol(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-//  RIGHT COLUMN — intel: contracts preview + news
+//  RIGHT COLUMN — INTEL: season news + active contracts
 // ─────────────────────────────────────────────────────────────────────
 
 function renderRightCol(): string {
@@ -194,7 +213,7 @@ function renderRightCol(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-//  CENTER: PLAY TAB — hero slate + 3×2 modes + loadout strip + deploy
+//  CENTER: PLAY TAB — hero slate + 3×2 mode grid + loadout strip + DEPLOY
 // ─────────────────────────────────────────────────────────────────────
 
 function renderPlayTab(): string {
@@ -218,7 +237,7 @@ function renderPlayTab(): string {
       <div class="mn-loadout-head">
         <span class="mn-loadout-title">ACTIVE LOADOUT</span>
         <span class="mn-loadout-active">${activeLoadout.name}</span>
-        <span class="mn-loadout-cycle">TAB LOADOUT TO EDIT</span>
+        <span class="mn-loadout-cycle">TAB · LOADOUT TO EDIT</span>
       </div>
       <div class="mn-loadout-slots">
         <div class="mn-slot primary">
@@ -293,7 +312,7 @@ function renderCareerTab(): string {
         <div class="mm-career-name">
           <div class="mm-career-username">${p.playerName}</div>
           <div class="mm-career-level">
-            <span class="mm-level-pill">${prestigeLevel > 0 ? `P${prestigeLevel}` : ''} LVL ${p.level}</span>
+            <span class="mm-level-pill">${prestigeLevel > 0 ? `P${prestigeLevel} ` : ''}LVL ${p.level}</span>
             <span class="mm-level-sub">${xp.current.toLocaleString()} / ${xp.needed.toLocaleString()} XP</span>
           </div>
           <div class="mm-xp-bar"><div class="mm-xp-fill" style="width:${pctToNext}%"></div></div>
@@ -328,7 +347,7 @@ function renderCareerTab(): string {
             <div class="mm-weapon-name">${wpn.replace(/_/g, ' ').toUpperCase()}</div>
             <div class="mm-weapon-lvl">LV ${ws.level ?? 1}</div>
             <div class="mm-weapon-bar"><div class="mm-weapon-fill" style="width:${Math.min(100, (ws.level ?? 1) * 10)}%"></div></div>
-            <div class="mm-weapon-kills">${(ws.kills ?? 0)} k</div>
+            <div class="mm-weapon-kills">${ws.kills ?? 0} k</div>
           </div>
         `).join('')}
       </div>
@@ -549,7 +568,7 @@ function renderSettingsTab(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-//  BUILD — three-column APEX PROTOCOL shell
+//  BUILD — DOM only, no style injection (styles are in index.css)
 // ─────────────────────────────────────────────────────────────────────
 
 function build(): HTMLDivElement {
@@ -572,14 +591,14 @@ function build(): HTMLDivElement {
           </div>
           <div>
             <div class="mn-brand-text">WARZONE</div>
-            <div class="mn-brand-sub">TDM · SEASON 04</div>
+            <div class="mn-brand-sub">APEX PROTOCOL · S04</div>
           </div>
         </div>
 
         <nav class="mn-nav">
-          ${['play', 'career', 'loadout', 'contracts', 'cosmetics', 'settings'].map(t =>
-            `<button class="mn-tab ${state.activeTab === t ? 'on' : ''}" data-tab="${t}">${t.toUpperCase()}</button>`
-          ).join('')}
+          ${(['play', 'loadout', 'career', 'contracts', 'cosmetics', 'settings'] as Tab[])
+            .map(t => `<button class="mn-tab ${state.activeTab === t ? 'on' : ''}" data-tab="${t}">${t.toUpperCase()}</button>`)
+            .join('')}
         </nav>
 
         <div class="mn-user">
@@ -608,6 +627,7 @@ function build(): HTMLDivElement {
         <div class="mn-keys">
           <div class="mn-key"><kbd>ESC</kbd> <span>PAUSE</span></div>
           <div class="mn-key"><kbd>TAB</kbd> <span>SCOREBOARD</span></div>
+          <div class="mn-key"><kbd>Q</kbd> <span>PING</span></div>
         </div>
         <button class="mn-quit-btn" id="mmQuit">QUIT</button>
       </div>
@@ -615,716 +635,45 @@ function build(): HTMLDivElement {
     </div>
   `;
   document.body.appendChild(root);
-  injectStyles();
   return root;
 }
 
 // ─────────────────────────────────────────────────────────────────────
-//  STYLES
-// ─────────────────────────────────────────────────────────────────────
-
-function injectStyles(): void {
-  if (document.getElementById('mainMenuStyle')) return;
-  const s = document.createElement('style');
-  s.id = 'mainMenuStyle';
-  s.textContent = `
-
-    /* ── ROOT CONTAINER ─────────────────────────────────────── */
-    #mainMenuRoot {
-      position: fixed; inset: 0; z-index: 20;
-      font-family: var(--body-font, 'Chakra Petch', sans-serif);
-      color: var(--bone, #e9ecf1);
-      display: none;
-      overflow: hidden;
-    }
-    #mainMenuRoot.active { display: block; }
-
-    /* ── ARENA BACKGROUND ───────────────────────────────────── */
-    .arena-bg {
-      position: absolute; inset: 0; z-index: 0;
-      background:
-        radial-gradient(ellipse at 70% 30%, rgba(255,140,26,.12) 0%, transparent 50%),
-        radial-gradient(ellipse at 20% 80%, rgba(57,240,255,.06) 0%, transparent 55%),
-        linear-gradient(180deg, #0a0d15 0%, #06070b 60%, #0a0808 100%);
-    }
-    .arena-bg::before {
-      content: ''; position: absolute; inset: 0;
-      background:
-        linear-gradient(180deg, transparent 55%, rgba(0,0,0,.5) 100%),
-        linear-gradient(90deg, rgba(0,0,0,.6), transparent 20%, transparent 80%, rgba(0,0,0,.6));
-    }
-    .arena-bg::after {
-      content: ''; position: absolute; inset: 0;
-      background-image:
-        linear-gradient(rgba(255,140,26,.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,140,26,.04) 1px, transparent 1px);
-      background-size: 80px 80px;
-      mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
-      animation: gridDrift 90s linear infinite;
-    }
-    @keyframes gridDrift { to { background-position: 80px 80px; } }
-
-    .arena-horizon {
-      position: absolute; left: 0; right: 0; bottom: 0; height: 45%;
-      background:
-        linear-gradient(180deg, transparent 0%, rgba(6,7,11,.7) 80%, rgba(6,7,11,1) 100%),
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 400' preserveAspectRatio='none'><polygon fill='%23090b11' points='0,400 0,280 120,260 180,220 260,240 340,180 430,200 520,160 640,180 730,140 840,190 950,150 1060,210 1180,170 1290,230 1400,190 1520,250 1600,220 1600,400'/><polygon fill='%2306070b' points='0,400 0,330 80,310 170,340 260,290 370,320 480,280 580,310 690,270 820,300 930,260 1050,290 1160,250 1280,310 1400,270 1510,300 1600,280 1600,400'/></svg>") bottom/cover no-repeat;
-      z-index: 0; pointer-events: none;
-    }
-
-    /* ── MN-ROOT: 3-row grid ────────────────────────────────── */
-    .mn-root {
-      position: absolute; inset: 0; z-index: 1;
-      display: grid;
-      grid-template-rows: 64px 1fr 56px;
-    }
-
-    /* ── TOP NAV BAR ────────────────────────────────────────── */
-    .mn-top {
-      display: grid; grid-template-columns: auto 1fr auto;
-      align-items: stretch;
-      border-bottom: 1px solid var(--hairline, rgba(233,236,241,.08));
-      padding-left: 40px;
-      z-index: 2;
-      background: linear-gradient(180deg, rgba(6,7,11,.96), rgba(6,7,11,.80));
-    }
-
-    .mn-brand { display: flex; align-items: center; gap: 14px; }
-    .mn-mark {
-      width: 28px; height: 28px;
-      display: grid; place-items: center;
-    }
-    .mn-mark svg { width: 100%; height: 100%; }
-    .mn-brand-text {
-      font: 400 18px/1 var(--tactical-font, 'Syncopate', sans-serif);
-      letter-spacing: .4em; color: var(--bone);
-    }
-    .mn-brand-sub {
-      font: 400 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .35em; color: var(--signal, #ff8c1a);
-      margin-top: 3px;
-    }
-
-    .mn-nav { display: flex; justify-content: center; }
-    .mn-tab {
-      position: relative; padding: 0 24px; display: grid; place-items: center;
-      background: transparent; border: 0; cursor: pointer;
-      font: 500 11px/1 var(--tactical-font, 'Syncopate', sans-serif);
-      letter-spacing: .3em; color: var(--mute, #6d7689);
-      transition: color .15s;
-    }
-    .mn-tab::before {
-      content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 2px;
-      background: var(--signal); transform: translateX(-50%);
-      transition: width .25s var(--ease-out-expo, cubic-bezier(.16,1,.3,1));
-    }
-    .mn-tab:hover { color: var(--bone); }
-    .mn-tab.on { color: var(--signal); }
-    .mn-tab.on::before { width: 60%; }
-
-    .mn-user {
-      display: flex; align-items: center; gap: 14px;
-      padding: 0 32px 0 20px;
-      border-left: 1px solid var(--hairline);
-    }
-    .mn-u-avatar {
-      width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--signal), #a85a0f);
-      display: grid; place-items: center;
-      font: 400 14px/1 var(--tactical-font, 'Syncopate', sans-serif);
-      color: var(--void, #06070b);
-      clip-path: polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%);
-    }
-    .mn-u-name {
-      font: 500 13px/1 var(--body-font, 'Chakra Petch', sans-serif);
-      color: var(--bone); letter-spacing: .1em;
-    }
-    .mn-u-level {
-      display: flex; gap: 6px; align-items: baseline; margin-top: 2px;
-      font: 400 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .2em;
-    }
-    .mn-u-level b { color: var(--signal); font-weight: 500; }
-    .mn-u-level span { color: var(--mute); }
-
-    /* ── THREE-COLUMN MAIN ──────────────────────────────────── */
-    .mn-main {
-      position: relative; z-index: 1;
-      display: grid; grid-template-columns: 320px 1fr 360px;
-      overflow: hidden;
-    }
-    .mn-col {
-      padding: 24px 28px;
-      overflow-y: auto;
-      position: relative;
-    }
-    .mn-col + .mn-col { border-left: 1px solid var(--hairline); }
-    .mn-col::-webkit-scrollbar { width: 2px; }
-    .mn-col::-webkit-scrollbar-thumb { background: var(--signal); }
-
-    /* Center column: flex column so deploy button can push to bottom */
-    .mn-center {
-      display: flex; flex-direction: column; gap: 20px;
-      padding: 32px 40px;
-    }
-
-    /* ── COL HEADER ─────────────────────────────────────────── */
-    .mn-col-head {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 18px;
-    }
-    .mn-col-head::before { content: ''; width: 4px; height: 16px; background: var(--signal); }
-    .mn-col-head-text {
-      font: 500 11px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .4em; color: var(--bone);
-    }
-    .mn-col-head-id {
-      margin-left: auto;
-      font: 400 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--mute); letter-spacing: .2em;
-    }
-
-    /* ── OPERATOR CARD (left col) ───────────────────────────── */
-    .mn-op-card {
-      position: relative;
-      padding: 16px;
-      background: linear-gradient(145deg, rgba(255,140,26,.05), transparent 60%);
-      border: 1px solid var(--hairline);
-      margin-bottom: 14px;
-    }
-    .mn-op-figure {
-      aspect-ratio: 3/4;
-      background:
-        radial-gradient(ellipse at top, rgba(255,140,26,.18), transparent 60%),
-        linear-gradient(180deg, #0f1220, #050708 80%);
-      position: relative; overflow: hidden;
-      clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
-      margin-bottom: 12px;
-      display: grid; place-items: center;
-    }
-    .mn-op-silhouette { width: 70%; opacity: .9; }
-    .mn-op-figure::after {
-      content: ''; position: absolute; inset: 0;
-      background: repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 2px, transparent 2px 4px);
-      pointer-events: none;
-    }
-    .mn-op-rank-chip {
-      position: absolute; top: 8px; left: 8px;
-      padding: 3px 8px;
-      background: var(--signal); color: var(--void);
-      font: 500 9px/1 var(--mono-font, 'JetBrains Mono', monospace); letter-spacing: .2em;
-    }
-    .mn-op-name {
-      font: 400 20px/1 var(--display-font, 'Archivo Black', sans-serif);
-      letter-spacing: .02em; color: var(--bone);
-    }
-    .mn-op-callsign {
-      font: 400 9px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--signal); letter-spacing: .25em; margin-top: 4px;
-    }
-
-    /* corner bracket helper (4-corner version) */
-    .br4 { position: relative; }
-    .br4 > .br-tr, .br4 > .br-bl {
-      position: absolute; width: 14px; height: 14px;
-      border: 1px solid var(--signal); pointer-events: none;
-    }
-    .br4 > .br-tr { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
-    .br4 > .br-bl { bottom: -1px; left: -1px; border-right: 0; border-top: 0; }
-    .br4::before, .br4::after {
-      content: ''; position: absolute; width: 14px; height: 14px;
-      border: 1px solid var(--signal); pointer-events: none;
-    }
-    .br4::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
-    .br4::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
-
-    /* ── STAT GRID (left col) ───────────────────────────────── */
-    .mn-statgrid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-      background: var(--hairline); border: 1px solid var(--hairline);
-      margin-bottom: 16px;
-    }
-    .mn-stat { background: var(--void, #06070b); padding: 10px 12px; }
-    .mn-stat-label {
-      font: 400 9px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .3em; color: var(--mute); margin-bottom: 4px;
-    }
-    .mn-stat-val {
-      font: 400 20px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--bone); letter-spacing: -.01em;
-    }
-    .mn-stat-val.acc { color: var(--signal); }
-
-    /* ── PROGRESS RAIL (left col) ───────────────────────────── */
-    .mn-prog-head {
-      display: flex; justify-content: space-between; align-items: baseline;
-      font: 500 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .2em; color: var(--mute); margin-bottom: 6px;
-    }
-    .mn-prog-head b { color: var(--signal); font-weight: 500; }
-    .mn-prog-rail {
-      position: relative; height: 4px; background: var(--steel-800, #131823);
-      clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
-    }
-    .mn-prog-fill {
-      position: absolute; inset: 0 auto 0 0;
-      background: linear-gradient(90deg, #a85a0f, var(--signal));
-      box-shadow: 0 0 8px rgba(255,140,26,.5);
-    }
-    .mn-prog-sub {
-      font: 400 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--mute); letter-spacing: .2em; margin-top: 6px;
-    }
-
-    /* ── HERO SLATE (center play tab) ───────────────────────── */
-    .mn-hero-slate {
-      padding: 18px 24px 22px;
-      border-left: 3px solid var(--signal);
-      background: linear-gradient(90deg, rgba(255,140,26,.10), transparent 60%);
-    }
-    .mn-hero-kicker {
-      font: 500 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--signal); letter-spacing: .4em; margin-bottom: 10px;
-    }
-    .mn-hero-title {
-      font: 400 44px/.95 var(--display-font, 'Archivo Black', sans-serif);
-      color: var(--bone); letter-spacing: -.02em;
-    }
-    .mn-hero-sub {
-      margin-top: 8px;
-      font: 400 12px/1.5 var(--body-font, 'Chakra Petch', sans-serif);
-      color: var(--bone-dim, #b5bcc8); max-width: 520px;
-    }
-
-    /* ── MODE CARDS (center play tab, 3×2) ─────────────────── */
-    .mn-modes {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-    }
-    .mn-mode {
-      position: relative;
-      padding: 14px 16px 12px;
-      background: rgba(10,12,18,.7);
-      border: 1px solid var(--hairline);
-      cursor: pointer;
-      transition: border-color .18s, background .18s, transform .18s var(--ease-out-expo, cubic-bezier(.16,1,.3,1));
-      overflow: hidden;
-    }
-    .mn-mode::before {
-      content: ''; position: absolute; top: 0; left: 0; width: 0; height: 2px;
-      background: var(--signal);
-      transition: width .3s var(--ease-out-expo, cubic-bezier(.16,1,.3,1));
-    }
-    .mn-mode:hover { border-color: var(--hairline-strong, rgba(233,236,241,.18)); background: rgba(255,140,26,.03); }
-    .mn-mode:hover::before { width: 100%; }
-    .mn-mode.on {
-      background: linear-gradient(135deg, rgba(255,140,26,.15), transparent 60%);
-      border-color: var(--signal);
-    }
-    .mn-mode.on::before { width: 100%; }
-    .mn-mode-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .mn-mode-ico { width: 20px; height: 20px; color: var(--signal); flex-shrink: 0; }
-    .mn-mode-ico svg { width: 100%; height: 100%; }
-    .mn-mode-name {
-      font: 500 11px/1 var(--tactical-font, 'Syncopate', sans-serif);
-      letter-spacing: .18em; color: var(--bone);
-    }
-    .mn-mode-sub {
-      font: 400 10px/1.4 var(--body-font, 'Chakra Petch', sans-serif);
-      color: var(--bone-dim, #b5bcc8);
-    }
-    .mn-mode-tag {
-      margin-top: 8px; display: inline-block;
-      font: 400 9px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--mute); letter-spacing: .2em;
-    }
-    .mn-mode-tag::before { content: '['; color: var(--signal); margin-right: 2px; }
-    .mn-mode-tag::after  { content: ']'; color: var(--signal); margin-left: 2px; }
-
-    /* ── LOADOUT STRIP (center play tab) ────────────────────── */
-    .mn-loadout {
-      padding: 14px 18px;
-      background: rgba(10,12,18,.55);
-      border: 1px solid var(--hairline);
-    }
-    .mn-loadout-head {
-      display: flex; align-items: center; gap: 14px;
-      margin-bottom: 12px;
-    }
-    .mn-loadout-title {
-      font: 500 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .3em; color: var(--mute);
-    }
-    .mn-loadout-active {
-      padding: 3px 10px;
-      background: var(--signal); color: var(--void);
-      font: 500 10px/1 var(--tactical-font, 'Syncopate', sans-serif);
-      letter-spacing: .15em;
-    }
-    .mn-loadout-cycle {
-      margin-left: auto;
-      font: 400 9px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--mute); letter-spacing: .15em;
-    }
-    .mn-loadout-slots {
-      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 6px;
-    }
-    .mn-slot {
-      padding: 8px 10px;
-      background: rgba(6,7,11,.7);
-      border: 1px solid var(--hairline);
-    }
-    .mn-slot-label {
-      font: 400 8px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--mute); letter-spacing: .25em; margin-bottom: 4px;
-    }
-    .mn-slot-value {
-      font: 500 10px/1 var(--body-font, 'Chakra Petch', sans-serif);
-      color: var(--bone); letter-spacing: .04em;
-    }
-    .mn-slot.primary .mn-slot-value {
-      font-family: var(--tactical-font, 'Syncopate', sans-serif);
-      font-size: 11px; letter-spacing: .1em;
-    }
-
-    /* ── DEPLOY BUTTON ──────────────────────────────────────── */
-    .mn-deploy {
-      display: grid; grid-template-columns: 1fr auto; align-items: center;
-      padding: 18px 24px;
-      background: linear-gradient(90deg, var(--signal) 0%, #ffa73a 100%);
-      color: var(--void);
-      border: 0; cursor: pointer;
-      position: relative;
-      clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 100%, 0 100%);
-      transition: filter .2s, transform .2s var(--ease-out-expo, cubic-bezier(.16,1,.3,1));
-      margin-top: auto;
-    }
-    .mn-deploy:hover { filter: brightness(1.1); transform: translateX(4px); }
-    .mn-deploy::before {
-      content: ''; position: absolute; inset: 0;
-      background: repeating-linear-gradient(135deg, rgba(0,0,0,.08) 0 8px, transparent 8px 16px);
-      pointer-events: none;
-    }
-    .mn-deploy-kicker {
-      font: 500 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .3em; color: rgba(6,7,11,.75); margin-bottom: 6px;
-    }
-    .mn-deploy-label {
-      font: 400 26px/1 var(--display-font, 'Archivo Black', sans-serif);
-      letter-spacing: .02em;
-    }
-    .mn-deploy-arrow { font-size: 36px; font-weight: 900; padding-right: 16px; }
-
-    /* ── RIGHT COL: contracts ───────────────────────────────── */
-    .mn-news {
-      padding: 12px 14px;
-      border-left: 2px solid var(--cyan, #39f0ff);
-      background: linear-gradient(90deg, rgba(57,240,255,.06), transparent 70%);
-      margin-bottom: 14px;
-    }
-    .mn-news-tag {
-      font: 500 9px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--cyan, #39f0ff); letter-spacing: .3em; margin-bottom: 4px;
-    }
-    .mn-news-title {
-      font: 500 12px/1.3 var(--tactical-font, 'Syncopate', sans-serif);
-      letter-spacing: .08em; color: var(--bone); margin-bottom: 4px;
-    }
-    .mn-news-desc {
-      font: 400 11px/1.4 var(--body-font, 'Chakra Petch', sans-serif);
-      color: var(--bone-dim, #b5bcc8);
-    }
-
-    .mn-contract {
-      padding: 12px 14px;
-      border: 1px solid var(--hairline);
-      background: rgba(10,12,18,.7);
-      margin-bottom: 8px;
-      position: relative;
-      transition: border-color .2s, background .2s;
-    }
-    .mn-contract:hover { border-color: var(--signal); background: rgba(255,140,26,.04); }
-    .mn-contract.done { border-color: var(--toxic, #b8ff3d); background: rgba(184,255,61,.06); }
-    .mn-contract-head {
-      display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;
-    }
-    .mn-contract-name {
-      font: 500 11px/1 var(--tactical-font, 'Syncopate', sans-serif);
-      letter-spacing: .12em; color: var(--bone); flex: 1;
-    }
-    .mn-contract-xp {
-      font: 500 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--signal); letter-spacing: .1em;
-    }
-    .mn-contract-desc {
-      font: 400 10px/1.4 var(--body-font, 'Chakra Petch', sans-serif);
-      color: var(--bone-dim, #b5bcc8); margin-bottom: 8px;
-    }
-    .mn-contract-rail { position: relative; height: 2px; background: var(--steel-800, #131823); }
-    .mn-contract-rail-fill {
-      position: absolute; inset: 0 auto 0 0;
-      background: var(--signal); box-shadow: 0 0 6px rgba(255,140,26,.5);
-    }
-    .mn-contract.done .mn-contract-rail-fill {
-      background: var(--toxic, #b8ff3d); box-shadow: 0 0 6px rgba(184,255,61,.5);
-    }
-    .mn-contract-meta {
-      display: flex; justify-content: space-between; align-items: baseline;
-      margin-top: 6px;
-      font: 400 9px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--mute); letter-spacing: .15em;
-    }
-
-    .mn-empty-intel {
-      font: 500 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      color: var(--mute); letter-spacing: .35em; text-align: center;
-      padding: 24px 0;
-    }
-    .mn-claim-btn {
-      width: 100%; padding: 12px;
-      background: rgba(184,255,61,.12); border: 1px solid var(--toxic, #b8ff3d);
-      color: var(--toxic, #b8ff3d);
-      font: 500 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .3em; cursor: pointer;
-      transition: background .15s;
-    }
-    .mn-claim-btn:hover { background: rgba(184,255,61,.22); }
-
-    /* ── BOTTOM STRIP ───────────────────────────────────────── */
-    .mn-bottom {
-      display: grid; grid-template-columns: auto 1fr auto;
-      align-items: center; gap: 24px;
-      padding: 0 32px;
-      border-top: 1px solid var(--hairline);
-      background: rgba(6,7,11,.95);
-      z-index: 2;
-    }
-    .mn-server {
-      display: flex; align-items: center; gap: 10px;
-      font: 400 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .2em; color: var(--mute);
-    }
-    .mn-server .dot {
-      width: 6px; height: 6px; background: var(--toxic, #b8ff3d);
-      box-shadow: 0 0 6px var(--toxic, #b8ff3d);
-      border-radius: 50%;
-      animation: pulse 1.8s ease-in-out infinite;
-    }
-    @keyframes pulse { 50% { transform: scale(1.4); opacity: .5; } }
-    .mn-server b { color: var(--bone); font-weight: 500; }
-    .mn-keys { display: flex; gap: 10px; justify-content: center; }
-    .mn-key {
-      display: flex; align-items: center; gap: 6px;
-      font: 400 10px/1 var(--mono-font, 'JetBrains Mono', monospace);
-      letter-spacing: .15em; color: var(--mute);
-    }
-    .mn-key kbd {
-      display: inline-block; min-width: 16px; padding: 3px 6px;
-      background: var(--steel-800, #131823);
-      border: 1px solid var(--hairline);
-      color: var(--bone); font: inherit;
-    }
-    .mn-quit-btn {
-      background: transparent; border: 1px solid var(--hairline);
-      color: var(--mute);
-      font: 500 10px/1 var(--tactical-font, 'Syncopate', sans-serif);
-      letter-spacing: .25em; padding: 10px 20px; cursor: pointer;
-      transition: color .15s, border-color .15s;
-    }
-    .mn-quit-btn:hover { color: var(--hazard, #ff3d2e); border-color: var(--hazard, #ff3d2e); }
-
-    /* ══════════════════════════════════════════════════════════
-       TAB-CONTENT: Career, Loadout, Contracts, Cosmetics, Settings
-       (mm-* prefix; these render inside .mn-center)
-       ══════════════════════════════════════════════════════════ */
-
-    .mm-career { flex: 1; }
-    .mm-career-head { display: flex; gap: 20px; align-items: center; margin-bottom: 24px; }
-    .mm-avatar {
-      width: 72px; height: 72px;
-      background: var(--steel-800, #131823);
-      border: 1px solid var(--signal);
-      display: grid; place-items: center;
-      font-family: var(--display-font, 'Archivo Black', sans-serif);
-      font-size: 28px; font-weight: 400;
-      color: var(--signal); position: relative;
-      flex-shrink: 0;
-    }
-    .mm-avatar::before, .mm-avatar::after {
-      content: ''; position: absolute;
-      width: 8px; height: 8px; border: 1px solid var(--signal);
-    }
-    .mm-avatar::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
-    .mm-avatar::after  { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
-    .mm-career-name { flex: 1; }
-    .mm-career-username { font-family: var(--display-font, 'Archivo Black', sans-serif); font-size: 26px; font-weight: 400; letter-spacing: -.01em; color: var(--bone); }
-    .mm-career-level { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
-    .mm-level-pill { background: rgba(255,140,26,.15); color: var(--signal); padding: 4px 12px; font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 11px; font-weight: 700; letter-spacing: .2em; }
-    .mm-level-sub { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 11px; color: var(--mute); letter-spacing: .12em; }
-    .mm-xp-bar { height: 4px; width: 100%; max-width: 440px; background: var(--steel-700, #1c2333); }
-    .mm-xp-fill { height: 100%; background: linear-gradient(90deg, #a85a0f, var(--signal), #ffa73a); transition: width .4s ease-out; box-shadow: 0 0 8px rgba(255,140,26,.5); }
-
-    .mm-prestige-section {
-      background: linear-gradient(135deg, rgba(194,123,255,.1), transparent 70%);
-      border: 1px solid rgba(194,123,255,.3); border-left: 3px solid #c27bff;
-      padding: 14px 18px; margin-bottom: 20px;
-    }
-    .mm-prestige-title { font-family: var(--tactical-font, 'Syncopate', sans-serif); color: #c27bff; font-size: 12px; letter-spacing: .3em; margin-bottom: 6px; }
-    .mm-prestige-desc { font-family: var(--body-font, 'Chakra Petch', sans-serif); font-size: 12px; color: var(--bone-dim, #b5bcc8); margin-bottom: 10px; }
-
-    .mm-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 20px; }
-    .mm-stat { background: var(--steel-900, #0d1018); border: 1px solid var(--hairline); border-left: 3px solid var(--signal); padding: 10px 12px; }
-    .mm-stat-label { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 9px; letter-spacing: .25em; color: var(--mute); }
-    .mm-stat-val { font-family: var(--display-font, 'Archivo Black', sans-serif); font-size: 20px; font-weight: 400; color: var(--bone); margin-top: 4px; }
-
-    .mm-section-head {
-      font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 10px; letter-spacing: .35em;
-      color: var(--signal); font-weight: 700;
-      margin: 18px 0 10px; padding-bottom: 8px;
-      border-bottom: 1px solid var(--hairline);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .mm-section-head::before { content: ''; width: 3px; height: 12px; background: var(--signal); }
-
-    .mm-weapons { display: flex; flex-direction: column; gap: 3px; }
-    .mm-weapon-row { display: grid; grid-template-columns: 150px 48px 1fr 56px; gap: 10px; align-items: center; background: var(--steel-900, #0d1018); padding: 7px 12px; }
-    .mm-weapon-name { font-family: var(--tactical-font, 'Syncopate', sans-serif); font-size: 10px; letter-spacing: .12em; color: var(--bone); }
-    .mm-weapon-lvl { font-family: var(--mono-font, 'JetBrains Mono', monospace); color: var(--signal); font-size: 11px; font-weight: 700; }
-    .mm-weapon-bar { height: 3px; background: var(--steel-700, #1c2333); }
-    .mm-weapon-fill { height: 100%; background: linear-gradient(90deg, #a85a0f, var(--signal)); }
-    .mm-weapon-kills { font-family: var(--mono-font, 'JetBrains Mono', monospace); text-align: right; color: var(--mute); font-size: 11px; }
-
-    /* Loadout tab */
-    .mm-loadouts-list { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
-    .mm-loadout-btn {
-      background: var(--steel-900, #0d1018); border: 1px solid var(--hairline);
-      padding: 10px 16px; cursor: pointer;
-      font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 11px;
-      letter-spacing: .2em; color: var(--mute); transition: all .15s;
-    }
-    .mm-loadout-btn:hover { border-color: var(--signal); color: var(--signal); }
-    .mm-loadout-btn.active { border-color: var(--signal); color: var(--signal); background: rgba(255,140,26,.1); }
-    .mm-loadout-btn.equipped { border-color: var(--toxic, #b8ff3d); color: var(--toxic, #b8ff3d); background: rgba(184,255,61,.07); }
-    .mm-loadout-editor { background: var(--steel-900, #0d1018); border: 1px solid var(--hairline); padding: 20px; }
-    .mm-loadout-head { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
-    .mm-loadout-name-input {
-      background: transparent; color: var(--bone); border: none;
-      border-bottom: 1px solid var(--hairline);
-      font-family: var(--tactical-font, 'Syncopate', sans-serif);
-      font-size: 16px; letter-spacing: .1em;
-      width: 100%; padding: 6px 0;
-    }
-    .mm-loadout-name-input:focus { outline: none; border-bottom-color: var(--signal); }
-    .mm-slots-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .mm-slot { background: var(--steel-800, #131823); border: 1px solid var(--hairline); padding: 10px 12px; }
-    .mm-slot-label { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 9px; letter-spacing: .3em; color: var(--mute); margin-bottom: 4px; }
-    .mm-slot-val { font-family: var(--body-font, 'Chakra Petch', sans-serif); font-size: 12px; color: var(--bone); font-weight: 600; }
-    .mm-slot-desc { font-family: var(--body-font, 'Chakra Petch', sans-serif); font-size: 10px; color: var(--mute); margin-top: 3px; }
-    .mm-loadout-name { font-family: var(--tactical-font, 'Syncopate', sans-serif); font-size: 10px; letter-spacing: .2em; color: var(--bone); }
-    .mm-loadout-weapons { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 9px; color: var(--mute); letter-spacing: .1em; margin-top: 3px; }
-    .mm-equipped-badge { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 9px; color: var(--toxic, #b8ff3d); letter-spacing: .2em; margin-top: 3px; }
-
-    /* Contracts tab */
-    .mm-contract-head-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .mm-contract-title-main { font-family: var(--tactical-font, 'Syncopate', sans-serif); font-size: 11px; letter-spacing: .25em; color: var(--bone); }
-    .mm-contracts-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-    .mm-contract { background: var(--steel-900, #0d1018); border: 1px solid var(--hairline); padding: 12px 16px; position: relative; }
-    .mm-contract.completed { border-left: 3px solid var(--toxic, #b8ff3d); }
-    .mm-contract.claimed { opacity: .45; }
-    .mm-contract-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-    .mm-contract-title { font-family: var(--body-font, 'Chakra Petch', sans-serif); font-size: 12px; font-weight: 600; color: var(--bone); letter-spacing: .08em; }
-    .mm-contract-reward { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 11px; font-weight: 700; color: var(--signal); letter-spacing: .15em; }
-    .mm-contract-desc { font-family: var(--body-font, 'Chakra Petch', sans-serif); font-size: 11px; color: var(--mute); margin-bottom: 8px; }
-    .mm-contract-progress { display: flex; align-items: center; gap: 10px; }
-    .mm-contract-bar { flex: 1; height: 3px; background: var(--steel-700, #1c2333); overflow: hidden; }
-    .mm-contract-fill { height: 100%; background: var(--signal); box-shadow: 0 0 4px rgba(255,140,26,.5); transition: width .3s ease; }
-    .mm-contract-num { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 10px; color: var(--mute); letter-spacing: .1em; }
-    .mm-contract-claim { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 9px; color: var(--toxic, #b8ff3d); letter-spacing: .25em; margin-top: 6px; }
-
-    /* Cosmetics tab */
-    .mm-cos-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .mm-cos-section { background: var(--steel-900, #0d1018); border: 1px solid var(--hairline); padding: 14px 16px; }
-    .mm-cos-row { display: flex; justify-content: space-between; padding: 4px 0; font-family: var(--body-font, 'Chakra Petch', sans-serif); font-size: 12px; }
-    .mm-cos-label { color: var(--mute); }
-    .mm-cos-val { font-weight: 700; color: var(--bone); }
-    .mm-cos-emotes { display: flex; gap: 6px; }
-    .mm-cos-slot { background: var(--steel-800, #131823); padding: 8px 10px; text-align: center; border: 1px solid var(--hairline); flex: 1; }
-    .mm-cos-slot-num { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 9px; color: var(--mute); margin-bottom: 4px; letter-spacing: .2em; }
-    .mm-cos-slot-val { font-family: var(--body-font, 'Chakra Petch', sans-serif); font-size: 10px; font-weight: 700; color: var(--bone); }
-    .mm-cos-unlocks { display: flex; gap: 14px; font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 11px; color: var(--mute); letter-spacing: .1em; }
-    .mm-cos-unlock { grid-column: span 2; }
-
-    /* Settings tab */
-    .mm-settings { max-width: 600px; flex: 1; }
-    .mm-setting-group { margin-bottom: 20px; }
-    .mm-setting-row { display: grid; grid-template-columns: 200px 1fr 52px; align-items: center; gap: 14px; padding: 7px 0; }
-    .mm-setting-row label { font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 10px; letter-spacing: .25em; color: var(--mute); }
-    .mm-setting-row input[type="range"] { accent-color: var(--signal); }
-    .mm-setting-row select { background: var(--steel-800, #131823); color: var(--bone); border: 1px solid var(--hairline); padding: 6px 10px; font-family: var(--mono-font, 'JetBrains Mono', monospace); font-size: 11px; }
-    .mm-setting-row input[type="checkbox"] { accent-color: var(--signal); width: 18px; height: 18px; }
-    .mm-setting-row span { font-family: var(--mono-font, 'JetBrains Mono', monospace); min-width: 40px; text-align: right; font-size: 11px; color: var(--signal); letter-spacing: .1em; }
-
-    /* Shared button */
-    .mm-btn {
-      background: var(--steel-800, #131823); color: var(--bone);
-      border: 1px solid var(--hairline-strong, rgba(233,236,241,.18));
-      padding: 10px 20px;
-      font-family: var(--tactical-font, 'Syncopate', sans-serif);
-      font-size: 11px; letter-spacing: .25em;
-      cursor: pointer; transition: all .15s var(--ease-out-expo, cubic-bezier(.16,1,.3,1));
-      white-space: nowrap;
-    }
-    .mm-btn:hover { border-color: var(--signal); color: var(--signal); }
-    .mm-btn-primary {
-      background: var(--signal); color: var(--void);
-      border-color: var(--signal);
-      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%);
-    }
-    .mm-btn-primary:hover { filter: brightness(1.12); color: var(--void); transform: translateX(4px); }
-    .mm-btn-secondary { background: transparent; border-color: var(--hairline); }
-    .mm-empty {
-      text-align: center; color: var(--mute);
-      font-family: var(--mono-font, 'JetBrains Mono', monospace);
-      padding: 60px 0; font-size: 12px; letter-spacing: .25em;
-    }
-  `;
-  document.head.appendChild(s);
-}
-
-// ─────────────────────────────────────────────────────────────────────
-//  REFRESH
+//  REFRESH — re-render content when state changes
 // ─────────────────────────────────────────────────────────────────────
 
 function refresh(): void {
   if (!state.container) return;
 
-  const leftCol = state.container.querySelector('#mmLeftCol');
+  const leftCol  = state.container.querySelector('#mmLeftCol');
   const rightCol = state.container.querySelector('#mmRightCol');
-  const content = state.container.querySelector('#mmContent');
+  const content  = state.container.querySelector('#mmContent');
 
-  if (leftCol) leftCol.innerHTML = renderLeftCol();
+  if (leftCol)  leftCol.innerHTML  = renderLeftCol();
   if (rightCol) rightCol.innerHTML = renderRightCol();
 
   if (content) {
     switch (state.activeTab) {
-      case 'play':      content.innerHTML = renderPlayTab(); break;
-      case 'career':    content.innerHTML = renderCareerTab(); break;
-      case 'loadout':   content.innerHTML = renderLoadoutTab(); break;
+      case 'play':      content.innerHTML = renderPlayTab();      break;
+      case 'career':    content.innerHTML = renderCareerTab();    break;
+      case 'loadout':   content.innerHTML = renderLoadoutTab();   break;
       case 'contracts': content.innerHTML = renderContractsTab(); break;
       case 'cosmetics': content.innerHTML = renderCosmeticsTab(); break;
-      case 'settings':  content.innerHTML = renderSettingsTab(); break;
+      case 'settings':  content.innerHTML = renderSettingsTab();  break;
     }
   }
 
+  // Top-right user strip
   const p = getProfile();
   const xp = getXpProgress();
-  const lvl = state.container.querySelector('#mmUserLvl');
-  const name = state.container.querySelector('#mmUserName');
+  const lvl    = state.container.querySelector('#mmUserLvl');
+  const name   = state.container.querySelector('#mmUserName');
   const avatar = state.container.querySelector('#mmAvatar');
-  const xpEl = state.container.querySelector('#mmUserXp');
-  if (lvl) lvl.textContent = `LVL ${p.level}`;
-  if (name) name.textContent = p.playerName;
+  const xpEl   = state.container.querySelector('#mmUserXp');
+  if (lvl)    lvl.textContent    = `LVL ${p.level}`;
+  if (name)   name.textContent   = p.playerName;
   if (avatar) avatar.textContent = p.playerName.substring(0, 2).toUpperCase();
-  if (xpEl) xpEl.textContent = `· ${xp.current.toLocaleString()} / ${xp.needed.toLocaleString()} XP`;
+  if (xpEl)   xpEl.textContent   = `· ${xp.current.toLocaleString()} / ${xp.needed.toLocaleString()} XP`;
 
   wireTabEvents();
 }
@@ -1336,31 +685,34 @@ function refresh(): void {
 function wireTabEvents(): void {
   if (!state.container) return;
 
-  // Tab navigation
+  // Top-nav tab switching
   state.container.querySelectorAll('.mn-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      state.activeTab = (btn as HTMLElement).dataset.tab as any;
+      state.activeTab = (btn as HTMLElement).dataset.tab as Tab;
       state.container!.querySelectorAll('.mn-tab').forEach(t => t.classList.remove('on'));
       btn.classList.add('on');
       refresh();
     });
   });
 
-  // Mode selection (PLAY tab only)
+  // Mode cards (PLAY tab)
   state.container.querySelectorAll('.mn-mode').forEach(card => {
     card.addEventListener('click', () => {
       state.selectedMode = (card as HTMLElement).dataset.mode as GameMode;
       state.container!.querySelectorAll('.mn-mode').forEach(c => c.classList.remove('on'));
       card.classList.add('on');
-      // Update deploy label without full refresh
-      const deploy = state.container!.querySelector('#mmDeploy .mn-deploy-label');
-      if (deploy) {
-        deploy.textContent = state.selectedMode === 'training' ? 'ENTER TRAINING RANGE' : 'INITIATE MATCH';
-      }
+      // Update deploy label without a full refresh
+      const def = MODES.find(m => m.id === state.selectedMode);
+      const title = state.container!.querySelector('.mn-hero-title');
+      const sub   = state.container!.querySelector('.mn-hero-sub');
+      const label = state.container!.querySelector('#mmDeploy .mn-deploy-label');
+      if (title && def) title.textContent = def.name;
+      if (sub && def)   sub.textContent   = def.subtitle;
+      if (label) label.textContent = state.selectedMode === 'training' ? 'ENTER TRAINING RANGE' : 'INITIATE MATCH';
     });
   });
 
-  // Deploy button (PLAY tab only)
+  // Deploy button
   const deployBtn = state.container.querySelector('#mmDeploy');
   if (deployBtn) {
     deployBtn.addEventListener('click', () => {
@@ -1375,29 +727,21 @@ function wireTabEvents(): void {
 
   // Quit
   const quitBtn = state.container.querySelector('#mmQuit');
-  if (quitBtn) {
-    quitBtn.addEventListener('click', () => hideMainMenu());
-  }
+  if (quitBtn) quitBtn.addEventListener('click', () => hideMainMenu());
 
-  // Prestige (CAREER tab)
+  // CAREER: Prestige
   const prestigeBtn = state.container.querySelector('#prestigeBtn');
-  if (prestigeBtn) {
-    prestigeBtn.addEventListener('click', () => { prestige(); refresh(); });
-  }
+  if (prestigeBtn) prestigeBtn.addEventListener('click', () => { prestige(); refresh(); });
 
-  // Claim all (CONTRACTS tab center)
+  // CONTRACTS: Claim all (center tab)
   const claimBtn = state.container.querySelector('#claimAllBtn');
-  if (claimBtn) {
-    claimBtn.addEventListener('click', () => { claimAllCompleted(); refresh(); });
-  }
+  if (claimBtn) claimBtn.addEventListener('click', () => { claimAllCompleted(); refresh(); });
 
-  // Claim all (right col sidebar)
+  // INTEL sidebar: Claim all (right column)
   const claimBtnRight = state.container.querySelector('#claimAllBtnRight');
-  if (claimBtnRight) {
-    claimBtnRight.addEventListener('click', () => { claimAllCompleted(); refresh(); });
-  }
+  if (claimBtnRight) claimBtnRight.addEventListener('click', () => { claimAllCompleted(); refresh(); });
 
-  // Loadout selection (LOADOUT tab)
+  // LOADOUT: select which loadout to edit
   state.container.querySelectorAll('.mm-loadout-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       state.editingLoadoutIndex = parseInt((btn as HTMLElement).dataset.loadoutIdx ?? '0');
@@ -1405,13 +749,11 @@ function wireTabEvents(): void {
     });
   });
 
-  // Equip loadout
+  // LOADOUT: Equip
   const equipBtn = state.container.querySelector('#equipLoadoutBtn');
-  if (equipBtn) {
-    equipBtn.addEventListener('click', () => { setActiveLoadout(state.editingLoadoutIndex); refresh(); });
-  }
+  if (equipBtn) equipBtn.addEventListener('click', () => { setActiveLoadout(state.editingLoadoutIndex); refresh(); });
 
-  // Loadout name edit
+  // LOADOUT: Rename
   const nameInput = state.container.querySelector('#loadoutName') as HTMLInputElement | null;
   if (nameInput) {
     nameInput.addEventListener('change', () => {
@@ -1420,15 +762,15 @@ function wireTabEvents(): void {
     });
   }
 
-  // Settings sliders
+  // SETTINGS: slider live labels (cosmetic only — hook up real persistence via Settings.ts)
   const sliders: [string, string][] = [
     ['sMaster', 'sMasterVal'], ['sMusic', 'sMusicVal'],
-    ['sSfx', 'sSfxVal'], ['sVoice', 'sVoiceVal'],
-    ['sFov', 'sFovVal'], ['sSens', 'sSensVal'], ['sAds', 'sAdsVal'],
+    ['sSfx', 'sSfxVal'],       ['sVoice', 'sVoiceVal'],
+    ['sFov', 'sFovVal'],       ['sSens', 'sSensVal'], ['sAds', 'sAdsVal'],
   ];
   for (const [id, valId] of sliders) {
     const slider = state.container.querySelector(`#${id}`) as HTMLInputElement | null;
-    const valEl = state.container.querySelector(`#${valId}`);
+    const valEl  = state.container.querySelector(`#${valId}`);
     if (slider && valEl) {
       slider.addEventListener('input', () => {
         if (id === 'sAds') {
@@ -1444,7 +786,7 @@ function wireTabEvents(): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-//  PUBLIC API
+//  PUBLIC API (unchanged signatures — callers in main.ts / Menus.ts work as-is)
 // ─────────────────────────────────────────────────────────────────────
 
 export function initMainMenu(
@@ -1455,6 +797,7 @@ export function initMainMenu(
   state.onTraining = onTraining ?? null;
   state.container = build();
 
+  // Re-render whenever profile changes (XP tick, contract claim, unlocks, etc.)
   state.unsubscribe = subscribeProfile(() => {
     if (state.visible) refresh();
   });
