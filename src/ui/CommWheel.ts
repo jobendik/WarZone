@@ -61,6 +61,10 @@ let wheelOpen = false;
 let hoveredType: PingType | null = null;
 let wheelOpenTime = 0;
 
+function isCommWheelInteractive(): boolean {
+  return !gameState.roundOver && !gameState._introActive;
+}
+
 // ── DOM construction ──────────────────────────────────────────────────
 // NOTE: No inline <style> block. All styling comes from index.css under
 // the #pingWheel / .pw-* / .ping-* / .compass-ping-pip rules.
@@ -151,7 +155,7 @@ function closeWheel(commit: boolean): void {
   hoveredType = null;
 
   // Re-lock pointer if we're still in a match
-  if (gameState.matchActive && !gameState._introActive) {
+  if (isCommWheelInteractive()) {
     document.body.requestPointerLock?.();
   }
 }
@@ -327,7 +331,7 @@ export function initPingSystem(): void {
 
   // Q to open/hold comm wheel
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyQ' && !wheelOpen && gameState.matchActive && !gameState._introActive) {
+    if (e.code === 'KeyQ' && !wheelOpen && isCommWheelInteractive()) {
       e.preventDefault();
       openWheel();
     }
