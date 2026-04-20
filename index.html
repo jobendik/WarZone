@@ -6,36 +6,24 @@
   <title>WARZONE — APEX PROTOCOL</title>
   <meta name="description" content="WARZONE — Tactical FPS combat simulation with multiple game modes and AI bots.">
 
-  <!-- APEX PROTOCOL font stack.  Exo 2 is now REQUIRED — it's what
-       --f-body falls through to for body/paragraph copy. -->
+  <!-- APEX PROTOCOL font stack (incl. Exo 2 for --f-body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Chakra+Petch:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
-
-  <style>
-    /* Keep the in-game UI hidden until init() finishes, but let the
-       loading screen show through from the very first paint.
-
-       IMPORTANT: `visibility`, NOT `opacity`. An opacity rule on
-       `body.ready > *` would have higher specificity than the
-       per-element `opacity: 0` defaults that control the sniper
-       scope overlay, damage arcs, reload rings, etc., and would
-       force them all visible at match start (huge "sniper scope"
-       bug). */
-    body:not(.ready) > *:not(#loadingScreen) { visibility: hidden; }
-  </style>
 </head>
 <body>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       LOADING SCREEN — APEX PROTOCOL editorial mission briefing
-       (EXTRA IDEA #10 enriched layout).
-       Uses .ld-* classes so index.css styles it richly, but preserves
-       #lsFill and #lsText IDs so main.ts drives progress unchanged.
+       THREE.JS CANVAS HOST
+       ═══════════════════════════════════════════════════════════════ -->
+  <div id="cw"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       LOADING SCREEN — preview .ld-* layout
+       main.ts drives #lsFill / #lsText (preserved IDs)
        ═══════════════════════════════════════════════════════════════ -->
   <div id="loadingScreen" class="on">
     <div class="ld-shell">
-
       <div class="ld-topstrip">
         <span>APEX // <span class="tick">PROTOCOL ACTIVE</span></span>
         <span>SESSION <span class="tick">A7F-2193</span> · REGION EU-WEST</span>
@@ -64,28 +52,19 @@
       <div class="ld-progress">
         <div class="ld-progress-head">
           <span>DEPLOYING ASSETS</span>
-          <span class="pct">—</span>
+          <span class="pct" id="ldPct">—</span>
         </div>
-        <div class="ld-rail">
-          <div class="ld-rail-fill" id="lsFill" style="width:0%"></div>
-        </div>
+        <div class="ld-rail"><div class="ld-rail-fill" id="lsFill" style="width:0%"></div></div>
         <div class="ld-ticks">
-          <span>SCENE</span>
-          <span>NAV</span>
-          <span>AGENTS</span>
-          <span>PICKUPS</span>
-          <span>FX</span>
-          <span>SHADERS</span>
-          <span>READY</span>
+          <span>SCENE</span><span>NAV</span><span>AGENTS</span>
+          <span>PICKUPS</span><span>FX</span><span>SHADERS</span><span>READY</span>
         </div>
       </div>
-
     </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       START GATE — unlocks Web Audio on the first user gesture.
-       Shown AFTER Phase-1 init finishes, hides BEFORE the MainMenu.
+       START GATE — unlocks Web Audio on first click
        ═══════════════════════════════════════════════════════════════ -->
   <div id="startGate">
     <div class="sg-inner">
@@ -94,11 +73,146 @@
     </div>
   </div>
 
-  <div id="cw"></div>
+  <!-- ═══════════════════════════════════════════════════════════════
+       HUD FRAME — the real APEX PROTOCOL in-match UI
+       CSS selectors: .hud-frame > .hud-minimap / .hud-match / .hud-compass /
+                      .hud-killfeed / .hud-vitals / .hud-dock / .hud-ammo /
+                      .hud-contract
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="hud-frame">
+
+    <!-- TOP-LEFT: Minimap -->
+    <div class="hud-minimap">
+      <div class="mm-head">
+        <span class="mm-head-lbl">// TACTICAL</span>
+        <span class="mm-head-coords" id="mmCoords">00, 00</span>
+      </div>
+      <div class="mm-map">
+        <span class="mm-compass-rose">N</span>
+        <canvas id="mmCanvas" width="300" height="300"></canvas>
+      </div>
+      <div class="mm-objectives" id="mmObjectives">
+        <!-- Populated by mode-specific code (domination, hardpoint, etc.) -->
+      </div>
+    </div>
+
+    <!-- TOP-CENTER: Match slate -->
+    <div class="hud-match" id="matchInfo">
+      <div class="hm-mode" id="hmMode">◆ TDM</div>
+      <div class="hm-score-row">
+        <div class="hm-team hm-team-friendly">
+          <span class="hm-team-flag">BLUE</span>
+          <span class="hm-team-score" id="hmScoreBlue">0</span>
+        </div>
+        <div class="hm-timer" id="hmTimer">05:00</div>
+        <div class="hm-team hm-team-hostile">
+          <span class="hm-team-flag">RED</span>
+          <span class="hm-team-score" id="hmScoreRed">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP-CENTER: Compass strip (below match slate) -->
+    <div class="hud-compass">
+      <div class="hud-compass-strip" id="compassStrip"></div>
+      <div class="hud-compass-needle"></div>
+    </div>
+
+    <!-- TOP-RIGHT: Kill feed -->
+    <div class="hud-killfeed" id="killfeed"></div>
+
+    <!-- CENTER: Announcer -->
+    <div id="announcer">
+      <div class="anc-text" id="ancText"></div>
+      <div class="anc-sub" id="ancSub"></div>
+      <div class="anc-glow" id="ancGlow"></div>
+    </div>
+
+    <!-- LEFT: Medal ticker -->
+    <div id="medalTicker"></div>
+
+    <!-- RIGHT: Contract tracker (compact) -->
+    <div class="hud-contract" id="contractHud" style="display:none">
+      <div class="hc-head">
+        <span class="hc-head-tag">// CONTRACT</span>
+        <span class="hc-head-xp" id="chHeadXp">—</span>
+      </div>
+      <div class="hc-name" id="chName">—</div>
+      <div class="hc-rail"><div class="hc-rail-fill" id="chFill" style="width:0%"></div></div>
+      <div class="hc-sub">
+        <span>PROGRESS</span>
+        <b id="chProgress">0 / 0</b>
+      </div>
+    </div>
+
+    <!-- BOTTOM-LEFT: Player vitals (segmented bars) -->
+    <div class="hud-vitals">
+      <div class="hv-name-row">
+        <span class="hv-rank" id="hvRank">LVL 01</span>
+        <span class="hv-name" id="hvName">OPERATOR</span>
+        <span class="hv-status-dot" id="hvTeamIndicator">
+          <span></span><span></span><span></span><span></span><span></span>
+        </span>
+      </div>
+      <div class="hv-hp-row">
+        <span class="hv-hp-label">HP</span>
+        <div class="hv-hp-bar" id="hpBar"></div>
+        <span class="hv-hp-val" id="hpVal">100</span>
+      </div>
+      <div class="hv-hp-row">
+        <span class="hv-hp-label">ARM</span>
+        <div class="hv-hp-bar hv-armor-bar" id="armorBar"></div>
+        <span class="hv-hp-val" id="armorVal">0</span>
+      </div>
+      <div class="hv-fu-row" id="hvFuRow" style="display:none">
+        <div class="hv-fu-icon" id="hvFuIcon"></div>
+        <div class="hv-fu-meta">
+          <div class="hv-fu-name" id="hvFuName">—</div>
+          <div class="hv-fu-status" id="hvFuStatus">—</div>
+        </div>
+        <div class="hv-fu-rail" id="hvFuRail"></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM-CENTER: Weapon dock -->
+    <div class="hud-dock">
+      <div class="dk-slot" id="dkSlot0" data-slot="0">
+        <span class="dk-key">1</span>
+        <div class="dk-wep-svg" id="dkSvg0"></div>
+      </div>
+      <div class="dk-slot" id="dkSlot1" data-slot="1">
+        <span class="dk-key">2</span>
+        <div class="dk-wep-svg" id="dkSvg1"></div>
+      </div>
+      <div class="dk-slot" id="dkSlot2" data-slot="2">
+        <span class="dk-key">3</span>
+        <div class="dk-wep-svg" id="dkSvg2"></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM-RIGHT: Ammo / weapon card -->
+    <div class="hud-ammo">
+      <div class="ha-wep-name">// <b id="haWepName">—</b></div>
+      <div class="ha-wep-mode" id="haWepMode">AUTO</div>
+      <div class="ha-bignum">
+        <span class="ha-mag" id="haMag">0</span>
+        <span class="ha-divider"></span>
+        <span class="ha-reserve" id="haReserve">0</span>
+      </div>
+      <div class="ha-mag-dots" id="haMagDots"></div>
+      <div class="ha-reload-hint" id="haReloadHint">[R] RELOAD</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       RUNTIME OVERLAYS (damage, death, crosshair, scope, etc.)
+       These are driven by live game systems, not the preview.
+       ═══════════════════════════════════════════════════════════════ -->
   <div id="dmg"></div>
   <div id="hlf"></div>
+  <div id="scopeOverlay"></div>
 
-  <!-- Crosshair + center effects -->
   <div id="xh">
     <div class="xh-line xh-top"></div>
     <div class="xh-line xh-bot"></div>
@@ -116,9 +230,7 @@
       </svg>
     </div>
   </div>
-  <div id="scopeOverlay"></div>
 
-  <!-- Damage direction indicators -->
   <div id="dmgArcs">
     <div class="dmg-arc" data-dir="n"></div>
     <div class="dmg-arc" data-dir="ne"></div>
@@ -130,279 +242,109 @@
     <div class="dmg-arc" data-dir="nw"></div>
   </div>
 
-  <!-- Compass (top center) -->
-  <div id="compass">
-    <div class="compass-inner">
-      <div class="compass-strip" id="compassStrip"></div>
-      <div class="compass-indicator"></div>
-    </div>
-  </div>
-
-  <!-- FPS counter -->
   <div id="fpsCounter" class="hidden"></div>
-
-  <!-- Subtitle overlay -->
   <div id="subtitleOverlay"></div>
-
-  <!-- Top-center: match info (mode tag + timer + score) -->
-  <div id="matchInfo">
-    <div class="mi-mode" id="miMode">TDM</div>
-    <div class="mi-time" id="miTime">05:00</div>
-    <div class="mi-score">
-      <span class="mi-sc mi-blue" id="miScoreBlue">0</span>
-      <span class="mi-sep">—</span>
-      <span class="mi-sc mi-red" id="miScoreRed">0</span>
-    </div>
-  </div>
-
-  <!-- Top-right: killfeed -->
-  <div id="killfeed"></div>
-
-  <!-- Top-left: tactical minimap -->
-  <div id="minimap">
-    <div class="mm-header">
-      <span class="mm-label">TACTICAL</span>
-      <span class="mm-coords" id="mmCoords">00, 00</span>
-    </div>
-    <canvas id="mmCanvas" width="300" height="300"></canvas>
-    <div class="mm-border"></div>
-  </div>
-
-  <!-- Legacy simple-dropdown menu — kept in DOM (hidden) so its <select>
-       data is accessible as a fallback to startMatchFromMenu.  The real
-       boot UI is the career-style MainMenu (src/ui/MainMenu.ts). -->
-  <div id="mainMenu" style="display:none">
-    <div class="menu-panel">
-      <div class="menu-logo">◆</div>
-      <h1>WARZONE</h1>
-      <p class="menu-sub">Tactical Team Combat</p>
-      <label class="menu-label">GAME MODE</label>
-      <select id="modeSelect" class="menu-select">
-        <option value="tdm">Team Deathmatch</option>
-        <option value="ffa">Free For All</option>
-        <option value="ctf">Capture The Flag</option>
-        <option value="elimination">Elimination</option>
-        <option value="br">Battle Royale</option>
-      </select>
-      <label class="menu-label">CLASS</label>
-      <select id="classSelect" class="menu-select">
-        <option value="rifleman">Rifleman — Assault Rifle</option>
-        <option value="assault">Assault — SMG</option>
-        <option value="sniper">Sniper — Sniper Rifle</option>
-        <option value="flanker">Flanker — SMG</option>
-      </select>
-      <button id="startBtn" class="menu-btn menu-btn-primary">DEPLOY</button>
-    </div>
-  </div>
-
-  <div id="pauseMenu">
-    <div class="menu-panel">
-      <h1>PAUSED</h1>
-      <button id="pauseResume" class="menu-btn menu-btn-primary">RESUME</button>
-      <button id="pauseSettings" class="menu-btn">SETTINGS</button>
-      <button id="pauseRestart" class="menu-btn">RESTART MATCH</button>
-      <button id="pauseQuit" class="menu-btn menu-btn-danger">QUIT TO MENU</button>
-    </div>
-  </div>
-
-  <!-- Settings Menu -->
-  <div id="settingsMenu">
-    <div class="menu-panel settings-panel">
-      <h1>SETTINGS</h1>
-      <div class="settings-group">
-        <label class="settings-label">Mouse Sensitivity</label>
-        <input type="range" id="setSensitivity" min="0.0005" max="0.006" step="0.0001" value="0.0022">
-        <span class="settings-val" id="valSens">0.0022</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Field of View</label>
-        <input type="range" id="setFOV" min="60" max="110" step="1" value="78">
-        <span class="settings-val" id="valFOV">78</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Master Volume</label>
-        <input type="range" id="setMasterVol" min="0" max="1" step="0.05" value="1">
-        <span class="settings-val" id="valMasterVol">100%</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">SFX Volume</label>
-        <input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="1">
-        <span class="settings-val" id="valSfxVol">100%</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Music Volume</label>
-        <input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="0.5">
-        <span class="settings-val" id="valMusicVol">50%</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Head Bob</label>
-        <input type="range" id="setHeadBob" min="0" max="1" step="0.05" value="1">
-        <span class="settings-val" id="valHeadBob">100%</span>
-      </div>
-      <div class="settings-divider"></div>
-      <div class="settings-group">
-        <label class="settings-label">Crosshair Color</label>
-        <input type="color" id="setCrosshairColor" value="#f0faff">
-        <span class="settings-val" id="valCrosshairColor">#f0faff</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Crosshair Size</label>
-        <input type="range" id="setCrosshairSize" min="0.5" max="2" step="0.1" value="1">
-        <span class="settings-val" id="valCrosshairSize">1.0</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Crosshair Center Dot</label>
-        <input type="checkbox" id="setCrosshairDot" checked>
-      </div>
-      <div class="settings-divider"></div>
-      <div class="settings-group">
-        <label class="settings-label">Bot Difficulty</label>
-        <input type="range" id="setBotDifficulty" min="0" max="1" step="0.1" value="0.5">
-        <span class="settings-val" id="valBotDifficulty">50%</span>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Colorblind Mode</label>
-        <select id="setColorblind" class="menu-select-sm">
-          <option value="off">Off</option>
-          <option value="deuteranopia">Deuteranopia</option>
-          <option value="protanopia">Protanopia</option>
-          <option value="tritanopia">Tritanopia</option>
-        </select>
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Show FPS</label>
-        <input type="checkbox" id="setShowFPS">
-      </div>
-      <div class="settings-group">
-        <label class="settings-label">Show Subtitles</label>
-        <input type="checkbox" id="setShowSubtitles" checked>
-      </div>
-      <button id="settingsBack" class="menu-btn menu-btn-primary">BACK</button>
-    </div>
-  </div>
-
-  <div id="lockHint">
-    <div class="lh-icon">◆</div>
-    <h2>CLICK TO DEPLOY</h2>
-    <p>Select a mode in the menu · Esc opens the pause menu</p>
-    <div class="keys">
-      <span class="kbd">WASD</span>
-      <span class="kbd">LMB</span>
-      <span class="kbd">R</span>
-      <span class="kbd">G</span>
-      <span class="kbd">1/2/3</span>
-      <span class="kbd">V</span>
-      <span class="kbd">TAB</span>
-    </div>
-  </div>
-
   <div id="kn"></div>
-  <!-- Killstreak banner -->
   <div id="killstreak"></div>
 
+  <!-- Death screen -->
   <div id="ds">
     <div class="ds-inner">
-      <div class="ds-header">◆ KILLED IN ACTION ◆</div>
+      <div class="ds-header">KILLED IN ACTION</div>
       <div class="ds-killer" id="dsKiller">—</div>
       <div class="ds-weapon" id="dsWeapon">—</div>
       <p id="dsp">Respawning in 3s…</p>
     </div>
   </div>
 
-  <!-- BOTTOM HUD: vitals (L) · weapon slots (C) · weapon card + gadgets (R) -->
-  <div id="bottomHud">
-    <!-- Left: health + armor -->
-    <div class="bh-section bh-left">
-      <div class="bh-hp-group">
-        <div class="bh-hp-icon"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 14s-5-3.5-5-8a3 3 0 0 1 5-2.23A3 3 0 0 1 13 6c0 4.5-5 8-5 8z"/></svg></div>
-        <div class="bh-hp-stack">
-          <div class="bh-label">HEALTH</div>
-          <div class="bh-hp-bar">
-            <div class="bh-hp-fill" id="hpFill"></div>
-            <div class="bh-hp-text" id="hpTxt">100</div>
-          </div>
-        </div>
-      </div>
-      <div class="bh-armor-group">
-        <div class="bh-armor-icon"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 1 2 3v5c0 3.5 2.6 6.5 6 7 3.4-.5 6-3.5 6-7V3L8 1z"/></svg></div>
-        <div class="bh-hp-stack">
-          <div class="bh-label">ARMOR</div>
-          <div class="bh-armor-bar">
-            <div class="bh-armor-fill" id="armorFill"></div>
-            <div class="bh-armor-text" id="armorTxt">0</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Center: weapon slots -->
-    <div class="bh-section bh-slots">
-      <div class="bh-slot" id="slot0" data-slot="0">
-        <div class="bh-slot-key">1</div>
-        <div class="bh-slot-icon" id="slot0icon">—</div>
-        <div class="bh-slot-name" id="slot0name">—</div>
-      </div>
-      <div class="bh-slot" id="slot1" data-slot="1">
-        <div class="bh-slot-key">2</div>
-        <div class="bh-slot-icon" id="slot1icon">—</div>
-        <div class="bh-slot-name" id="slot1name">—</div>
-      </div>
-      <div class="bh-slot" id="slot2" data-slot="2">
-        <div class="bh-slot-key">3</div>
-        <div class="bh-slot-icon" id="slot2icon">—</div>
-        <div class="bh-slot-name" id="slot2name">—</div>
-      </div>
-    </div>
-
-    <!-- Right: active weapon card + grenades -->
-    <div class="bh-section bh-right">
-      <div class="bh-gadgets">
-        <div class="bh-gadget">
-          <div class="bh-gadget-icon"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><circle cx="8" cy="10" r="5"/><rect x="6" y="2" width="4" height="3"/><path d="M5 5h6v1H5z"/></svg></div>
-          <div class="bh-gadget-count" id="grenadeTxt">2</div>
-          <div class="bh-gadget-key">G</div>
-        </div>
-      </div>
-      <div class="bh-weapon-card">
-        <div class="bh-wc-top">
-          <div class="bh-wc-icon" id="wcIcon">◆</div>
-          <div class="bh-wc-meta">
-            <div class="bh-wc-name" id="weaponName">ASSAULT RIFLE</div>
-            <div class="bh-wc-mode" id="wcMode">AUTO</div>
-          </div>
-        </div>
-        <div class="bh-wc-ammo-row">
-          <div class="bh-wc-ammo" id="ammoTxt">30</div>
-          <div class="bh-wc-reserve" id="ammoMax">/ 30</div>
-          <div class="bh-wc-reload-hint" id="wcReloadHint">R</div>
-        </div>
+  <!-- Click-to-play lock hint -->
+  <div id="lockHint">
+    <div>
+      <div class="lh-icon">◆</div>
+      <h2>CLICK TO DEPLOY</h2>
+      <p>ESC opens the pause menu</p>
+      <div class="keys">
+        <span class="kbd">WASD</span>
+        <span class="kbd">LMB</span>
+        <span class="kbd">R</span>
+        <span class="kbd">G</span>
+        <span class="kbd">1/2/3</span>
+        <span class="kbd">Q</span>
+        <span class="kbd">TAB</span>
       </div>
     </div>
   </div>
 
-  <!-- Reload text (legacy, still used by some code paths) -->
+  <!-- Reload bar (legacy, still referenced by some code paths) -->
   <div id="reloadBar"><div id="reloadFill"></div></div>
   <div id="reloadText">RELOADING</div>
 
-  <!-- Tab scoreboard -->
+  <!-- Scoreboard (TAB) -->
   <div id="tabboard">
-    <div class="tb-inner">
-      <div class="tb-title">◈ SCOREBOARD ◈</div>
-      <div class="tb-header"><span>OPERATOR</span><span>KILLS</span><span>DEATHS</span><span>ASSISTS</span><span>K/D</span><span>SCORE</span></div>
-      <div id="tbBody"></div>
+    <div class="tb-title">◈ SCOREBOARD ◈</div>
+    <div class="tb-header">
+      <span>OPERATOR</span><span>KILLS</span><span>DEATHS</span>
+      <span>ASSISTS</span><span>K/D</span><span>SCORE</span>
     </div>
+    <div id="tbBody"></div>
   </div>
 
-  <div id="roundSummary">
-    <div class="rs-inner">
-      <div class="rs-result" id="rsResult"></div>
-      <div class="rs-team-score" id="rsTeamScore"></div>
-      <div class="rs-mvp" id="rsMvp"></div>
-      <div class="rs-podium" id="rsPodium"></div>
-      <div class="rs-stats" id="rsStats"></div>
-      <button class="rs-btn" id="rsBtn">NEXT MATCH</button>
-    </div>
+  <!-- ═══════════════════════════════════════════════════════════════
+       LEGACY FALLBACKS (hidden, kept so startMatchFromMenu's DOM
+       queries don't throw).  MainMenu.ts, PauseMenu.ts, Settings.ts
+       drive the real UI.
+       ═══════════════════════════════════════════════════════════════ -->
+  <div id="mainMenu" style="display:none">
+    <select id="modeSelect">
+      <option value="tdm">Team Deathmatch</option>
+      <option value="ffa">Free For All</option>
+      <option value="ctf">Capture The Flag</option>
+      <option value="elimination">Elimination</option>
+      <option value="domination">Domination</option>
+      <option value="hardpoint">Hardpoint</option>
+      <option value="sd">Search &amp; Destroy</option>
+      <option value="br">Battle Royale</option>
+    </select>
+    <select id="classSelect">
+      <option value="rifleman">Rifleman</option>
+      <option value="assault">Assault</option>
+      <option value="sniper">Sniper</option>
+      <option value="flanker">Flanker</option>
+    </select>
+    <button id="startBtn">DEPLOY</button>
   </div>
+
+  <div id="pauseMenu" style="display:none">
+    <button id="pauseResume"></button>
+    <button id="pauseSettings"></button>
+    <button id="pauseRestart"></button>
+    <button id="pauseQuit"></button>
+  </div>
+
+  <div id="settingsMenu" style="display:none">
+    <input type="range" id="setSensitivity" min="0.0005" max="0.006" step="0.0001" value="0.0022">
+    <input type="range" id="setFOV" min="60" max="110" step="1" value="78">
+    <input type="range" id="setMasterVol" min="0" max="1" step="0.05" value="1">
+    <input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="1">
+    <input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="0.5">
+    <input type="range" id="setHeadBob" min="0" max="1" step="0.05" value="1">
+    <input type="color" id="setCrosshairColor" value="#f0faff">
+    <input type="range" id="setCrosshairSize" min="0.5" max="2" step="0.1" value="1">
+    <input type="checkbox" id="setCrosshairDot" checked>
+    <input type="range" id="setBotDifficulty" min="0" max="1" step="0.1" value="0.5">
+    <select id="setColorblind">
+      <option value="off">Off</option>
+      <option value="deuteranopia">Deuteranopia</option>
+      <option value="protanopia">Protanopia</option>
+      <option value="tritanopia">Tritanopia</option>
+    </select>
+    <input type="checkbox" id="setShowFPS">
+    <input type="checkbox" id="setShowSubtitles" checked>
+    <button id="settingsBack"></button>
+  </div>
+
+  <!-- Round summary — built programmatically by RoundSummary.ts into .vc-* markup -->
+  <div id="roundSummary"></div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>
