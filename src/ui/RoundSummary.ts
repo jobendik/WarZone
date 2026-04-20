@@ -5,6 +5,7 @@ import { resetMatch } from '@/combat/Combat';
 import { updateScoreboard } from './Scoreboard';
 import { updateHUD } from './HUD';
 import { matchState, MEDALS, resetMatchMedals } from './Medals';
+import { GLYPHS } from './Glyphs';
 import { clearChallenges, getCompletedChallenges, rollChallenges } from './Challenges';
 import { clearFloatingDamage } from './FloatingDamage';
 import { clearAnnouncer } from './Announcer';
@@ -179,7 +180,7 @@ export function showRoundSummary(winnerTeam: number): void {
         ? '<div class="rs-no-medals">No medals earned this match</div>'
         : medalCounts.map(m => `
           <div class="rs-medal-card" style="border-color:${m.def.color}">
-            <div class="rs-medal-icon" style="color:${m.def.color}">${m.def.icon}</div>
+            <div class="rs-medal-icon" style="color:${m.def.color}">${GLYPHS[m.def.glyph]}</div>
             <div class="rs-medal-name" style="color:${m.def.color}">${m.def.name}</div>
             ${m.count > 1 ? `<div class="rs-medal-x">×${m.count}</div>` : ''}
           </div>
