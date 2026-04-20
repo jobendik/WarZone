@@ -1,94 +1,133 @@
-import { TEAM_BLUE, TEAM_RED } from '@/config/constants';
 import { gameState } from '@/core/GameState';
-import { dom } from './DOMElements';
-import { getModeLabel } from '@/core/GameModes';
+import { TEAM_BLUE, TEAM_RED } from '@/config/constants';
+import type { TDMAgent } from '@/entities/TDMAgent';
 
-function formatTime(sec: number): string {
-  const s = Math.max(0, Math.ceil(sec));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+/**
+ * Scoreboard — TAB-held standings table.
+ *
+ * Writes preview-shape rows into #tbBody:
+ *   <div class="tb-row me|blue|red">
+ *     <span class="tb-name">JO_VANGUARD</span>
+ *     <span>24</span><span>7</span><span>3</span>
+ *     <span>3.43</span><span>3,840</span>
+ *   </div>
+ *
+ * The .me row gets the amber left-accent; .blue / .red color the name
+ * cell cyan or hazard.
+ *
+ * Public API preserved:
+ *   updateScoreboard()  — called from main.ts + GameLoop
+ *   showScoreboard()
+ *   hideScoreboard()
+ */
+
+let tbEl: HTMLElement | null = null;
+let tbBody: HTMLElement | null = null;
+let lastRows: string = '';   // dumb diffing — avoid innerHTML thrash
+
+function cache(): void {
+  if (!tbEl)   tbEl   = document.getElementById('tabboard');
+  if (!tbBody) tbBody = document.getElementById('tbBody');
+}
+
+interface Row {
+  name: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  score: number;
+  team: number;
+  isPlayer: boolean;
+}
+
+function buildRows(): Row[] {
+  const rows: Row[] = [];
+  const player = gameState.player;
+
+  // Player row
+  if (player) {
+    rows.push({
+      name:    player.name ?? 'YOU',
+      kills:   gameState.pKills ?? 0,
+      deaths:  gameState.pDeaths ?? 0,
+      assists: gameState.pAssists ?? 0,
+      score:   gameState.pScore ?? 0,
+      team:    player.team ?? TEAM_BLUE,
+      isPlayer: true,
+    });
+  }
+
+  // Bots
+  for (const ag of (gameState.agents ?? [] as TDMAgent[])) {
+    if (!ag || ag === player) continue;
+    rows.push({
+      name:    ag.name ?? '—',
+      kills:   ag.kills ?? 0,
+      deaths:  ag.deaths ?? 0,
+      assists: ag.assists ?? 0,
+      score:   (ag as any).score ?? (ag.kills ?? 0) * 100,
+      team:    ag.team ?? TEAM_BLUE,
+      isPlayer: false,
+    });
+  }
+
+  // Sort: by score desc, then kills desc
+  rows.sort((a, b) => (b.score - a.score) || (b.kills - a.kills));
+  return rows;
+}
+
+function kdText(k: number, d: number): string {
+  if (d === 0) return k > 0 ? k.toFixed(2) : '—';
+  return (k / d).toFixed(2);
+}
+
+function rowHTML(r: Row): string {
+  const classes = ['tb-row'];
+  if (r.isPlayer)             classes.push('me');
+  if (r.team === TEAM_BLUE)   classes.push('blue');
+  else if (r.team === TEAM_RED) classes.push('red');
+
+  return (
+    `<div class="${classes.join(' ')}">` +
+      `<span class="tb-name">${escapeHTML(r.name)}</span>` +
+      `<span>${r.kills}</span>` +
+      `<span>${r.deaths}</span>` +
+      `<span>${r.assists}</span>` +
+      `<span>${kdText(r.kills, r.deaths)}</span>` +
+      `<span>${r.score.toLocaleString()}</span>` +
+    `</div>`
+  );
 }
 
 export function updateScoreboard(): void {
-  // New top-center panel
-  if (dom.miMode) dom.miMode.textContent = getModeLabel();
-  if (dom.miTime) {
-    dom.miTime.textContent = formatTime(gameState.matchTimeRemaining);
-    dom.miTime.classList.toggle('urgent', gameState.matchTimeRemaining <= 30 && gameState.matchTimeRemaining > 0);
-  }
-
-  if (gameState.mode === 'ffa') {
-    const leader = Math.max(
-      gameState.pKills,
-      ...gameState.agents.filter(a => a !== gameState.player).map(a => a.kills),
-    );
-    if (dom.miScoreBlue) dom.miScoreBlue.textContent = String(gameState.pKills);
-    if (dom.miScoreRed) dom.miScoreRed.textContent = String(leader);
-  } else {
-    if (dom.miScoreBlue) dom.miScoreBlue.textContent = String(gameState.teamScores[TEAM_BLUE]);
-    if (dom.miScoreRed) dom.miScoreRed.textContent = String(gameState.teamScores[TEAM_RED]);
-  }
-
-  // Legacy fallback if the old sbMid still exists
-  if (dom.sbMid && dom.sbMid !== dom.miTime) {
-    let midText = `${getModeLabel()} · ${formatTime(gameState.matchTimeRemaining)}`;
-    if (gameState.mode === 'elimination') {
-      let blueAlive = 0, redAlive = 0;
-      for (const ag of gameState.agents) {
-        if (ag.isDead) continue;
-        if (ag.team === TEAM_BLUE) blueAlive++;
-        else redAlive++;
-      }
-      midText = `ELIM R${gameState.eliminationRound + 1} · ${blueAlive}v${redAlive} · ${formatTime(gameState.matchTimeRemaining)}`;
-    }
-    dom.sbMid.textContent = midText;
+  cache();
+  if (!tbBody) return;
+  const rows = buildRows();
+  const html = rows.map(rowHTML).join('');
+  if (html !== lastRows) {
+    tbBody.innerHTML = html;
+    lastRows = html;
   }
 }
 
-export function updateTabboard(): void {
-  dom.tabboard.classList.toggle('on', gameState.keys.tab);
-  if (!gameState.keys.tab) return;
+export function showScoreboard(): void {
+  cache();
+  if (tbEl) tbEl.classList.add('on');
+  updateScoreboard();
+}
+export function hideScoreboard(): void {
+  cache();
+  if (tbEl) tbEl.classList.remove('on');
+}
+export function toggleScoreboard(): void {
+  cache();
+  if (!tbEl) return;
+  if (tbEl.classList.contains('on')) hideScoreboard();
+  else showScoreboard();
+}
 
-  const { agents, player, teamScores } = gameState;
-  let html = '';
-
-  if (gameState.mode === 'ffa') {
-    const rows = agents.map((a) => ({
-      a, kills: a === player ? gameState.pKills : a.kills,
-      deaths: a === player ? gameState.pDeaths : a.deaths,
-      assists: a === player ? gameState.pAssists : ((a as any).assists ?? 0),
-    })).sort((x, y) => y.kills - x.kills);
-    html += `<div class="tb-section" style="color:#ffaa33">FREE FOR ALL</div>`;
-    for (const row of rows) {
-      const me = row.a === player ? ' me' : '';
-      const kd = row.deaths > 0 ? (row.kills / row.deaths).toFixed(2) : row.kills.toFixed(2);
-      html += `<div class="tb-row${me}"><span>${row.a.name}</span><span>${row.kills}</span><span>${row.deaths}</span><span>${row.assists}</span><span>${kd}</span><span>${row.kills * 100}</span></div>`;
-    }
-  } else {
-    const blueTeam = agents.filter((a) => a.team === TEAM_BLUE).sort((a, b) => b.kills - a.kills);
-    const redTeam = agents.filter((a) => a.team === TEAM_RED).sort((a, b) => b.kills - a.kills);
-    const modeTag = gameState.mode === 'elimination' ? 'ELIM' : '';
-
-    html = `<div class="tb-section" style="color:#4aa8ff">BLUE TEAM ${modeTag} — ${teamScores[TEAM_BLUE]}</div>`;
-    for (const a of blueTeam) {
-      const me = a === player ? ' me' : '';
-      const k = a === player ? gameState.pKills : a.kills;
-      const d = a === player ? gameState.pDeaths : a.deaths;
-      const ast = a === player ? gameState.pAssists : ((a as any).assists ?? 0);
-      const aliveTag = a.isDead ? ' ☠' : '';
-      const kd = d > 0 ? (k / d).toFixed(2) : k.toFixed(2);
-      html += `<div class="tb-row${me}"><span style="color:#4aa8ff">${a.name}${aliveTag}</span><span>${k}</span><span>${d}</span><span>${ast}</span><span>${kd}</span><span>${k * 100}</span></div>`;
-    }
-
-    html += `<div class="tb-section" style="color:#ff5c5c">RED TEAM ${modeTag} — ${teamScores[TEAM_RED]}</div>`;
-    for (const a of redTeam) {
-      const aliveTag = a.isDead ? ' ☠' : '';
-      const ast = (a as any).assists ?? 0;
-      const rkd = a.deaths > 0 ? (a.kills / a.deaths).toFixed(2) : a.kills.toFixed(2);
-      html += `<div class="tb-row"><span style="color:#ff5c5c">${a.name}${aliveTag}</span><span>${a.kills}</span><span>${a.deaths}</span><span>${ast}</span><span>${rkd}</span><span>${a.kills * 100}</span></div>`;
-    }
-  }
-
-  dom.tbBody.innerHTML = html;
+function escapeHTML(s: string): string {
+  return String(s).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]!));
 }
