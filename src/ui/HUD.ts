@@ -16,7 +16,7 @@
  *   flashDmg(dmg?)
  *   flashHeal()
  *   updateCookTimer()
- *   pushKillFeed(entry)           — NEW, replaces KillFeed.ts's DOM writes
+ *   pushKillFeed(entry)           — emits .kf-row rows
  *   updateMatchInfo(...)          — drives .hm-* (called from mode logic)
  */
 
@@ -60,7 +60,6 @@ let armorSegments: HTMLElement[] = [];
 let magDotEls: HTMLElement[] = [];
 let lastMagSize = -1;
 const lastSlotWep: (WeaponId | null)[] = [null, null, null];
-let lastKnownActiveSlot = -1;
 let glyphsInjected = false;
 
 function cacheDOM(): ApexDOM {
@@ -142,10 +141,8 @@ function rebuildMagDots(magSize: number): void {
 
 function injectHudGlyphsOnce(): void {
   if (glyphsInjected) return;
-  // The preview has <svg> glyphs inline in the static HTML for dock slots.
-  // Our live HUD populates them from weapon icons each frame, so there's
-  // nothing to seed here — but if we later add named icon slots this is
-  // the single injection point.
+  // Reserved for future named-icon slots; currently dock svgs are set
+  // from getWeaponIconSVG() on each weapon change.
   glyphsInjected = true;
 }
 
@@ -161,9 +158,7 @@ export function updateHUD(): void {
   for (let i = 0; i < hpSegments.length; i++) {
     const seg = hpSegments[i];
     const on = i < hpOn;
-    // Toggle .on only when state changes to avoid style thrash
     if (on !== seg.classList.contains('on')) seg.classList.toggle('on', on);
-    // Tier color: crit (red, pulsing) < 20, low (amber) < 40, normal (toxic)
     if (on) {
       const crit = hpPct < 20;
       const low  = hpPct < 40 && !crit;
@@ -189,7 +184,7 @@ export function updateHUD(): void {
   }
   if (d.armorVal) d.armorVal.textContent = String(Math.round(armorHP));
 
-  // ── Rank / name (cheap — only update on profile change) ───────────
+  // ── Rank / name ───────────────────────────────────────────────────
   const profile = getProfile();
   if (d.hvRank) {
     const rank = `LVL ${String(profile.level).padStart(2, '0')}`;
@@ -213,7 +208,8 @@ export function updateHUD(): void {
     if (d.haMag)     d.haMag.textContent     = '—';
     if (d.haReserve) d.haReserve.textContent = '—';
     if (d.haMagDots) d.haMagDots.innerHTML   = '';
-    magDotEls.length = 0; lastMagSize = 0;
+    magDotEls.length = 0;
+    lastMagSize = 0;
   } else {
     if (d.haMag) {
       d.haMag.textContent = String(gameState.pAmmo);
@@ -249,10 +245,10 @@ export function updateHUD(): void {
     const svg  = d.dkSvgs[i];
     if (!slot || !svg) continue;
 
-    const wepId = gameState.pWeaponSlots?.[i] ?? null;
+    const wepId = (gameState.pWeaponSlots?.[i] ?? null) as WeaponId | null;
     const hasWep = !!wepId;
 
-    if (hasWep !== !slot.classList.contains('empty')) {
+    if (hasWep === slot.classList.contains('empty')) {
       slot.classList.toggle('empty', !hasWep);
     }
     const shouldBeActive = hasWep && i === activeSlot;
@@ -265,27 +261,34 @@ export function updateHUD(): void {
       lastSlotWep[i] = wepId;
     }
   }
-  lastKnownActiveSlot = activeSlot;
 }
 
 // ── CROSSHAIR ───────────────────────────────────────────────────────────
+
+// Typed weapon-keyed lookups for crosshair tuning.  Using Partial so
+// the fallback `?? 12` / `?? 8` remain live for IDs not in the table
+// (e.g. 'unarmed' *is* in the table but TS wants the partial guard).
+const XH_BASE_GAP: Partial<Record<WeaponId, number>> = {
+  unarmed: 10, knife: 10, pistol: 12, smg: 14, assault_rifle: 13,
+  shotgun: 18, sniper_rifle: 16, rocket_launcher: 15,
+};
+const XH_LINE_LEN: Partial<Record<WeaponId, number>> = {
+  unarmed: 7, knife: 7, pistol: 8, smg: 9, assault_rifle: 10,
+  shotgun: 11, sniper_rifle: 12, rocket_launcher: 11,
+};
+
 export function updateCrosshair(): void {
   const d = cacheDOM();
   const el = d.xh;
   if (!el) return;
-  const { keys, pWeaponId } = gameState;
+  const keys = gameState.keys;
+  const pWeaponId = gameState.pWeaponId;
   const isMoving  = !!(keys?.w || keys?.a || keys?.s || keys?.d);
   const isRunning = isMoving && !!keys?.shift;
   const airborne  = (gameState.pPosY ?? 0) > 0.05;
 
-  const baseGap = ({
-    unarmed: 10, knife: 10, pistol: 12, smg: 14, assault_rifle: 13,
-    shotgun: 18, sniper_rifle: 16, rocket_launcher: 15,
-  } as const)[pWeaponId as keyof any] ?? 12;
-  const lineLen = ({
-    unarmed: 7, knife: 7, pistol: 8, smg: 9, assault_rifle: 10,
-    shotgun: 11, sniper_rifle: 12, rocket_launcher: 11,
-  } as const)[pWeaponId as keyof any] ?? 8;
+  const baseGap = XH_BASE_GAP[pWeaponId] ?? 12;
+  const lineLen = XH_LINE_LEN[pWeaponId] ?? 8;
 
   const moveKick = isRunning ? 10 : isMoving ? 5 : 0;
   const airKick  = airborne ? 7 : 0;
@@ -320,7 +323,7 @@ export function flashHitMarker(): void {
   const el = document.getElementById('xhHit');
   if (!el) return;
   el.classList.remove('on');
-  void el.offsetWidth; // restart animation
+  void el.offsetWidth;
   el.classList.add('on');
   if (hitTO) clearTimeout(hitTO);
   hitTO = setTimeout(() => el.classList.remove('on'), 350);
@@ -366,24 +369,17 @@ function ensureCookEl(): HTMLDivElement {
 }
 export function updateCookTimer(): void {
   const el = ensureCookEl();
-  if (!gameState.pCookingGrenade) {
+  if (!(gameState as any).pCookingGrenade) {
     el.classList.remove('on', 'danger');
     return;
   }
-  const t = gameState.pCookTimer ?? 0;
+  const t = (gameState as any).pCookTimer ?? 0;
   el.classList.add('on');
   el.textContent = (Math.max(0, 2.5 - t)).toFixed(1) + 's';
   el.classList.toggle('danger', (t / 2.5) > 0.8);
 }
 
 // ── MATCH INFO (top-center .hm-*) ──────────────────────────────────────
-/**
- * Drive the .hud-match slate.  Called from mode logic or GameLoop.
- *   modeLabel  — "TDM", "DOMINATION", "HARDPOINT", etc.
- *   timeRemSec — seconds left in match (null = hide timer)
- *   blueScore  — friendly team score
- *   redScore   — hostile team score
- */
 export function updateMatchInfo(
   modeLabel: string,
   timeRemSec: number | null,
@@ -428,11 +424,6 @@ export interface KillFeedEntry {
 const KF_MAX_ROWS = 5;
 const KF_LIFETIME_MS = 6000;
 
-/**
- * Push a kill into the feed.  Creates a .kf-row in the preview shape.
- * The player-as-killer row gets the `.me` class so the CSS accent bar
- * turns amber instead of grey.
- */
 export function pushKillFeed(e: KillFeedEntry): void {
   const d = cacheDOM();
   if (!d.killfeed) return;
@@ -459,12 +450,10 @@ export function pushKillFeed(e: KillFeedEntry): void {
 
   d.killfeed.appendChild(row);
 
-  // Cap rows
   while (d.killfeed.children.length > KF_MAX_ROWS) {
     d.killfeed.removeChild(d.killfeed.firstChild!);
   }
 
-  // Auto-expire
   setTimeout(() => {
     row.style.transition = 'opacity .3s, transform .3s';
     row.style.opacity = '0';
