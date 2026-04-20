@@ -1,12 +1,11 @@
 import { FP } from '@/config/player';
-import { dom } from './DOMElements';
 import { Audio } from '@/audio/AudioManager';
 import { movement } from '@/movement/MovementController';
 import { gameState } from '@/core/GameState';
 
 const STORAGE_KEY = 'warzone_settings';
 
-interface GameSettings {
+export interface GameSettings {
   sensitivity: number;
   fov: number;
   masterVol: number;
@@ -40,6 +39,29 @@ const defaults: GameSettings = {
 
 let current: GameSettings = { ...defaults };
 
+type SettingKey = keyof GameSettings;
+type ControlEl = HTMLInputElement | HTMLSelectElement;
+
+const SETTING_KEYS: SettingKey[] = [
+  'sensitivity',
+  'fov',
+  'masterVol',
+  'sfxVol',
+  'musicVol',
+  'headBobScale',
+  'crosshairColor',
+  'crosshairSize',
+  'crosshairDot',
+  'botDifficulty',
+  'colorblindMode',
+  'showFPS',
+  'showSubtitles',
+];
+
+export function getSettings(): Readonly<GameSettings> {
+  return current;
+}
+
 export function loadSettings(): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -47,181 +69,187 @@ export function loadSettings(): void {
       const parsed = JSON.parse(raw);
       current = { ...defaults, ...parsed };
     }
-  } catch { /* ignore */ }
+  } catch {
+    // ignore
+  }
   applySettings();
 }
 
 function saveSettings(): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-  } catch { /* ignore */ }
+  } catch {
+    // ignore
+  }
 }
 
-function applySettings(): void {
+export function applySettings(): void {
   FP.sensitivity = current.sensitivity;
+
   movement.fovBase = current.fov;
   movement.fovTarget = current.fov;
   movement.fovCurrent = current.fov;
   movement.headBobScale = current.headBobScale;
+
   Audio.setMaster(current.masterVol);
   Audio.setSfx(current.sfxVol);
   Audio.setMusic(current.musicVol);
 
-  // Crosshair settings
   gameState.crosshairColor = current.crosshairColor;
   gameState.crosshairSize = current.crosshairSize;
   gameState.crosshairDot = current.crosshairDot;
-  const xh = document.getElementById('xh');
-  if (xh) {
-    xh.style.setProperty('--xh-color', current.crosshairColor);
-    xh.style.transform = `scale(${current.crosshairSize})`;
-    const dot = xh.querySelector('.xh-dot') as HTMLElement | null;
-    if (dot) dot.style.display = current.crosshairDot ? '' : 'none';
-  }
-
-  // Bot difficulty
   gameState.botDifficulty = current.botDifficulty;
-
-  // Colorblind mode
   gameState.colorblindMode = current.colorblindMode as any;
+  gameState.showFPS = current.showFPS;
+  gameState.showSubtitles = current.showSubtitles;
+
   document.body.classList.remove('cb-deuteranopia', 'cb-protanopia', 'cb-tritanopia');
   if (current.colorblindMode !== 'off') {
     document.body.classList.add(`cb-${current.colorblindMode}`);
   }
 
-  // FPS counter
-  gameState.showFPS = current.showFPS;
-  const fpsEl = dom.fpsCounter;
+  const fpsEl = document.getElementById('fpsCounter');
   if (fpsEl) fpsEl.classList.toggle('hidden', !current.showFPS);
 
-  // Subtitles
-  gameState.showSubtitles = current.showSubtitles;
+  const xh = document.getElementById('xh');
+  if (xh) {
+    xh.style.setProperty('--xh-color', current.crosshairColor);
+    xh.style.transform = `scale(${current.crosshairSize})`;
+
+    const dot = xh.querySelector('.xh-dot') as HTMLElement | null;
+    if (dot) dot.style.display = current.crosshairDot ? '' : 'none';
+  }
+}
+
+function qControl(root: ParentNode, key: SettingKey): ControlEl | null {
+  return root.querySelector(`[data-setting="${key}"]`) as ControlEl | null;
+}
+
+function qValue(root: ParentNode, key: SettingKey): HTMLElement | null {
+  return root.querySelector(`[data-setting-value="${key}"]`) as HTMLElement | null;
+}
+
+function formatValue(key: SettingKey, value: GameSettings[SettingKey]): string {
+  switch (key) {
+    case 'masterVol':
+    case 'sfxVol':
+    case 'musicVol':
+    case 'headBobScale':
+    case 'botDifficulty':
+      return `${Math.round(Number(value) * 100)}%`;
+
+    case 'sensitivity':
+      return Number(value).toFixed(4);
+
+    case 'crosshairSize':
+      return Number(value).toFixed(1);
+
+    case 'crosshairColor':
+      return String(value);
+
+    case 'crosshairDot':
+    case 'showFPS':
+    case 'showSubtitles':
+      return value ? 'ON' : 'OFF';
+
+    default:
+      return String(value);
+  }
+}
+
+function getUiValueForControl(key: SettingKey, value: GameSettings[SettingKey]): string {
+  switch (key) {
+    case 'masterVol':
+    case 'sfxVol':
+    case 'musicVol':
+    case 'headBobScale':
+    case 'botDifficulty':
+      return String(Math.round(Number(value) * 100));
+
+    default:
+      return String(value);
+  }
+}
+
+function parseControlValue(key: SettingKey, control: ControlEl): GameSettings[SettingKey] {
+  if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+    return control.checked as GameSettings[SettingKey];
+  }
+
+  const raw = control.value;
+
+  switch (key) {
+    case 'masterVol':
+    case 'sfxVol':
+    case 'musicVol':
+    case 'headBobScale':
+    case 'botDifficulty':
+      return (parseFloat(raw) / 100) as GameSettings[SettingKey];
+
+    case 'sensitivity':
+    case 'crosshairSize':
+      return parseFloat(raw) as GameSettings[SettingKey];
+
+    case 'fov':
+      return parseInt(raw, 10) as GameSettings[SettingKey];
+
+    case 'crosshairColor':
+    case 'colorblindMode':
+      return raw as GameSettings[SettingKey];
+
+    case 'crosshairDot':
+    case 'showFPS':
+    case 'showSubtitles':
+      return Boolean((control as HTMLInputElement).checked) as GameSettings[SettingKey];
+
+    default:
+      return raw as GameSettings[SettingKey];
+  }
+}
+
+export function syncSettingsPanel(root: ParentNode): void {
+  for (const key of SETTING_KEYS) {
+    const control = qControl(root, key);
+    const valueEl = qValue(root, key);
+
+    if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+      control.checked = Boolean(current[key]);
+    } else if (control) {
+      control.value = getUiValueForControl(key, current[key]);
+    }
+
+    if (valueEl) {
+      valueEl.textContent = formatValue(key, current[key]);
+    }
+  }
+}
+
+export function bindSettingsPanel(root: ParentNode): void {
+  syncSettingsPanel(root);
+
+  for (const key of SETTING_KEYS) {
+    const control = qControl(root, key);
+    if (!control) continue;
+
+    const commit = () => {
+      current[key] = parseControlValue(key, control);
+      const valueEl = qValue(root, key);
+      if (valueEl) valueEl.textContent = formatValue(key, current[key]);
+      applySettings();
+      saveSettings();
+    };
+
+    if (control instanceof HTMLSelectElement) {
+      control.onchange = commit;
+    } else if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+      control.onchange = commit;
+    } else {
+      control.oninput = commit;
+      control.onchange = commit;
+    }
+  }
 }
 
 export function initSettings(): void {
   loadSettings();
-
-  // Sync sliders to current values
-  dom.setSensitivity.value = String(current.sensitivity);
-  dom.valSens.textContent = current.sensitivity.toFixed(4);
-  dom.setFOV.value = String(current.fov);
-  dom.valFOV.textContent = String(current.fov);
-  dom.setMasterVol.value = String(current.masterVol);
-  dom.valMasterVol.textContent = Math.round(current.masterVol * 100) + '%';
-  dom.setSfxVol.value = String(current.sfxVol);
-  dom.valSfxVol.textContent = Math.round(current.sfxVol * 100) + '%';
-  dom.setMusicVol.value = String(current.musicVol);
-  dom.valMusicVol.textContent = Math.round(current.musicVol * 100) + '%';
-  dom.setHeadBob.value = String(current.headBobScale);
-  dom.valHeadBob.textContent = Math.round(current.headBobScale * 100) + '%';
-
-  // Bind sliders
-  dom.setSensitivity.oninput = () => {
-    current.sensitivity = parseFloat(dom.setSensitivity.value);
-    dom.valSens.textContent = current.sensitivity.toFixed(4);
-    applySettings();
-    saveSettings();
-  };
-  dom.setFOV.oninput = () => {
-    current.fov = parseInt(dom.setFOV.value);
-    dom.valFOV.textContent = String(current.fov);
-    applySettings();
-    saveSettings();
-  };
-  dom.setMasterVol.oninput = () => {
-    current.masterVol = parseFloat(dom.setMasterVol.value);
-    dom.valMasterVol.textContent = Math.round(current.masterVol * 100) + '%';
-    applySettings();
-    saveSettings();
-  };
-  dom.setSfxVol.oninput = () => {
-    current.sfxVol = parseFloat(dom.setSfxVol.value);
-    dom.valSfxVol.textContent = Math.round(current.sfxVol * 100) + '%';
-    applySettings();
-    saveSettings();
-  };
-  dom.setMusicVol.oninput = () => {
-    current.musicVol = parseFloat(dom.setMusicVol.value);
-    dom.valMusicVol.textContent = Math.round(current.musicVol * 100) + '%';
-    applySettings();
-    saveSettings();
-  };
-  dom.setHeadBob.oninput = () => {
-    current.headBobScale = parseFloat(dom.setHeadBob.value);
-    dom.valHeadBob.textContent = Math.round(current.headBobScale * 100) + '%';
-    applySettings();
-    saveSettings();
-  };
-
-  // ── Crosshair settings ──
-  dom.setCrosshairColor.value = current.crosshairColor;
-  dom.valCrosshairColor.textContent = current.crosshairColor;
-  dom.setCrosshairColor.oninput = () => {
-    current.crosshairColor = dom.setCrosshairColor.value;
-    dom.valCrosshairColor.textContent = current.crosshairColor;
-    applySettings();
-    saveSettings();
-  };
-
-  dom.setCrosshairSize.value = String(current.crosshairSize);
-  dom.valCrosshairSize.textContent = current.crosshairSize.toFixed(1);
-  dom.setCrosshairSize.oninput = () => {
-    current.crosshairSize = parseFloat(dom.setCrosshairSize.value);
-    dom.valCrosshairSize.textContent = current.crosshairSize.toFixed(1);
-    applySettings();
-    saveSettings();
-  };
-
-  dom.setCrosshairDot.checked = current.crosshairDot;
-  dom.setCrosshairDot.onchange = () => {
-    current.crosshairDot = dom.setCrosshairDot.checked;
-    applySettings();
-    saveSettings();
-  };
-
-  // ── Bot difficulty ──
-  dom.setBotDifficulty.value = String(current.botDifficulty);
-  dom.valBotDifficulty.textContent = Math.round(current.botDifficulty * 100) + '%';
-  dom.setBotDifficulty.oninput = () => {
-    current.botDifficulty = parseFloat(dom.setBotDifficulty.value);
-    dom.valBotDifficulty.textContent = Math.round(current.botDifficulty * 100) + '%';
-    applySettings();
-    saveSettings();
-  };
-
-  // ── Colorblind mode ──
-  dom.setColorblind.value = current.colorblindMode;
-  dom.setColorblind.onchange = () => {
-    current.colorblindMode = dom.setColorblind.value;
-    applySettings();
-    saveSettings();
-  };
-
-  // ── Show FPS ──
-  dom.setShowFPS.checked = current.showFPS;
-  dom.setShowFPS.onchange = () => {
-    current.showFPS = dom.setShowFPS.checked;
-    applySettings();
-    saveSettings();
-  };
-
-  // ── Show Subtitles ──
-  dom.setShowSubtitles.checked = current.showSubtitles;
-  dom.setShowSubtitles.onchange = () => {
-    current.showSubtitles = dom.setShowSubtitles.checked;
-    applySettings();
-    saveSettings();
-  };
-
-  // Back button
-  dom.settingsBack.onclick = () => {
-    dom.settingsMenu.classList.remove('on');
-    dom.pauseMenu.classList.add('on');
-  };
-
-  // Settings button in pause menu
-  dom.pauseSettings.onclick = () => {
-    dom.pauseMenu.classList.remove('on');
-    dom.settingsMenu.classList.add('on');
-  };
 }
