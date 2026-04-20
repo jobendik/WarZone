@@ -1,3 +1,25 @@
+/**
+ * Killcam + POTG (Play of the Game).
+ *
+ * Records a rolling 3.5s window of every agent's camera state. On death,
+ * replays the killer's point of view for 3.2s. On match end, replays the
+ * agent with the best short-window kill streak.
+ *
+ * EXTRA IDEA #3 — Chromatic aberration during killcam.
+ * While the killcam is running we toggle `body.killcam-active`; the CSS
+ * applies `filter: hue-rotate(8deg) saturate(1.4) contrast(1.15)` to the
+ * scene canvas (#cw) for that "enemy vision" look.
+ *
+ * EXTRA IDEA #4 — POTG name-reveal slate.
+ * The replay is overlaid with a full-width bottom slate:
+ *   #potg > .potg-frame > .potg-label ("// PLAY OF THE GAME")
+ *                       > .potg-name  (operator name, huge Archivo Black)
+ *                       > .potg-meta  (stat strip with // separator)
+ * The .potg-label types out via the CSS @keyframes potgType.
+ * All visual styling is in index.css — this file only sets text content
+ * and toggles classes.
+ */
+
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
 import type { TDMAgent } from '@/entities/TDMAgent';
@@ -12,9 +34,13 @@ interface CamSnapshot {
 const HISTORY_DURATION = 3.5;
 const snapshots = new Map<TDMAgent, CamSnapshot[]>();
 
+// ─────────────────────────────────────────────────────────────────────
+//  KILLCAM (on death)
+// ─────────────────────────────────────────────────────────────────────
+
 let active = false;
 let killcamStart = 0;
-let killcamDuration = 3.2;
+const killcamDuration = 3.2;
 let killcamTarget: TDMAgent | null = null;
 let killcamEl: HTMLDivElement | null = null;
 
@@ -38,7 +64,7 @@ function ensureUI(): HTMLDivElement {
 }
 
 /**
- * Called every frame to record agent positions.
+ * Called every frame to record agent camera state.
  */
 export function recordKillcamSnapshot(): void {
   const now = gameState.worldElapsed;
@@ -47,26 +73,22 @@ export function recordKillcamSnapshot(): void {
     let arr = snapshots.get(ag);
     if (!arr) { arr = []; snapshots.set(ag, arr); }
 
-    // Compute yaw from rotation quaternion
+    // Compute yaw from rotation quaternion's y/w components
     const qY = ag.rotation.y ?? 0;
     const qW = ag.rotation.w ?? 1;
     const yaw = 2 * Math.atan2(qY, qW);
 
     arr.push({
-      pos: new THREE.Vector3(ag.position.x, ag.position.y + 1.6, ag.position.z),
+      pos:   new THREE.Vector3(ag.position.x, ag.position.y + 1.6, ag.position.z),
       yaw,
       pitch: 0,
-      time: now,
+      time:  now,
     });
 
-    // Trim old
     while (arr.length > 0 && now - arr[0].time > HISTORY_DURATION) arr.shift();
   }
 }
 
-/**
- * Trigger the killcam.
- */
 export function startKillcam(killer: TDMAgent | null): void {
   if (!killer || killer.isDead) return;
   const arr = snapshots.get(killer);
@@ -81,21 +103,24 @@ export function startKillcam(killer: TDMAgent | null): void {
   const nameEl = document.getElementById('kcKiller');
   if (nameEl) nameEl.textContent = `KILLED BY ${killer.name.toUpperCase()}`;
 
+  // EXTRA IDEA #3 — enemy-vision chromatic aberration on the scene.
+  document.body.classList.add('killcam-active');
 }
 
 export function stopKillcam(): void {
   active = false;
   killcamTarget = null;
   if (killcamEl) killcamEl.classList.remove('on');
-  // Restore camera (Player.ts will overwrite anyway on respawn)
+  document.body.classList.remove('killcam-active');
 }
 
 export function isKillcamActive(): boolean { return active; }
 
 /**
  * Update killcam camera position — call from game loop while active.
+ * Returns true while the killcam is driving the camera.
  */
-export function updateKillcam(dt: number): boolean {
+export function updateKillcam(_dt: number): boolean {
   if (!active || !killcamTarget) return false;
 
   const elapsed = gameState.worldElapsed - killcamStart;
@@ -105,36 +130,28 @@ export function updateKillcam(dt: number): boolean {
   }
 
   const arr = snapshots.get(killcamTarget);
-  if (!arr || arr.length === 0) {
-    stopKillcam();
-    return false;
-  }
+  if (!arr || arr.length === 0) { stopKillcam(); return false; }
 
-  // Map elapsed (0..duration) onto the snapshot history (last 3s before death)
+  // Map elapsed (0..duration) onto the snapshot history window.
   const t = elapsed / killcamDuration;
-  // We want to play from -3s to 0s in the snapshots
   const targetTime = arr[arr.length - 1].time - HISTORY_DURATION + t * HISTORY_DURATION;
 
-  // Find nearest snapshots and interpolate
   let prev = arr[0];
   let next = arr[arr.length - 1];
   for (let i = 0; i < arr.length - 1; i++) {
     if (arr[i].time <= targetTime && arr[i + 1].time >= targetTime) {
-      prev = arr[i];
-      next = arr[i + 1];
-      break;
+      prev = arr[i]; next = arr[i + 1]; break;
     }
   }
   const segT = (targetTime - prev.time) / Math.max(0.001, next.time - prev.time);
   const pos = new THREE.Vector3().lerpVectors(prev.pos, next.pos, Math.max(0, Math.min(1, segT)));
   const yaw = THREE.MathUtils.lerp(prev.yaw, next.yaw, segT);
 
-  // Position camera behind the killer's shoulder
+  // Position camera behind the killer's shoulder.
   const offsetX = -Math.sin(yaw) * 1.2;
   const offsetZ = -Math.cos(yaw) * 1.2;
   gameState.camera.position.set(pos.x + offsetX, pos.y + 0.5, pos.z + offsetZ);
 
-  // Look in killer's facing direction
   const lookTarget = new THREE.Vector3(
     pos.x + Math.sin(yaw) * 5,
     pos.y - 0.2,
@@ -149,72 +166,91 @@ export function clearKillcamSnapshots(): void {
   snapshots.clear();
   active = false;
   killcamTarget = null;
+  document.body.classList.remove('killcam-active');
 }
 
-// ── Play of the Game replay ──
+// ─────────────────────────────────────────────────────────────────────
+//  POTG — Play of the Game (EXTRA IDEA #4)
+// ─────────────────────────────────────────────────────────────────────
+
 let potgActive = false;
 let potgStart = 0;
 const POTG_DURATION = 5;
 let potgTarget: TDMAgent | null = null;
 let potgEl: HTMLDivElement | null = null;
 
+/**
+ * Builds the POTG overlay DOM. ALL visual styling is in index.css
+ * (#potg, .potg-frame, .potg-label, .potg-name, .potg-meta) — no inline
+ * styles here.  .potg-label animates via @keyframes potgType.
+ */
 function ensurePotgUI(): HTMLDivElement {
   if (potgEl) return potgEl;
   potgEl = document.createElement('div');
   potgEl.id = 'potg';
   potgEl.innerHTML = `
     <div class="potg-frame">
-      <div class="potg-label">PLAY OF THE GAME</div>
-      <div class="potg-name" id="potgName"></div>
+      <div class="potg-label">// PLAY OF THE GAME</div>
+      <div class="potg-name" id="potgName">—</div>
+      <div class="potg-meta" id="potgMeta"></div>
     </div>
   `;
-  potgEl.style.cssText = 'position:fixed;inset:0;z-index:800;display:none;pointer-events:none;';
-  const frame = potgEl.querySelector('.potg-frame') as HTMLElement;
-  frame.style.cssText = 'position:absolute;top:8%;left:50%;transform:translateX(-50%);text-align:center;font-family:var(--font);';
-  const label = potgEl.querySelector('.potg-label') as HTMLElement;
-  label.style.cssText = 'font-size:28px;font-weight:900;letter-spacing:6px;color:#ffcc33;text-shadow:0 0 20px #ffcc3366;';
-  const name = potgEl.querySelector('.potg-name') as HTMLElement;
-  name.style.cssText = 'font-size:18px;color:#fff;margin-top:6px;letter-spacing:2px;';
   document.body.appendChild(potgEl);
   return potgEl;
 }
 
 /**
- * Start the Play of the Game replay for a given agent.
- * Should be called just before showing round summary when a POTG agent exists.
+ * Start the POTG replay for a given agent. Call before showing round
+ * summary when a POTG-eligible agent exists.
  */
 export function startPotgReplay(agent: TDMAgent): void {
   const arr = snapshots.get(agent);
   if (!arr || arr.length < 5) return;
 
   potgActive = true;
-  potgStart = gameState.worldElapsed;
+  potgStart  = gameState.worldElapsed;
   potgTarget = agent;
 
   const ui = ensurePotgUI();
-  ui.style.display = 'block';
+  ui.classList.add('on');
+
+  // Name — "YOU" for the player, OPERATOR name for bots.
   const nameEl = document.getElementById('potgName');
-  if (nameEl) nameEl.textContent = agent === gameState.player ? 'YOU' : agent.name.toUpperCase();
+  if (nameEl) {
+    nameEl.textContent = agent === gameState.player ? 'YOU' : agent.name.toUpperCase();
+  }
+
+  // Meta — stats strip. Uses <b> for the amber accent (see .potg-meta b).
+  const metaEl = document.getElementById('potgMeta');
+  if (metaEl) {
+    const kills = agent === gameState.player ? gameState.pKills : agent.kills;
+    const streak = gameState.potgBestScore ?? 0;
+    const weapon = (agent as any).lastWeaponName ?? 'UNKNOWN';
+    metaEl.innerHTML = `
+      <span>KILLS <b>${kills}</b></span>
+      <span>STREAK <b>${streak}</b></span>
+      <span>WEAPON <b>${String(weapon).toUpperCase()}</b></span>
+    `;
+  }
 }
 
 export function isPotgActive(): boolean { return potgActive; }
 
-export function updatePotgReplay(dt: number): boolean {
+export function updatePotgReplay(_dt: number): boolean {
   if (!potgActive || !potgTarget) return false;
 
   const elapsed = gameState.worldElapsed - potgStart;
   if (elapsed >= POTG_DURATION) {
     potgActive = false;
     potgTarget = null;
-    if (potgEl) potgEl.style.display = 'none';
+    if (potgEl) potgEl.classList.remove('on');
     return false;
   }
 
-  // Reuse killcam camera logic
   const arr = snapshots.get(potgTarget);
   if (!arr || arr.length === 0) {
     potgActive = false;
-    if (potgEl) potgEl.style.display = 'none';
+    if (potgEl) potgEl.classList.remove('on');
     return false;
   }
 
@@ -249,5 +285,5 @@ export function updatePotgReplay(dt: number): boolean {
 export function stopPotgReplay(): void {
   potgActive = false;
   potgTarget = null;
-  if (potgEl) potgEl.style.display = 'none';
+  if (potgEl) potgEl.classList.remove('on');
 }
