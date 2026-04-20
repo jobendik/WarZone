@@ -46,8 +46,13 @@ export function buildLights(): void {
   _sun = new THREE.DirectionalLight(0xffe8c4, 2.2);
   _sun.position.set(45, 80, 30);
   _sun.castShadow = true;
-  _sun.shadow.mapSize.width = 2048;
-  _sun.shadow.mapSize.height = 2048;
+  // PERF: 2048² PCF-soft shadows were ~4MB of fill every frame plus a
+  // full re-rasterisation of every cast-shadow mesh. At 1024² the visual
+  // loss is negligible (soft filter hides stair-stepping) and the GPU cost
+  // drops ~4×. Major frame-rate win in firefights because more bots +
+  // more muzzle flashes = more surfaces needing shadow lookups.
+  _sun.shadow.mapSize.width = 1024;
+  _sun.shadow.mapSize.height = 1024;
   _sun.shadow.camera.left = -70;
   _sun.shadow.camera.right = 70;
   _sun.shadow.camera.top = 70;

@@ -19,14 +19,6 @@ import { playHeal } from '@/audio/SoundHooks';
 import { getActivePerkHooks } from '@/config/Loadouts';
 import { isKillcamActive, updateKillcam, isPotgActive, updatePotgReplay } from '@/ui/Killcam';
 
-const NAV_PLAYER_SAMPLES: readonly [number, number][] = [
-  [0, 0],
-  [FP.playerRadius * 0.5, 0],
-  [-FP.playerRadius * 0.5, 0],
-  [0, FP.playerRadius * 0.5],
-  [0, -FP.playerRadius * 0.5],
-];
-
 const NAV_FLOOR_SAMPLE_Y = 2.0;
 
 /**
@@ -79,17 +71,15 @@ function collidesPlayer(x: number, z: number): boolean {
   if (Math.abs(x) > margin || Math.abs(z) > margin) return true;
 
   if (gameState.navMeshManager.navMesh) {
-    // Generous vertical tolerance so the player can walk up ramps and step
-    // onto small crates/platforms — YUKA's getRegionForPoint would otherwise
-    // reject the step because `pPosY` hasn't climbed yet when the horizontal
-    // collision test runs.
-    for (const [ox, oz] of NAV_PLAYER_SAMPLES) {
-      navPoint.set(x + ox, gameState.pPosY, z + oz);
-      if (!gameState.navMeshManager.getRegionForPoint(navPoint, NAV_COLLIDE_Y_EPSILON)) {
-        return true;
-      }
-    }
-    return false;
+    // Strict in-region test: the candidate is walkable iff it sits inside a
+    // navmesh region (within NAV_COLLIDE_Y_EPSILON vertically to tolerate
+    // ramps / step-ups).  No projection fallback — any distance tolerance
+    // at all lets the player clip into walls, because `projectPoint` happily
+    // returns a point on a region adjacent to or on the far side of a wall.
+    // Doorways remain traversable because the baked navmesh has a walkable
+    // region inside them.
+    navPoint.set(x, gameState.pPosY, z);
+    return !gameState.navMeshManager.getRegionForPoint(navPoint, NAV_COLLIDE_Y_EPSILON);
   }
 
   for (const c of gameState.colliders) {

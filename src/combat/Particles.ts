@@ -110,10 +110,16 @@ function returnMesh(pool: PoolEntry[], mesh: THREE.Mesh): boolean {
 function initTransientLightPool(): void {
   if (_transientLightsInited) return;
   _transientLightsInited = true;
+  // PERF: DO NOT add the pooled lights to the scene here. Every light in
+  // the scene (even with intensity=0) contributes to the fragment-shader
+  // light loop on every PBR surface, which is the single largest GPU cost
+  // in a firefight. We scene.add() on borrow and scene.remove() on return
+  // so the active light count is ~0 outside combat and typically 1-3 at
+  // peak (muzzle flash + impact flash). Shader variants are warmed by
+  // attachCombatFXWarmupProxies() so the on-demand add does not stall.
   for (let i = 0; i < TRANSIENT_LIGHT_POOL_SIZE; i++) {
     const light = new THREE.PointLight(0xffaa55, 0, 8);
     light.castShadow = false;
-    gameState.scene.add(light);
     _transientLightPool.push({ light, inUse: false });
   }
 }
@@ -126,6 +132,7 @@ function borrowTransientLight(col: number, intensity: number, distance: number):
     entry.light.color.setHex(col);
     entry.light.intensity = intensity;
     entry.light.distance = distance;
+    if (!entry.light.parent) gameState.scene.add(entry.light);
     return entry.light;
   }
   return undefined;
@@ -137,6 +144,7 @@ function returnTransientLight(light: THREE.PointLight): boolean {
     entry.inUse = false;
     entry.light.intensity = 0;
     entry.light.distance = 0;
+    if (entry.light.parent) entry.light.parent.remove(entry.light);
     return true;
   }
   return false;

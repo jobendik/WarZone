@@ -33,6 +33,26 @@ const _smokeCloudMat = new THREE.MeshBasicMaterial({
   depthWrite: false, side: THREE.DoubleSide,
 });
 const _rocketPool: ProjectilePoolEntry[] = [];
+
+// ──────────────────────────────────────────────────────────────────────
+// PERF: scratch vectors shared by every hitscanShot/shotgunBlast call.
+// The hot path used to do 6+ `origin.clone()` / `dir.clone().normalize()`
+// per shot plus another `new THREE.Vector3` per agent checked — with 10
+// bots firing at 8–12 rounds/sec that was dozens of Vector3 allocations
+// per bullet, thousands per second during active firefights, and the
+// steady GC churn was visible as stutter. These scratches let the hot
+// path stay allocation-free.
+// ──────────────────────────────────────────────────────────────────────
+const _hsOrigin = new THREE.Vector3();
+const _hsDir = new THREE.Vector3();
+const _hsAgPos = new THREE.Vector3();
+const _hsHeadPos = new THREE.Vector3();
+const _hsToAgent = new THREE.Vector3();
+const _hsClosest = new THREE.Vector3();
+const _hsEnd = new THREE.Vector3();
+const _hsPenOrigin = new THREE.Vector3();
+const _hsShotPos = new THREE.Vector3();
+const _hsWhizPos = new THREE.Vector3();
 const _grenadePool: ProjectilePoolEntry[] = [];
 let _projectilePoolsInited = false;
 let _combatProjectileWarmupGroup: THREE.Group | null = null;
@@ -155,8 +175,12 @@ export function hitscanShot(
   const wep = WEAPONS[weaponId];
   const { agents, wallMeshes } = gameState;
 
+  // Normalise dir once into a scratch; reuse everywhere below.
+  _hsOrigin.copy(origin);
+  _hsDir.copy(dir).normalize();
+
   const rc = gameState.raycaster;
-  rc.set(origin.clone(), dir.clone().normalize());
+  rc.set(_hsOrigin, _hsDir);
   rc.near = 0;
   rc.far = wep.range;
 
@@ -172,19 +196,19 @@ export function hitscanShot(
     if (ownerAgent && ag === ownerAgent) continue;
     if (ownerAgent && !isEnemy(ownerAgent, ag)) continue;
 
-    const agPos = new THREE.Vector3(ag.position.x, 1.0, ag.position.z);
-    const toAgent = agPos.clone().sub(origin);
-    const proj = toAgent.dot(dir.clone().normalize());
+    _hsAgPos.set(ag.position.x, 1.0, ag.position.z);
+    _hsToAgent.subVectors(_hsAgPos, _hsOrigin);
+    const proj = _hsToAgent.dot(_hsDir);
     if (proj < 0 || proj > hitDist) continue;
 
-    const closest = origin.clone().add(dir.clone().normalize().multiplyScalar(proj));
-    const bodyDist = closest.distanceTo(agPos);
+    _hsClosest.copy(_hsDir).multiplyScalar(proj).add(_hsOrigin);
+    const bodyDist = _hsClosest.distanceTo(_hsAgPos);
 
     if (bodyDist < BODY_HIT_RADIUS) {
       hitAgent = ag;
       hitDist = proj;
-      const headPos = new THREE.Vector3(ag.position.x, 1.42, ag.position.z);
-      const headDist = closest.distanceTo(headPos);
+      _hsHeadPos.set(ag.position.x, 1.42, ag.position.z);
+      const headDist = _hsClosest.distanceTo(_hsHeadPos);
       isHeadshot = headDist < HEAD_HIT_RADIUS;
     }
   }
@@ -195,39 +219,42 @@ export function hitscanShot(
     for (const ag of agents) {
       if (ag.isDead || ag === pAgent) continue;
       if (isEnemy(pAgent, ag)) continue;
-      const agPos = new THREE.Vector3(ag.position.x, 1.0, ag.position.z);
-      const toAgent = agPos.clone().sub(origin);
-      const nDir = dir.clone().normalize();
-      const proj = toAgent.dot(nDir);
+      _hsAgPos.set(ag.position.x, 1.0, ag.position.z);
+      _hsToAgent.subVectors(_hsAgPos, _hsOrigin);
+      const proj = _hsToAgent.dot(_hsDir);
       if (proj < 0 || proj > wallDist) continue;
-      const closest = origin.clone().add(nDir.multiplyScalar(proj));
-      if (closest.distanceTo(agPos) < BODY_HIT_RADIUS) {
+      _hsClosest.copy(_hsDir).multiplyScalar(proj).add(_hsOrigin);
+      if (_hsClosest.distanceTo(_hsAgPos) < BODY_HIT_RADIUS) {
         flashFriendlyFireWarning();
         break;
       }
     }
   }
 
-  const endPoint = origin.clone().add(dir.clone().normalize().multiplyScalar(hitDist));
+  _hsEnd.copy(_hsDir).multiplyScalar(hitDist).add(_hsOrigin);
   checkSuppressionFromShot(origin, dir, hitDist, ownerType);
-  spawnTracer(origin, endPoint, col);
+  spawnTracer(origin, _hsEnd, col);
   if (playShotAudio) {
     const isPlayerShot = ownerType === 'player';
-    playShot(weaponId, isPlayerShot ? undefined : new THREE.Vector3(origin.x, origin.y, origin.z), isPlayerShot);
+    if (isPlayerShot) {
+      playShot(weaponId, undefined, true);
+    } else {
+      _hsShotPos.copy(origin);
+      playShot(weaponId, _hsShotPos, false);
+    }
   }
 
   // Bullet whiz — near-miss sound for AI shots passing close to player
   if (ownerType === 'ai' && hitAgent !== gameState.player) {
     const p = gameState.player;
-    const pPos = new THREE.Vector3(p.position.x, 1.0, p.position.z);
-    const toP = pPos.clone().sub(origin);
-    const dirN = dir.clone().normalize();
-    const proj = toP.dot(dirN);
+    _hsAgPos.set(p.position.x, 1.0, p.position.z);
+    _hsToAgent.subVectors(_hsAgPos, _hsOrigin);
+    const proj = _hsToAgent.dot(_hsDir);
     if (proj > 0 && proj < hitDist) {
-      const closest = origin.clone().add(dirN.multiplyScalar(proj));
-      const passDist = closest.distanceTo(pPos);
+      _hsWhizPos.copy(_hsDir).multiplyScalar(proj).add(_hsOrigin);
+      const passDist = _hsWhizPos.distanceTo(_hsAgPos);
       if (passDist < 3 && passDist > 0.3) {
-        playBulletWhiz(closest);
+        playBulletWhiz(_hsWhizPos);
       }
     }
   }
@@ -261,9 +288,9 @@ export function hitscanShot(
     }
 
     const hitCol = hitAgent.team === TEAM_BLUE ? 0x38bdf8 : 0xef4444;
-    spawnImpact(endPoint, hitCol, isHeadshot ? 12 : 6);
-    spawnBloodSplatter(endPoint, dir.clone().normalize());
-    playImpact(endPoint, isHeadshot ? 'headshot' : 'body');
+    spawnImpact(_hsEnd, hitCol, isHeadshot ? 12 : 6);
+    spawnBloodSplatter(_hsEnd, _hsDir);
+    playImpact(_hsEnd, isHeadshot ? 'headshot' : 'body');
     return true;
   }
 
@@ -274,32 +301,34 @@ export function hitscanShot(
     const meshName = (wallHits[0].object.name || '').toLowerCase();
     const surfaceType: 'metal' | 'wood' | 'concrete' = meshName.includes('metal') ? 'metal'
       : meshName.includes('wood') ? 'wood' : 'concrete';
-    spawnWallSparks(endPoint, worldNormal, 6, surfaceType);
-    spawnBulletHole(endPoint, worldNormal);
-    playImpact(endPoint, 'wall');
+    spawnWallSparks(_hsEnd, worldNormal, 6, surfaceType);
+    spawnBulletHole(_hsEnd, worldNormal);
+    playImpact(_hsEnd, 'wall');
 
     // Bullet penetration — high-power hitscan weapons pierce thin walls
     if (wep.isHitscan && wep.damage >= 18 && wallHits[0].distance < wep.range * 0.7) {
-      const penOrigin = endPoint.clone().add(dir.clone().normalize().multiplyScalar(0.3));
+      _hsPenOrigin.copy(_hsDir).multiplyScalar(0.3).add(_hsEnd);
       const remainRange = wep.range - wallHits[0].distance - 0.3;
       if (remainRange > 2) {
         const penRc = gameState.raycaster;
-        penRc.set(penOrigin, dir.clone().normalize());
+        penRc.set(_hsPenOrigin, _hsDir);
         penRc.far = remainRange;
-        // Check for agents behind the wall
+        // Check no second wall blocks — done once before the agent loop,
+        // not per-agent. Previous code issued one intersectObjects per
+        // enemy tested, which was O(enemies × walls) per bullet.
+        const penWalls = penRc.intersectObjects(wallMeshes, false);
+        const blockDist = penWalls.length > 0 ? penWalls[0].distance : Infinity;
         for (const ag of agents) {
           if (ag.isDead) continue;
           if (ownerAgent && ag === ownerAgent) continue;
           if (ownerAgent && !isEnemy(ownerAgent, ag)) continue;
-          const agPos = new THREE.Vector3(ag.position.x, 1.0, ag.position.z);
-          const toAgent = agPos.clone().sub(penOrigin);
-          const proj = toAgent.dot(dir.clone().normalize());
+          _hsAgPos.set(ag.position.x, 1.0, ag.position.z);
+          _hsToAgent.subVectors(_hsAgPos, _hsPenOrigin);
+          const proj = _hsToAgent.dot(_hsDir);
           if (proj < 0 || proj > remainRange) continue;
-          // Check no second wall blocks
-          const penWalls = penRc.intersectObjects(wallMeshes, false);
-          if (penWalls.length > 0 && penWalls[0].distance < proj) continue;
-          const closest = penOrigin.clone().add(dir.clone().normalize().multiplyScalar(proj));
-          const bodyDist = closest.distanceTo(agPos);
+          if (blockDist < proj) continue;
+          _hsClosest.copy(_hsDir).multiplyScalar(proj).add(_hsPenOrigin);
+          const bodyDist = _hsClosest.distanceTo(_hsAgPos);
           if (bodyDist < BODY_HIT_RADIUS) {
             // Wallbang: 30% damage
             const penDmg = wep.damage * 0.3;
@@ -310,11 +339,10 @@ export function hitscanShot(
             }
             // Wallbang hit marker for player
             if (ownerType === 'player') showHitMarker(false, true);
-            const penEnd = closest.clone();
-            spawnTracer(endPoint, penEnd, col);
+            spawnTracer(_hsEnd, _hsClosest, col);
             const hitCol = ag.team === TEAM_BLUE ? 0x38bdf8 : 0xef4444;
-            spawnImpact(penEnd, hitCol, 4);
-            playImpact(penEnd, 'body');
+            spawnImpact(_hsClosest, hitCol, 4);
+            playImpact(_hsClosest, 'body');
             return true;
           }
         }
@@ -461,7 +489,10 @@ export function updateProjectiles(dt: number): void {
     }
 
     if (b.isRocket) {
-      spawnRocketTrail(b.mesh.position.clone());
+      // PERF: spawnRocketTrail used to receive a freshly-cloned Vec3 every
+      // frame of every live rocket. Pass the mesh's own position; the
+      // pooled trail reads-and-copies internally.
+      spawnRocketTrail(b.mesh.position);
       b.mesh.position.x += b.dir.x * b.spd * dt;
       b.mesh.position.y += b.dir.y * b.spd * dt;
       b.mesh.position.z += b.dir.z * b.spd * dt;

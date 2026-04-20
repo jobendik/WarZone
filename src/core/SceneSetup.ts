@@ -13,6 +13,12 @@ export function initScene(): void {
   gameState.camera = camera;
   gameState.renderer = renderer;
   gameState.raycaster = new THREE.Raycaster();
+  // PERF: three-mesh-bvh shortcut — tell every BVH traversal to stop at
+  // the first intersection instead of sorting the full hit list. Every
+  // caller we have (hitscan, pings, movement floor probes, click picker)
+  // only ever reads `hits[0]`, so this is a pure win on the hot bullet
+  // path and the per-frame movement ray.
+  (gameState.raycaster as any).firstHitOnly = true;
   gameState.time = new YUKA.Time();
   gameState.entityManager = new YUKA.EntityManager();
 }

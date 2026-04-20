@@ -287,7 +287,21 @@ async function loadMatchAssets(): Promise<void> {
     initFieldUpgrade();
     initFinishers();
     initEnhancedADS();
-    initDynamicWeather(gameState.scene, getAmbientLight(), getSunLight());
+    // Dramatic initial weather roll — bias heavily toward dark/stormy.
+    // Distribution: 35% storm, 20% overcast, 15% tempest, 10% dusk,
+    // 8% night, 6% rain, 4% fog, 2% clear. Clear exists but is rare so
+    // players mostly drop into moody / chaotic skies.
+    const weatherRoll = Math.random();
+    let initialWeather: 'storm' | 'overcast' | 'tempest' | 'dusk' | 'night' | 'rain' | 'fog' | 'clear';
+    if (weatherRoll < 0.35) initialWeather = 'storm';
+    else if (weatherRoll < 0.55) initialWeather = 'overcast';
+    else if (weatherRoll < 0.70) initialWeather = 'tempest';
+    else if (weatherRoll < 0.80) initialWeather = 'dusk';
+    else if (weatherRoll < 0.88) initialWeather = 'night';
+    else if (weatherRoll < 0.94) initialWeather = 'rain';
+    else if (weatherRoll < 0.98) initialWeather = 'fog';
+    else initialWeather = 'clear';
+    initDynamicWeather(gameState.scene, getAmbientLight(), getSunLight(), gameState.camera, initialWeather);
     initPingSystem();
     initEmotes(gameState.camera);
     initFloatingDamagePool();

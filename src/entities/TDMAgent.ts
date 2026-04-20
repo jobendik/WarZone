@@ -157,7 +157,10 @@ export class TDMAgent extends YUKA.Vehicle {
     this.maxSpeed = cfg.maxSpeed;
     this.maxForce = 12;
     this.mass = 1;
-    this.boundingRadius = 0.65;
+    // Kept small so bots can squeeze through the narrow doorways in
+    // tdm_map.glb — YUKA's neighbor/steering code uses this as the
+    // inflation radius, and 0.65 was too wide to clear 1-metre openings.
+    this.boundingRadius = 0.45;
     this.smoother = new YUKA.Smoother(10);
     this.updateNeighborhood = true;
     this.neighborhoodRadius = 5;

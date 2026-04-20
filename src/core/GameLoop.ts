@@ -24,7 +24,6 @@ import { updateParticles, updateScreenShake, initAmbientDust, updateAmbientDust 
 import { updatePickups } from '@/combat/Pickups';
 import { updateRespawns } from '@/combat/Combat';
 import { updateObjectives } from '@/combat/Objectives';
-import { updateVisuals } from '@/rendering/Visuals';
 import { updateAgentAnimations } from '@/rendering/AgentAnimations';
 import { updateHUD, updateCrosshair, updateCookTimer, updateMatchInfo } from '@/ui/HUD';
 import { drawMinimap } from '@/ui/Minimap';
@@ -260,16 +259,18 @@ export function animate(): void {
       // visuals not needed.
     } else if (isBR) {
       perf.begin('visuals+anims(BR)');
-      updateVisualsLOD();
-      updateAgentAnimationsLOD(dt);
+      updateVisualsLOD(160, 45);
+      updateAgentAnimationsLOD(dt, 100);
       perf.end('visuals+anims(BR)');
     } else {
-      perf.begin('visuals');
-      updateVisuals();
-      perf.end('visuals');
-      perf.begin('agentAnims');
-      updateAgentAnimations(gameState.agents, dt);
-      perf.end('agentAnims');
+      // TDM/modes: skinned-mesh `mixer.update` on 11 bots is still the
+      // single biggest CPU cost per frame during combat. Run both paths
+      // through the LOD helpers with a TDM-tuned radius so bots behind
+      // the player or clear across the map don't pay the animation bill.
+      perf.begin('visuals+anims(TDM)');
+      updateVisualsLOD(120, 40);
+      updateAgentAnimationsLOD(dt, 70);
+      perf.end('visuals+anims(TDM)');
     }
 
     updateDamageArcs(dt);
@@ -354,10 +355,12 @@ export function animate(): void {
  * bars and name tags within viewing range. Inactive agents (including
  * not-yet-landed bots) are handled first so we spend zero time on them.
  */
-function updateVisualsLOD(): void {
+function updateVisualsLOD(renderRange = 160, hpRange = 45): void {
   const { agents, player, camera } = gameState;
   const px = player.position.x;
   const pz = player.position.z;
+  const renderR2 = renderRange * renderRange;
+  const hpR2 = hpRange * hpRange;
 
   for (const ag of agents) {
     if (ag === player) continue;
@@ -373,7 +376,7 @@ function updateVisualsLOD(): void {
     const dz = ag.position.z - pz;
     const d2 = dx * dx + dz * dz;
 
-    if (d2 > 160 * 160) {
+    if (d2 > renderR2) {
       if (ag.renderComponent) ag.renderComponent.visible = false;
       continue;
     }
@@ -381,7 +384,7 @@ function updateVisualsLOD(): void {
     if (ag.renderComponent) ag.renderComponent.visible = true;
 
     if (ag.hpBarGroup) {
-      const showHP = d2 < 45 * 45;
+      const showHP = d2 < hpR2;
       ag.hpBarGroup.visible = showHP;
       if (showHP) {
         ag.hpBarGroup.quaternion.copy(camera.quaternion);
@@ -420,16 +423,17 @@ function updateVisualsLOD(): void {
  * so their render component has no agentAnimController and is skipped
  * by the controller check inside updateAgentAnimations itself.
  */
-function updateAgentAnimationsLOD(dt: number): void {
+function updateAgentAnimationsLOD(dt: number, animRange = 100): void {
   const px = gameState.player.position.x;
   const pz = gameState.player.position.z;
+  const r2 = animRange * animRange;
   const nearAgents: import('@/entities/TDMAgent').TDMAgent[] = [];
 
   for (const ag of gameState.agents) {
     if (ag === gameState.player || ag.isDead || !ag.active) continue;
     const dx = ag.position.x - px;
     const dz = ag.position.z - pz;
-    if (dx * dx + dz * dz < 100 * 100) nearAgents.push(ag);
+    if (dx * dx + dz * dz < r2) nearAgents.push(ag);
   }
 
   updateAgentAnimations(nearAgents, dt);
