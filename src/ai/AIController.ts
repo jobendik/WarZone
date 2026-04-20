@@ -520,7 +520,7 @@ export function updateAI(ag: TDMAgent, dt: number): void {
       } else if (ag.ammo <= 0) {
         ag.isReloading = true;
         ag.reloadTimer = ag.reloadTime;
-        playReload(false, new THREE.Vector3(ag.position.x, 1.2, ag.position.z), ag.weaponId);
+        playReload(false, false, new THREE.Vector3(ag.position.x, 1.2, ag.position.z), ag.weaponId);
         // BotVoice — reload callout
         BotVoice.onReload(agentToCalloutSource(ag));
         if (ag.team === gameState.player.team) {
@@ -602,7 +602,7 @@ export function updateAI(ag: TDMAgent, dt: number): void {
       if (ag.ammo < ag.magSize * 0.6 && Math.random() < 0.02) {
         ag.isReloading = true;
         ag.reloadTimer = ag.reloadTime;
-        playReload(false, new THREE.Vector3(ag.position.x, 1.2, ag.position.z), ag.weaponId);
+        playReload(false, false, new THREE.Vector3(ag.position.x, 1.2, ag.position.z), ag.weaponId);
       }
     }
 
