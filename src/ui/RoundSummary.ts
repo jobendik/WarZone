@@ -1,273 +1,297 @@
 import { gameState } from '@/core/GameState';
-import { TEAM_BLUE } from '@/config/constants';
-import { dom } from './DOMElements';
-import { resetMatch } from '@/combat/Combat';
-import { updateScoreboard } from './Scoreboard';
-import { updateHUD } from './HUD';
-import { matchState, MEDALS, resetMatchMedals } from './Medals';
+import { getProfile, getXpProgress } from '@/core/PlayerProfile';
+import { matchState, MEDALS, type MedalId } from './Medals';
 import { GLYPHS } from './Glyphs';
-import { clearChallenges, getCompletedChallenges, rollChallenges } from './Challenges';
-import { clearFloatingDamage } from './FloatingDamage';
-import { clearAnnouncer } from './Announcer';
-import { getPotgAgent, resetPotg } from '@/combat/Combat';
-import { startPotgReplay, stopPotgReplay } from './Killcam';
-import { rebuildWaypoints } from './Waypoints';
-import { clearPings } from './PingSystem';
-import { startDynamicMusic, stopDynamicMusic } from '@/audio/DynamicMusic';
-import { Audio } from '@/audio/AudioManager';
+import { TEAM_BLUE, TEAM_RED } from '@/config/constants';
+import type { TDMAgent } from '@/entities/TDMAgent';
 
-interface PlayerStats {
-  name: string; team: number; kills: number; deaths: number; isPlayer: boolean;
+/**
+ * RoundSummary — APEX PROTOCOL post-match screen.
+ *
+ * Emits the preview's .vc-* shell into #roundSummary:
+ *   .vc-shell
+ *     .vc-banner       (VICTORY / DEFEAT gradient + final score)
+ *     .vc-mvp          (MVP slate with amber left accent)
+ *     .vc-body (2col)
+ *       Left:  .vc-section-head "PROGRESSION" + .vc-progress-card
+ *              .vc-section-head "ACCOLADES"   + .vc-medals grid
+ *       Right: .vc-section-head "FINAL STANDINGS" + .vc-standings table
+ *     .vc-footer       (▶ NEXT MATCH, RETURN TO LOBBY, hint)
+ *
+ * Public API:
+ *   showRoundSummary(result)
+ *   hideRoundSummary()
+ *   isRoundSummaryOpen()
+ */
+
+export interface RoundSummaryResult {
+  victory: boolean;
+  mode: string;
+  map: string;
+  blueScore: number;
+  redScore: number;
+  xpAwarded: number;
 }
 
-// Persistent across matches via localStorage
-interface Progression {
-  level: number;
-  xp: number;
-  totalMatches: number;
-  totalKills: number;
+export interface RoundSummaryCallbacks {
+  onNextMatch?: () => void;
+  onReturnToLobby?: () => void;
 }
 
-const XP_PER_LEVEL = 1000;
-let _potgTO: ReturnType<typeof setTimeout> | undefined;
-let _xpTO: ReturnType<typeof setTimeout> | undefined;
+let rootEl: HTMLDivElement | null = null;
+let cbs: RoundSummaryCallbacks = {};
+let open = false;
+let keyListener: ((e: KeyboardEvent) => void) | null = null;
 
-function loadProgression(): Progression {
-  try {
-    const raw = localStorage.getItem('warzone_prog');
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { level: 1, xp: 0, totalMatches: 0, totalKills: 0 };
+// Group medals by ID, count occurrences
+function aggregateMedals(): Array<{ id: MedalId; count: number }> {
+  const counts = new Map<MedalId, number>();
+  for (const entry of matchState.medalsEarned) {
+    counts.set(entry.medal, (counts.get(entry.medal) ?? 0) + 1);
+  }
+  const arr = Array.from(counts.entries()).map(([id, count]) => ({ id, count }));
+  // Sort: epic → gold → silver → bronze, then by count desc
+  const tierOrder = { epic: 0, gold: 1, silver: 2, bronze: 3 };
+  arr.sort((a, b) => {
+    const ta = tierOrder[MEDALS[a.id].tier];
+    const tb = tierOrder[MEDALS[b.id].tier];
+    return ta - tb || b.count - a.count;
+  });
+  return arr;
 }
 
-function saveProgression(p: Progression): void {
-  try { localStorage.setItem('warzone_prog', JSON.stringify(p)); } catch {}
-}
-
-export function showRoundSummary(winnerTeam: number): void {
-  gameState.roundOver = true;
-  document.exitPointerLock?.();
-  clearFloatingDamage();
-  clearAnnouncer();
-
-  // Trigger POTG replay if someone scored 3+ kills in a window
-  const potgAgent = getPotgAgent();
-  if (potgAgent && gameState.potgBestScore >= 3) {
-    startPotgReplay(potgAgent);
-    // Auto-stop after 5s (the replay handles its own duration)
-    clearTimeout(_potgTO);
-    _potgTO = setTimeout(() => stopPotgReplay(), 5200);
-  }
-  resetPotg();
-
-  const prog = loadProgression();
-  const startLevel = prog.level;
-  const startXP = prog.xp;
-  const earnedXP = matchState.playerXP;
-
-  prog.xp += earnedXP;
-  prog.totalMatches++;
-  prog.totalKills += gameState.pKills;
-  const leveledUp = prog.xp >= prog.level * XP_PER_LEVEL;
-  while (prog.xp >= prog.level * XP_PER_LEVEL) {
-    prog.xp -= prog.level * XP_PER_LEVEL;
-    prog.level++;
-  }
-  saveProgression(prog);
-
-  // Build roster
-  const stats: PlayerStats[] = [];
-  for (const ag of gameState.agents) {
-    const isPlayer = ag === gameState.player;
-    stats.push({
-      name: isPlayer ? 'YOU' : ag.name,
-      team: ag.team,
-      kills: isPlayer ? gameState.pKills : ag.kills,
-      deaths: isPlayer ? gameState.pDeaths : ag.deaths,
-      isPlayer,
-    });
-  }
-  stats.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-
-  const playerTeam = gameState.player.team;
-  const isVictory = gameState.mode === 'ffa'
-    ? stats[0].isPlayer
-    : winnerTeam === playerTeam;
-
-  // Result banner
-  dom.rsResult.textContent = isVictory ? 'VICTORY' : 'DEFEAT';
-  dom.rsResult.style.color = isVictory ? '#22d66a' : '#ef4444';
-
-  stopDynamicMusic();
-  if (isVictory) {
-    const victoryClips = ['victory', 'mission_accomplished', 'outstanding_work'];
-    Audio.play(victoryClips[Math.floor(Math.random() * victoryClips.length)]);
-    Audio.play('music_victory');
-  } else {
-    const defeatClips = ['defeat', 'mission_failed', 'returning_to_base', 'stand_down', 'get_them_next_time'];
-    Audio.play(defeatClips[Math.floor(Math.random() * defeatClips.length)]);
-    Audio.play('music_defeat');
-  }
-
-  // Team score or FFA
-  if (gameState.mode === 'ffa') {
-    dom.rsTeamScore.textContent = `FFA · ${gameState.pKills} KILLS · RANK #${stats.findIndex(s => s.isPlayer) + 1}`;
-  } else {
-    dom.rsTeamScore.innerHTML = `
-      <span style="color:var(--blue)">BLUE ${gameState.teamScores[0]}</span>
-      <span style="color:var(--muted); margin: 0 12px">—</span>
-      <span style="color:var(--red)">${gameState.teamScores[1]} RED</span>
-    `;
-  }
-
-  // ── XP / Level-up panel ──
-  const endPct = leveledUp ? 100 : (prog.xp / (prog.level * XP_PER_LEVEL)) * 100;
-  const startPct = (startXP / (startLevel * XP_PER_LEVEL)) * 100;
-
-  dom.rsMvp.innerHTML = `
-    <div class="prog-level-row">
-      <div class="prog-level-badge">
-        <div class="prog-level-num">${startLevel}</div>
-        <div class="prog-level-lbl">LVL</div>
-      </div>
-      <div class="prog-bar-wrap">
-        <div class="prog-bar">
-          <div class="prog-bar-old" style="width:${startPct}%"></div>
-          <div class="prog-bar-new" id="progBarNew" style="width:${startPct}%"></div>
-        </div>
-        <div class="prog-xp-text">
-          <span id="progXpCount">+0</span> XP
-          ${leveledUp ? '<span class="prog-levelup">LEVEL UP!</span>' : ''}
-        </div>
-      </div>
-      <div class="prog-level-badge ${leveledUp ? 'new' : ''}">
-        <div class="prog-level-num">${prog.level}</div>
-        <div class="prog-level-lbl">LVL</div>
-      </div>
-    </div>
-  `;
-
-  // Animate XP count up
-  clearTimeout(_xpTO);
-  _xpTO = setTimeout(() => {
-    const bar = document.getElementById('progBarNew');
-    const text = document.getElementById('progXpCount');
-    if (bar) bar.style.width = `${endPct}%`;
-    if (text) {
-      const start = performance.now();
-      const dur = 1200;
-      const tick = (t: number) => {
-        const p = Math.min(1, (t - start) / dur);
-        const eased = 1 - Math.pow(1 - p, 3);
-        text.textContent = `+${Math.floor(earnedXP * eased)}`;
-        if (p < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }
-  }, 900);
-
-  // ── Medals earned this match ──
-  const medalIds = matchState.medalsEarned.map(m => m.medal);
-  const uniqueMedals = [...new Set(medalIds)];
-  const medalCounts = uniqueMedals.map(id => ({
-    id, count: medalIds.filter(x => x === id).length, def: MEDALS[id],
-  }));
-
-  dom.rsPodium.innerHTML = `
-    <div class="rs-section-header">ACCOLADES</div>
-    <div class="rs-medals-grid">
-      ${medalCounts.length === 0
-        ? '<div class="rs-no-medals">No medals earned this match</div>'
-        : medalCounts.map(m => `
-          <div class="rs-medal-card" style="border-color:${m.def.color}">
-            <div class="rs-medal-icon" style="color:${m.def.color}">${GLYPHS[m.def.glyph]}</div>
-            <div class="rs-medal-name" style="color:${m.def.color}">${m.def.name}</div>
-            ${m.count > 1 ? `<div class="rs-medal-x">×${m.count}</div>` : ''}
-          </div>
-        `).join('')}
-    </div>
-  `;
-
-  // ── Challenges completed ──
-  const completed = getCompletedChallenges();
-  const challengeHtml = completed.length > 0 ? `
-    <div class="rs-section-header">CHALLENGES COMPLETE</div>
-    <div class="rs-challenges">
-      ${completed.map(c => `
-        <div class="rs-challenge-done">
-          <span class="rs-ch-icon">${c.icon}</span>
-          <span class="rs-ch-label">${c.label}</span>
-          <span class="rs-ch-xp">+${c.xp} XP</span>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
-
-  // ── Personal combat stats ──
-  const accuracy = gameState.pShotsFired > 0
-    ? Math.round((gameState.pShotsHit / gameState.pShotsFired) * 100) : 0;
-  const hsRate = gameState.pShotsHit > 0
-    ? Math.round((gameState.pHeadshots / gameState.pShotsHit) * 100) : 0;
-
-  const combatHtml = `
-    <div class="rs-section-header">COMBAT STATS</div>
-    <div class="rs-combat-stats">
-      <div class="rs-combat-stat"><span class="rs-cs-val">${gameState.pShotsFired}</span><span class="rs-cs-lbl">SHOTS</span></div>
-      <div class="rs-combat-stat"><span class="rs-cs-val">${gameState.pShotsHit}</span><span class="rs-cs-lbl">HITS</span></div>
-      <div class="rs-combat-stat"><span class="rs-cs-val">${accuracy}%</span><span class="rs-cs-lbl">ACCURACY</span></div>
-      <div class="rs-combat-stat"><span class="rs-cs-val">${gameState.pHeadshots}</span><span class="rs-cs-lbl">HEADSHOTS</span></div>
-      <div class="rs-combat-stat"><span class="rs-cs-val">${hsRate}%</span><span class="rs-cs-lbl">HS RATE</span></div>
-    </div>
-  `;
-
-  // ── MVP banner ──
-  const mvp = stats[0];
-  const mvpKd = mvp.deaths > 0 ? (mvp.kills / mvp.deaths).toFixed(2) : mvp.kills.toFixed(2);
-  const mvpLabel = mvp.isPlayer ? 'YOU' : mvp.name;
-  const mvpTeamCol = gameState.mode === 'ffa' ? 'var(--gold)' : (mvp.team === TEAM_BLUE ? 'var(--blue)' : 'var(--red)');
-
-  // ── Scoreboard ──
-  const scoreboardHtml = `
-    <div class="rs-section-header">MVP</div>
-    <div class="rs-mvp-card" style="border-color:${mvpTeamCol}">
-      <span class="rs-mvp-icon">★</span>
-      <span class="rs-mvp-name" style="color:${mvpTeamCol}">${mvpLabel}</span>
-      <span class="rs-mvp-kd">${mvp.kills}K / ${mvp.deaths}D (${mvpKd})</span>
-    </div>
-    <div class="rs-section-header">FINAL STANDINGS</div>
-    <div class="rs-stats-grid">
-      ${stats.slice(0, 6).map((s, i) => {
-        const kd = s.deaths > 0 ? (s.kills / s.deaths).toFixed(2) : s.kills.toFixed(2);
-        const teamCol = gameState.mode === 'ffa' ? 'var(--text)' : (s.team === TEAM_BLUE ? 'var(--blue)' : 'var(--red)');
-        return `
-          <div class="rs-stat-row ${s.isPlayer ? 'me' : ''}">
-            <span class="rs-rank">#${i + 1}</span>
-            <span class="rs-name" style="color:${teamCol}">${s.name}</span>
-            <span class="rs-kd">${s.kills}<span class="rs-sep">/</span>${s.deaths}</span>
-            <span class="rs-kdr">${kd}</span>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-
-  dom.rsStats.innerHTML = combatHtml + challengeHtml + scoreboardHtml;
-
-  dom.rsBtn.textContent = 'DEPLOY AGAIN';
-  dom.rsBtn.onclick = () => {
-    resetMatchMedals();
-    clearChallenges();
-    rollChallenges(3);
-    resetMatch(gameState.mode);
-    rebuildWaypoints();
-    startDynamicMusic();
-    Audio.startEnvironmentAmbience();
-    clearPings();
-    updateScoreboard();
-    updateHUD();
-    dom.roundSummary.classList.remove('on');
-    setTimeout(() => gameState.renderer?.domElement?.requestPointerLock(), 100);
+// Pick MVP — highest-score agent on either team
+function computeMVP(): {
+  name: string; team: number; isPlayer: boolean;
+  kills: number; deaths: number; assists: number; score: number;
+} {
+  const player = gameState.player;
+  const playerRow = {
+    name:    player?.name ?? 'OPERATOR',
+    team:    player?.team ?? TEAM_BLUE,
+    isPlayer: true,
+    kills:   gameState.pKills ?? 0,
+    deaths:  gameState.pDeaths ?? 0,
+    assists: gameState.pAssists ?? 0,
+    score:   gameState.pScore ?? (gameState.pKills ?? 0) * 100,
   };
 
-  dom.roundSummary.classList.add('on');
+  let best = playerRow;
+  for (const ag of (gameState.agents ?? []) as TDMAgent[]) {
+    if (!ag || ag === player) continue;
+    const score = (ag as any).score ?? (ag.kills ?? 0) * 100;
+    if (score > best.score) {
+      best = {
+        name:   ag.name ?? '—',
+        team:   ag.team ?? TEAM_BLUE,
+        isPlayer: false,
+        kills:  ag.kills ?? 0,
+        deaths: ag.deaths ?? 0,
+        assists: ag.assists ?? 0,
+        score,
+      };
+    }
+  }
+  return best;
+}
+
+function buildStandingsRows(): Array<{
+  rank: number; name: string; team: number; isPlayer: boolean;
+  kills: number; deaths: number; score: number;
+}> {
+  const player = gameState.player;
+  const rows: Array<any> = [];
+  if (player) {
+    rows.push({
+      name:    player.name ?? 'YOU',
+      team:    player.team ?? TEAM_BLUE,
+      isPlayer: true,
+      kills:   gameState.pKills ?? 0,
+      deaths:  gameState.pDeaths ?? 0,
+      score:   gameState.pScore ?? 0,
+    });
+  }
+  for (const ag of (gameState.agents ?? []) as TDMAgent[]) {
+    if (!ag || ag === player) continue;
+    rows.push({
+      name:   ag.name ?? '—',
+      team:   ag.team ?? TEAM_BLUE,
+      isPlayer: false,
+      kills:  ag.kills ?? 0,
+      deaths: ag.deaths ?? 0,
+      score:  (ag as any).score ?? (ag.kills ?? 0) * 100,
+    });
+  }
+  rows.sort((a, b) => b.score - a.score);
+  return rows.slice(0, 6).map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+// ── Render ─────────────────────────────────────────────────────────────
+function render(result: RoundSummaryResult): string {
+  const profile = getProfile();
+  const xp = getXpProgress();
+  const pctInLevel = xp.needed > 0 ? (xp.current / xp.needed) * 100 : 100;
+  const mvp = computeMVP();
+  const mvpIsYou = mvp.isPlayer;
+  const standings = buildStandingsRows();
+  const medals = aggregateMedals();
+
+  const resultCls = result.victory ? '' : 'defeat';
+  const resultText = result.victory ? 'VICTORY' : 'DEFEAT';
+  const kicker = `// MATCH CONCLUDED · ${result.map.toUpperCase()}`;
+  const friendlyScore = mvp.team === TEAM_RED ? result.redScore : result.blueScore;
+  const hostileScore  = mvp.team === TEAM_RED ? result.blueScore : result.redScore;
+
+  const medalsHTML = medals.length > 0
+    ? medals.map(({ id, count }) => {
+        const def = MEDALS[id];
+        const glyph = GLYPHS[def.glyph] ?? '';
+        return (
+          `<div class="vc-medal ${def.tier}">` +
+            `<div class="vc-medal-ico">${glyph}</div>` +
+            `<div class="vc-medal-name">${escapeHTML(def.name)}</div>` +
+            (count > 1 ? `<div class="vc-medal-count">×${count}</div>` : '') +
+          `</div>`
+        );
+      }).join('')
+    : '<div style="padding:20px;color:var(--mute);font-family:var(--f-num);font-size:11px;letter-spacing:.2em">NO MEDALS EARNED</div>';
+
+  const standingsHTML = standings.map((r) => {
+    const rowClasses = ['vc-st-row'];
+    if (r.isPlayer) rowClasses.push('me');
+    const nameCls = r.team === TEAM_BLUE ? 'friendly' : r.team === TEAM_RED ? 'hostile' : '';
+    return (
+      `<div class="${rowClasses.join(' ')}">` +
+        `<span class="vc-st-rank">${String(r.rank).padStart(2, '0')}</span>` +
+        `<span class="vc-st-name ${nameCls}">${escapeHTML(r.name)}</span>` +
+        `<span class="vc-st-kd">${r.kills}</span>` +
+        `<span class="vc-st-kd">${r.deaths}</span>` +
+        `<span class="vc-st-score">${r.score.toLocaleString()}</span>` +
+      `</div>`
+    );
+  }).join('');
+
+  const newLevel = profile.level;
+  const oldLevel = Math.max(1, newLevel - (xp.current < result.xpAwarded ? 1 : 0));
+  const leveledUp = newLevel > oldLevel;
+
+  return `
+    <div class="arena-bg"></div>
+
+    <div class="vc-shell">
+
+      <div class="vc-banner">
+        <div class="vc-result-wrap">
+          <div class="vc-result-kicker">${escapeHTML(kicker)}</div>
+          <div class="vc-result ${resultCls}">${resultText}</div>
+        </div>
+        <div class="vc-score-block">
+          <div class="vc-score-row">
+            <span class="f">${friendlyScore}</span>
+            <span class="sep">/</span>
+            <span class="h">${hostileScore}</span>
+          </div>
+          <div class="vc-score-label">${escapeHTML(result.mode.toUpperCase())} · ${escapeHTML(result.map.toUpperCase())}</div>
+        </div>
+      </div>
+
+      <div class="vc-mvp">
+        <div class="vc-mvp-tag">★</div>
+        <div>
+          <div class="vc-mvp-name-row">${mvpIsYou ? 'MVP — YOU' : `MVP — ${escapeHTML(mvp.name)}`}</div>
+          <div class="vc-mvp-stats">
+            <span>KILLS <b>${mvp.kills}</b></span>
+            <span>DEATHS <b>${mvp.deaths}</b></span>
+            <span>K/D <b>${mvp.deaths === 0 ? mvp.kills.toFixed(2) : (mvp.kills / mvp.deaths).toFixed(2)}</b></span>
+            <span>SCORE <b>${mvp.score.toLocaleString()}</b></span>
+          </div>
+        </div>
+        <div class="vc-mvp-xp">+${result.xpAwarded.toLocaleString()} XP</div>
+      </div>
+
+      <div class="vc-body">
+        <div>
+          <div class="vc-section-head">PROGRESSION</div>
+          <div class="vc-progress-card">
+            <div class="vc-prog-row">
+              <div class="vc-lvl-badge">${oldLevel}</div>
+              <div>
+                <div class="vc-xp-rail" style="--xp-pct:${pctInLevel.toFixed(1)}%"></div>
+                <div class="vc-xp-meta">
+                  <span>LVL ${newLevel} · ${xp.current.toLocaleString()} XP</span>
+                  <span><b>+${result.xpAwarded.toLocaleString()}</b> → LVL ${newLevel + 1}</span>
+                </div>
+              </div>
+              <div class="vc-lvl-badge ${leveledUp ? 'new' : ''}">${newLevel + (leveledUp ? 1 : 0)}</div>
+            </div>
+          </div>
+
+          <div class="vc-section-head">ACCOLADES</div>
+          <div class="vc-medals">${medalsHTML}</div>
+        </div>
+
+        <div>
+          <div class="vc-section-head">FINAL STANDINGS</div>
+          <div class="vc-standings">
+            <div class="vc-st-head">
+              <span>#</span><span>OPERATOR</span><span>K</span><span>D</span><span>SCORE</span>
+            </div>
+            ${standingsHTML}
+          </div>
+        </div>
+      </div>
+
+      <div class="vc-footer">
+        <button class="vc-btn-primary" id="vcNext">▶ NEXT MATCH</button>
+        <button class="vc-btn-secondary" id="vcLobby">RETURN TO LOBBY</button>
+        <span class="vc-hint">[SPACE] CONTINUE · [TAB] EXTENDED SCORECARD</span>
+      </div>
+
+    </div>
+  `;
+}
+
+// ── Public API ────────────────────────────────────────────────────────
+export function initRoundSummary(callbacks: RoundSummaryCallbacks = {}): void {
+  cbs = { ...cbs, ...callbacks };
+}
+
+export function showRoundSummary(result: RoundSummaryResult): void {
+  if (!rootEl) rootEl = document.getElementById('roundSummary') as HTMLDivElement;
+  if (!rootEl) return;
+
+  rootEl.innerHTML = render(result);
+  rootEl.classList.add('on');
+  open = true;
+
+  // Wire buttons
+  const nextBtn  = rootEl.querySelector('#vcNext')  as HTMLButtonElement | null;
+  const lobbyBtn = rootEl.querySelector('#vcLobby') as HTMLButtonElement | null;
+  nextBtn?.addEventListener('click', () => { hideRoundSummary(); cbs.onNextMatch?.(); });
+  lobbyBtn?.addEventListener('click', () => { hideRoundSummary(); cbs.onReturnToLobby?.(); });
+
+  // Keyboard shortcuts
+  if (!keyListener) {
+    keyListener = (e: KeyboardEvent) => {
+      if (!open) return;
+      if (e.code === 'Space')  { e.preventDefault(); hideRoundSummary(); cbs.onNextMatch?.(); }
+      if (e.code === 'Escape') { e.preventDefault(); hideRoundSummary(); cbs.onReturnToLobby?.(); }
+    };
+    window.addEventListener('keydown', keyListener, true);
+  }
+
+  document.exitPointerLock?.();
+}
+
+export function hideRoundSummary(): void {
+  if (rootEl) rootEl.classList.remove('on');
+  open = false;
+}
+
+export function isRoundSummaryOpen(): boolean { return open; }
+
+function escapeHTML(s: string): string {
+  return String(s).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]!));
 }
