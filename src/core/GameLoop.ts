@@ -197,7 +197,7 @@ export function animate(): void {
     updateDynamicWeather(dt, gameState.camera.position);
     updateFieldUpgrade(dt);
     updateSprays();
-    updatePingSystem(dt, gameState.camera as any);
+    updatePingSystem(dt);
 
     // Mode-specific updates
     if (gameState.mode === 'domination') updateDomination(dt);
