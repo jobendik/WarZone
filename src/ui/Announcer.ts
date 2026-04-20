@@ -1,57 +1,34 @@
 /**
- * Announcer — big center-top editorial callouts.
+ * Announcer — APEX PROTOCOL center-top tactical callouts.
  *
- * Pipeline:
- *   announce(text, opts)  →  queue
- *   updateAnnouncer(dt)   →  dequeue → render → fade
- *   clearAnnouncer()      →  drop all
+ * Writes to the preview's real selectors:
+ *   #announcer.hud-announce (with tier class + .letterbox for epic)
+ *     .an-kicker   "// ZONE B · 87% CAPTURED"
+ *     .an-text     "HOLD THE LINE"
+ *     .an-sub      "BLUE TEAM — PUSH SECONDARY"
  *
- * EXTRA IDEA #1 — Letterbox bars.
- * Epic-tier announcements automatically get the `letterbox` class on
- * #announcer, which triggers the amber→hazard gradient bars that sweep
- * in from top and bottom of the viewport for 1.2s.  The CSS
- * (@keyframes letterboxIn in index.css) does all the work — this file
- * just toggles the class at the right moment.
+ * Tier classes on #announcer: .anc-small / .anc-medium / .anc-large / .anc-epic
+ * Epic tier also gets `.letterbox` → triggers amber bar sweep from CSS.
+ *
+ * Public API preserved:
+ *   announce(text, opts)
+ *   updateAnnouncer(dt)
+ *   clearAnnouncer()
  */
 
 export type AnnouncementTier = 'small' | 'medium' | 'large' | 'epic';
 
 interface Announcement {
+  kicker?: string;
   text: string;
   sub?: string;
   tier: AnnouncementTier;
-  color: string;
   duration: number;
 }
 
 const queue: Announcement[] = [];
 let current: Announcement | null = null;
 let timer = 0;
-let el: HTMLDivElement | null = null;
-
-function ensureEl(): HTMLDivElement {
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'announcer';
-  el.innerHTML = `
-    <div class="anc-text" id="ancText"></div>
-    <div class="anc-sub" id="ancSub"></div>
-    <div class="anc-glow" id="ancGlow"></div>
-  `;
-  document.body.appendChild(el);
-  return el;
-}
-
-export function announce(text: string, opts: Partial<Omit<Announcement, 'text'>> = {}): void {
-  queue.push({
-    text: text.toUpperCase(),
-    sub: opts.sub,
-    tier: opts.tier ?? 'medium',
-    // Default color now matches the APEX signal amber, not the old gold.
-    color: opts.color ?? '#ff8c1a',
-    duration: opts.duration ?? 2.0,
-  });
-}
 
 const TIER_CLASS: Record<AnnouncementTier, string> = {
   small:  'anc-small',
@@ -60,16 +37,35 @@ const TIER_CLASS: Record<AnnouncementTier, string> = {
   epic:   'anc-epic',
 };
 
+function el(): HTMLElement | null { return document.getElementById('announcer'); }
+function kickerEl(): HTMLElement | null { return document.getElementById('ancKicker'); }
+function textEl(): HTMLElement | null   { return document.getElementById('ancText'); }
+function subEl(): HTMLElement | null    { return document.getElementById('ancSub'); }
+
+export function announce(
+  text: string,
+  opts: Partial<Omit<Announcement, 'text'>> & { color?: string } = {},
+): void {
+  queue.push({
+    kicker:   opts.kicker,
+    text:     text.toUpperCase(),
+    sub:      opts.sub,
+    tier:     opts.tier ?? 'medium',
+    duration: opts.duration ?? 2.0,
+  });
+}
+
 export function updateAnnouncer(dt: number): void {
-  const root = ensureEl();
+  const root = el();
+  if (!root) return;
 
   if (current) {
     timer -= dt;
     if (timer <= 0) {
-      // Strip BOTH the .on class and .letterbox so the bars unwind.
-      root.classList.remove('on', 'letterbox');
+      root.classList.remove('on', 'letterbox', 'anc-small', 'anc-medium', 'anc-large', 'anc-epic');
+      root.style.display = 'none';
       current = null;
-      timer = 0.25; // brief gap before next announcement
+      timer = 0.25;
       return;
     }
   } else if (timer > 0) {
@@ -79,30 +75,30 @@ export function updateAnnouncer(dt: number): void {
     current = queue.shift()!;
     timer = current.duration;
 
-    const textEl = document.getElementById('ancText')!;
-    const subEl  = document.getElementById('ancSub')!;
-    const glowEl = document.getElementById('ancGlow')!;
-
-    textEl.textContent = current.text;
-    subEl.textContent  = current.sub ?? '';
-    subEl.style.display = current.sub ? 'block' : 'none';
-
-    // Reset class set, then apply tier + .on.
-    root.className = '';
-    root.id = 'announcer';
-    root.classList.add(TIER_CLASS[current.tier], 'on');
-
-    // EXTRA IDEA #1 — letterbox bars for EPIC tier only.
-    // The CSS keyframe `letterboxIn` runs on pseudos of #announcer.letterbox.
-    if (current.tier === 'epic') {
-      root.classList.add('letterbox');
+    const k = kickerEl(), t = textEl(), s = subEl();
+    if (k) {
+      if (current.kicker) {
+        k.textContent = current.kicker;
+        k.style.display = 'inline-block';
+      } else {
+        k.style.display = 'none';
+      }
+    }
+    if (t) t.textContent = current.text;
+    if (s) {
+      if (current.sub) {
+        s.textContent = current.sub;
+        s.style.display = 'block';
+      } else {
+        s.style.display = 'none';
+      }
     }
 
-    textEl.style.color = current.color;
-    textEl.style.textShadow =
-      `0 0 24px ${current.color}, 0 0 48px ${current.color}, 0 2px 6px rgba(0,0,0,0.9)`;
-    glowEl.style.background =
-      `radial-gradient(ellipse at center, ${current.color}22 0%, transparent 60%)`;
+    // Reset classes, then apply tier + .on
+    root.classList.remove('anc-small', 'anc-medium', 'anc-large', 'anc-epic', 'letterbox');
+    root.classList.add(TIER_CLASS[current.tier], 'on');
+    if (current.tier === 'epic') root.classList.add('letterbox');
+    root.style.display = 'block';
   }
 }
 
@@ -110,5 +106,9 @@ export function clearAnnouncer(): void {
   queue.length = 0;
   current = null;
   timer = 0;
-  if (el) el.classList.remove('on', 'letterbox');
+  const root = el();
+  if (root) {
+    root.classList.remove('on', 'letterbox', 'anc-small', 'anc-medium', 'anc-large', 'anc-epic');
+    root.style.display = 'none';
+  }
 }
