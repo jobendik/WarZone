@@ -1,79 +1,101 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   APEX PROTOCOL — drop-in replacement for src/styles/index.css
+   APEX PROTOCOL — Warzone TDM UI System
+   Drop-in replacement for src/styles/index.css
 
-   Targets the EXISTING Warzone TDM DOM. No markup changes required.
-   Preserves every ID/class from the current index.html + src/ui/*.
+   • All styles for: HUD · MainMenu · Pause · Settings · Victory ·
+     Loading · Medals · Contracts · Killfeed · Minimap · Compass ·
+     Announcer · CommWheel · Waypoints · Killcam/POTG · ColorBlind
+   • Preserves every ID/class currently in index.html and src/ui/*
+   • Adds the five "EXTRA IDEAS" — letterbox announcer, POTG type-reveal,
+     killcam chromatic aberration, comm-wheel reskin, intel ticker.
+   • No more conflicting duplicate #matchInfo rules.
 
-   ADD THESE FONTS to index.html <head> (one additional stylesheet link):
-   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Chakra+Petch:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+   REQUIRED FONTS — add this line to index.html <head>:
+   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Chakra+Petch:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
 
-   Aesthetic: "APEX PROTOCOL" — editorial tactical. Signal amber on carbon
-   black. Brutal tabular numerals, corner brackets, hairline rules,
-   subtle scanline + film grain. Primary accent is AMBER, not blue.
+   Aesthetic: editorial tactical. Signal amber on carbon black.
+   Brutal tabular numerals, corner brackets, hairline rules, subtle
+   scanline + film grain. Amber is the SYSTEM voice, cyan is FRIENDLY,
+   hazard-red is HOSTILE.
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Surface */
-  --void: #06070b;
-  --carbon: #0a0c12;
-  --panel-solid: #0d1018;
-  --bg: #06070b;
-  --bg-darker: #03040a;
-  --steel-900: #0d1018;
-  --steel-800: #131823;
-  --steel-700: #1c2333;
-  --steel-600: #2a3246;
-  --graphite: #3a4458;
-  --panel: rgba(6, 7, 11, 0.82);
+  /* ── Surface ────────────────────────────────────────────── */
+  --void:        #06070b;
+  --carbon:      #0a0c12;
+  --steel-900:   #0d1018;
+  --steel-800:   #131823;
+  --steel-700:   #1c2333;
+  --steel-600:   #2a3246;
+  --graphite:    #3a4458;
+  --panel:       rgba(6, 7, 11, 0.82);
   --panel-dense: rgba(6, 7, 11, 0.92);
-  --hairline: rgba(233, 236, 241, 0.08);
-  --hairline-strong: rgba(233, 236, 241, 0.18);
-  --border: rgba(233, 236, 241, 0.12);
-  --border-strong: rgba(255, 140, 26, 0.35);
+  --hairline:          rgba(233, 236, 241, 0.08);
+  --hairline-strong:   rgba(233, 236, 241, 0.18);
+  --hairline-accent:   rgba(255, 140, 26, 0.35);
 
-  /* Type */
-  --text: #e9ecf1;
-  --bone: #e9ecf1;
-  --text-dim: #b5bcc8;
-  --muted: #6d7689;
-  --ghost: #3f4758;
+  /* Legacy aliases (kept for existing code) */
+  --bg:         var(--void);
+  --bg-darker:  #03040a;
+  --panel-solid:#0d1018;
+  --border:         var(--hairline);
+  --border-strong:  var(--hairline-accent);
 
-  /* Signal — PRIMARY ACCENT IS AMBER */
-  --signal: #ff8c1a;
+  /* ── Type ───────────────────────────────────────────────── */
+  --bone:     #e9ecf1;
+  --bone-dim: #b5bcc8;
+  --mute:     #6d7689;
+  --ghost:    #3f4758;
+  --text:     var(--bone);
+  --text-dim: var(--bone-dim);
+  --muted:    var(--mute);
+
+  /* ── Signal — primary accent is AMBER ───────────────────── */
+  --signal:     #ff8c1a;
   --signal-hot: #ffa73a;
   --signal-dim: #a85a0f;
   --signal-glow: rgba(255, 140, 26, 0.55);
-  --amber: #ff8c1a;
-  --gold: #ffa73a;
+  --amber:    var(--signal);
+  --gold:     var(--signal-hot);
 
-  /* Teams */
-  --blue: #39f0ff;
-  --blue-glow: #39f0ff;
-  --team-blue: #39f0ff;
-  --cyan: #39f0ff;
-  --cyan-glow: rgba(57, 240, 255, 0.45);
-  --red: #ff3d2e;
-  --red-glow: #ff3d2e;
-  --team-red: #ff3d2e;
-  --hazard: #ff3d2e;
+  /* ── Team / semantic states ─────────────────────────────── */
+  --cyan:       #39f0ff;
+  --cyan-glow:  rgba(57, 240, 255, 0.45);
+  --hazard:     #ff3d2e;
   --hazard-glow: rgba(255, 61, 46, 0.55);
+  --toxic:      #b8ff3d;
+  --purple:     #c27bff;
+  --blood:      #8a1717;
+  --team-friendly: var(--cyan);
+  --team-hostile:  var(--hazard);
 
-  /* States */
-  --green: #b8ff3d;
-  --toxic: #b8ff3d;
-  --purple: #c27bff;
-  --blood: #8a1717;
+  /* Legacy team aliases */
+  --blue:      var(--cyan);
+  --blue-glow: var(--cyan);
+  --team-blue: var(--cyan);
+  --red:       var(--hazard);
+  --red-glow:  var(--hazard);
+  --team-red:  var(--hazard);
+  --green:     var(--toxic);
 
-  /* Type faces */
-  --hud-font: 'Syncopate', 'Chakra Petch', system-ui, sans-serif;
-  --display-font: 'Archivo Black', 'Syncopate', sans-serif;
-  --body-font: 'Chakra Petch', 'Exo 2', system-ui, sans-serif;
-  --mono-font: 'JetBrains Mono', ui-monospace, 'Consolas', monospace;
-  --tactical-font: 'Syncopate', 'Chakra Petch', sans-serif;
+  /* ── Type faces ─────────────────────────────────────────── */
+  --f-display:  'Archivo Black', 'Syncopate', sans-serif;
+  --f-tactical: 'Syncopate', 'Chakra Petch', sans-serif;
+  --f-ui:       'Chakra Petch', system-ui, sans-serif;
+  --f-num:      'JetBrains Mono', ui-monospace, 'Consolas', monospace;
+  --f-body:     'Exo 2', 'Chakra Petch', system-ui, sans-serif;
 
-  /* Motion */
-  --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
-  --ease-snap: cubic-bezier(.2, .9, .2, 1.1);
+  /* Legacy font aliases (keep old code compiling) */
+  --display-font:  var(--f-display);
+  --tactical-font: var(--f-tactical);
+  --hud-font:      var(--f-tactical);
+  --body-font:     var(--f-ui);
+  --mono-font:     var(--f-num);
+
+  /* ── Motion ─────────────────────────────────────────────── */
+  --ease-out-expo:    cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out-quint: cubic-bezier(.83, 0, .17, 1);
+  --ease-snap:        cubic-bezier(.2, .9, .2, 1.1);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -82,75 +104,106 @@ html, body {
   width: 100%; height: 100%;
   overflow: hidden;
   background: var(--void);
-  color: var(--text);
-  font-family: var(--body-font);
+  color: var(--bone);
+  font-family: var(--f-ui);
   -webkit-font-smoothing: antialiased;
 }
 
 #cw { position: fixed; inset: 0; z-index: 0; }
 canvas { display: block; cursor: none; }
 
-/* Film grain + scanlines — only during matches to keep the menu clean */
+/* ── Global atmosphere — film grain + scanlines during matches ── */
 body.in-match::before,
 body.in-match::after {
-  content: ''; position: fixed; inset: 0;
-  pointer-events: none; z-index: 99;
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 98;
 }
 body.in-match::before {
-  background: repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 3px);
-  mix-blend-mode: overlay; opacity: .5;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+  opacity: .6;
 }
 body.in-match::after {
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .12 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  opacity: .06; mix-blend-mode: soft-light;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .15 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: .07;
+  mix-blend-mode: soft-light;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CORNER-BRACKET UTILITY
+   Any panel that should read as a tactical slate gets this treatment.
+   ═══════════════════════════════════════════════════════════════════════ */
+.br, .br4 { position: relative; }
+.br::before, .br::after,
+.br4::before, .br4::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 1px solid var(--signal);
+  pointer-events: none;
+}
+.br::before,  .br4::before  { top:    -1px; left:  -1px; border-right: 0; border-bottom: 0; }
+.br::after,   .br4::after   { bottom: -1px; right: -1px; border-left:  0; border-top:    0; }
+.br4 > .br-tr, .br4 > .br-bl {
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 1px solid var(--signal);
+  pointer-events: none;
+}
+.br4 > .br-tr { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
+.br4 > .br-bl { bottom: -1px; left: -1px; border-right: 0; border-top: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    DAMAGE OVERLAYS
    ═══════════════════════════════════════════════════════════════════════ */
 #dmg {
   position: fixed; inset: 0; z-index: 2;
+  pointer-events: none; opacity: 0;
   background:
     radial-gradient(ellipse at center, transparent 30%, rgba(255,61,46,.45) 100%),
     linear-gradient(180deg, rgba(255,61,46,.08), transparent 10%, transparent 90%, rgba(255,61,46,.08));
-  pointer-events: none; opacity: 0;
   transition: opacity 0.12s ease-out;
 }
 #hlf {
   position: fixed; inset: 0; z-index: 2;
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(184,255,61,.26) 100%);
   pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(184,255,61,.26) 100%);
   transition: opacity 0.18s ease-out;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   DAMAGE ARCS
+   DAMAGE ARCS — compass-point indicators of incoming fire
    ═══════════════════════════════════════════════════════════════════════ */
-#dmgArcs { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+#dmgArcs {
+  position: fixed; inset: 0; z-index: 4; pointer-events: none;
+}
 .dmg-arc {
   position: absolute; top: 50%; left: 50%;
   width: 160px; height: 3px;
   margin-left: -80px; transform-origin: 80px 1.5px;
   background: linear-gradient(90deg, transparent, var(--hazard) 40%, var(--hazard));
   box-shadow: 0 0 14px var(--hazard), 0 0 2px rgba(255,255,255,.5);
-  opacity: 0; transition: opacity 0.35s ease-out;
+  opacity: 0;
+  transition: opacity 0.35s ease-out;
 }
 .dmg-arc::after {
   content: ''; position: absolute; right: -12px; top: -3px;
   border: 5px solid transparent; border-left-color: var(--hazard);
 }
 .dmg-arc.on { opacity: .95; }
-.dmg-arc[data-dir="n"]  { transform: translate(0, -200px) rotate(-90deg); }
-.dmg-arc[data-dir="ne"] { transform: translate(140px, -140px) rotate(-45deg); }
-.dmg-arc[data-dir="e"]  { transform: translate(200px, 0) rotate(0deg); }
-.dmg-arc[data-dir="se"] { transform: translate(140px, 140px) rotate(45deg); }
-.dmg-arc[data-dir="s"]  { transform: translate(0, 200px) rotate(90deg); }
-.dmg-arc[data-dir="sw"] { transform: translate(-140px, 140px) rotate(135deg); }
-.dmg-arc[data-dir="w"]  { transform: translate(-200px, 0) rotate(180deg); }
-.dmg-arc[data-dir="nw"] { transform: translate(-140px, -140px) rotate(-135deg); }
+.dmg-arc[data-dir="n"]  { transform: translate(0,    -200px) rotate(-90deg);  }
+.dmg-arc[data-dir="ne"] { transform: translate(140px,-140px) rotate(-45deg);  }
+.dmg-arc[data-dir="e"]  { transform: translate(200px, 0)     rotate(0deg);    }
+.dmg-arc[data-dir="se"] { transform: translate(140px, 140px) rotate(45deg);   }
+.dmg-arc[data-dir="s"]  { transform: translate(0,     200px) rotate(90deg);   }
+.dmg-arc[data-dir="sw"] { transform: translate(-140px,140px) rotate(135deg);  }
+.dmg-arc[data-dir="w"]  { transform: translate(-200px, 0)    rotate(180deg);  }
+.dmg-arc[data-dir="nw"] { transform: translate(-140px,-140px) rotate(-135deg); }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   CROSSHAIR — minimal, state-aware
+   CROSSHAIR — minimal, state-aware blades + amber center dot
    ═══════════════════════════════════════════════════════════════════════ */
 #xh {
   position: fixed; top: 50%; left: 50%;
@@ -158,11 +211,12 @@ body.in-match::after {
   pointer-events: none; z-index: 5;
   width: 0; height: 0;
   --xh-gap: 10px; --xh-len: 6px;
+  --xh-color: #ffffff;
 }
 #xh.hidden { opacity: 0; }
 .xh-line {
   position: absolute;
-  background: #ffffff;
+  background: var(--xh-color);
   transition: all 70ms ease-out;
   box-shadow: 0 0 2px rgba(0,0,0,.85), 0 0 4px rgba(0,0,0,.6);
 }
@@ -177,7 +231,10 @@ body.in-match::after {
   border-radius: 50%;
   box-shadow: 0 0 4px var(--signal), 0 0 1px rgba(0,0,0,.9);
 }
-#xh.fire .xh-line { background: var(--signal); box-shadow: 0 0 6px var(--signal-glow), 0 0 2px rgba(0,0,0,.8); }
+#xh.fire .xh-line {
+  background: var(--signal);
+  box-shadow: 0 0 6px var(--signal-glow), 0 0 2px rgba(0,0,0,.8);
+}
 #xh[data-weapon="shotgun"] .xh-line { width: 2px; height: max(var(--xh-len), 8px); }
 #xh[data-weapon="shotgun"] .xh-left,
 #xh[data-weapon="shotgun"] .xh-right { height: 2px; }
@@ -191,15 +248,16 @@ body.in-match::after {
 .xh-hit::before, .xh-hit::after {
   content: ''; position: absolute;
   width: 100%; height: 1px; top: 10.5px;
-  background: #fff; box-shadow: 0 0 4px rgba(255,255,255,.7);
+  background: #fff;
+  box-shadow: 0 0 4px rgba(255,255,255,.7);
 }
 .xh-hit::before { transform: rotate(45deg); }
 .xh-hit::after  { transform: rotate(-45deg); }
 .xh-hit.on { opacity: 1; animation: hitPopV3 .35s var(--ease-snap); }
 @keyframes hitPopV3 {
-  0%   { transform: scale(.4); opacity: 1; }
+  0%   { transform: scale(.4);  opacity: 1; }
   40%  { transform: scale(1.4); opacity: 1; }
-  100% { transform: scale(1); opacity: 0; }
+  100% { transform: scale(1);   opacity: 0; }
 }
 .xh-hit.wallbang::before, .xh-hit.wallbang::after {
   background: var(--signal-hot);
@@ -221,25 +279,31 @@ body.in-match::after {
 .xh-kill.on { opacity: 1; animation: killPop .5s var(--ease-snap); }
 @keyframes killPop {
   0%   { transform: scale(1.8); opacity: 1; }
-  60%  { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1); opacity: 0; }
+  60%  { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(1);   opacity: 0; }
 }
 
+/* Sniper scope — dim the world, expose the reticle */
 #scopeOverlay {
   position: fixed; inset: 0; z-index: 6;
   pointer-events: none; opacity: 0;
   transition: opacity .12s ease-out;
-  background: radial-gradient(circle at center, transparent 0 22%, rgba(0,0,0,.2) 23%, rgba(0,0,0,.94) 32%, rgba(0,0,0,.98) 100%);
+  background: radial-gradient(circle at center,
+      transparent 0 22%,
+      rgba(0,0,0,.20) 23%,
+      rgba(0,0,0,.94) 32%,
+      rgba(0,0,0,.98) 100%);
 }
 #scopeOverlay::before, #scopeOverlay::after {
   content: ''; position: absolute;
   left: 50%; top: 50%;
   background: var(--signal); opacity: .7;
 }
-#scopeOverlay::before { width: 1px; height: 44vh; transform: translate(-50%, -50%); }
-#scopeOverlay::after  { width: 44vh; height: 1px; transform: translate(-50%, -50%); }
+#scopeOverlay::before { width: 1px;   height: 44vh; transform: translate(-50%, -50%); }
+#scopeOverlay::after  { width: 44vh; height: 1px;   transform: translate(-50%, -50%); }
 #scopeOverlay.on { opacity: 1; }
 
+/* Reload ring around the crosshair */
 .xh-reload-ring {
   position: absolute; width: 60px; height: 60px;
   left: -30px; top: -30px; opacity: 0;
@@ -254,7 +318,7 @@ body.in-match::after {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   LOCK HINT
+   LOCK HINT — "CLICK TO DEPLOY"
    ═══════════════════════════════════════════════════════════════════════ */
 #lockHint {
   position: fixed; left: 50%; top: 50%;
@@ -273,26 +337,20 @@ body.in-match::after {
   background: var(--signal);
 }
 #lockHint.on { opacity: 1; pointer-events: auto; cursor: pointer; }
-#mainMenuRoot.active ~ #lockHint,
-#loadingScreen.on ~ #lockHint,
-body:not(.in-match) #lockHint,
-body.in-match:not(.mode-br) #lockHint {
-  opacity: 0 !important; pointer-events: none !important;
-}
 .lh-icon {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 20px; color: var(--signal);
   margin-bottom: 4px;
 }
 #lockHint h2 {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 26px; font-weight: 400;
   color: var(--bone); letter-spacing: .02em;
   margin-bottom: 8px;
 }
 #lockHint p {
-  font-family: var(--mono-font);
-  font-size: 11px; color: var(--muted);
+  font-family: var(--f-num);
+  font-size: 11px; color: var(--mute);
   letter-spacing: .25em; text-transform: uppercase;
 }
 #lockHint .keys {
@@ -300,7 +358,7 @@ body.in-match:not(.mode-br) #lockHint {
   margin-top: 14px;
 }
 .kbd {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   padding: 4px 8px;
   background: var(--steel-800);
@@ -310,18 +368,53 @@ body.in-match:not(.mode-br) #lockHint {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   KILL NOTIFICATION
+   KILL NOTIFICATION & KILLSTREAK BANNER
    ═══════════════════════════════════════════════════════════════════════ */
 #kn {
   position: fixed; top: 24%; left: 50%;
   transform: translateX(-50%);
   z-index: 20;
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 22px; font-weight: 400;
   letter-spacing: .02em;
   opacity: 0; pointer-events: none;
   transition: opacity .3s, transform .2s;
   text-align: center;
+}
+
+#killstreak {
+  position: fixed; top: 18%; left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  font-family: var(--f-display);
+  font-size: 38px; font-weight: 400;
+  letter-spacing: -.01em;
+  color: var(--signal-hot);
+  text-shadow:
+    0 0 20px var(--signal-glow),
+    0 0 40px rgba(255, 140, 26, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  text-align: center;
+}
+#killstreak::before {
+  content: '// STREAK'; display: block;
+  font-family: var(--f-num);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.5em;
+  color: var(--signal);
+  margin-bottom: 8px;
+  text-shadow: none;
+}
+#killstreak.on {
+  opacity: 1;
+  animation: streakPop 0.45s var(--ease-snap);
+}
+@keyframes streakPop {
+  0%   { transform: translateX(-50%) scale(1.5); opacity: 0; }
+  100% { transform: translateX(-50%) scale(1);   opacity: 1; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -338,7 +431,7 @@ body.in-match:not(.mode-br) #lockHint {
 @keyframes dsIn { from { opacity: 0; } to { opacity: 1; } }
 .ds-inner { text-align: center; padding: 30px; max-width: 560px; }
 .ds-header {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 500;
   color: var(--hazard); letter-spacing: .5em;
   margin-bottom: 24px;
@@ -347,18 +440,18 @@ body.in-match:not(.mode-br) #lockHint {
   border-right: 2px solid var(--hazard);
 }
 .ds-killer {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 52px; font-weight: 400;
   color: var(--bone); margin-bottom: 6px;
   letter-spacing: -.01em;
 }
 .ds-weapon {
-  font-family: var(--mono-font);
-  font-size: 12px; color: var(--text-dim);
+  font-family: var(--f-num);
+  font-size: 12px; color: var(--bone-dim);
   letter-spacing: .3em; margin-bottom: 40px;
 }
 #dsp {
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   font-size: 13px; color: var(--signal);
   letter-spacing: .3em; margin-top: 16px;
 }
@@ -367,13 +460,14 @@ body.in-match:not(.mode-br) #lockHint {
    KILL FEED
    ═══════════════════════════════════════════════════════════════════════ */
 #killfeed {
-  position: fixed; top: 96px; right: 16px;
+  position: fixed; top: 96px; right: 20px;
   z-index: 10;
   display: flex; flex-direction: column; gap: 3px;
-  pointer-events: none; max-width: 380px;
+  pointer-events: none;
+  max-width: 380px;
 }
 .kf-entry {
-  font-family: var(--body-font);
+  font-family: var(--f-ui);
   font-size: 11px; padding: 6px 12px;
   background: var(--panel-dense);
   border-right: 2px solid var(--hairline);
@@ -385,16 +479,16 @@ body.in-match:not(.mode-br) #lockHint {
 }
 @keyframes kfIn {
   from { opacity: 0; transform: translateX(40px); }
-  to { opacity: 1; transform: translateX(0); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-.kf-blue { color: var(--cyan); font-weight: 700; }
+.kf-blue { color: var(--cyan);   font-weight: 700; }
 .kf-red  { color: var(--hazard); font-weight: 700; }
-.kf-arrow { color: var(--muted); }
+.kf-arrow { color: var(--mute); }
 .kf-wep {
   color: var(--signal);
   font-size: 10px; font-weight: 500;
   padding: 1px 4px;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   letter-spacing: .1em;
 }
 .kf-wep-icon {
@@ -409,32 +503,41 @@ body.in-match:not(.mode-br) #lockHint {
 }
 .kf-self {
   border-right-color: var(--signal);
-  background: linear-gradient(90deg, transparent, rgba(255,140,26,.1));
+  background: linear-gradient(90deg, transparent, rgba(255,140,26,.10));
 }
 .kf-assist {
   font-size: 9px; font-weight: 700;
   color: var(--signal-hot); margin-right: 4px;
-  letter-spacing: .2em; font-family: var(--mono-font);
+  letter-spacing: .2em; font-family: var(--f-num);
 }
 .kf-wb { color: var(--signal-hot); margin: 0 2px; font-size: 10px; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MATCH INFO (top center)
+   MATCH INFO — top-center score + timer + mode slate
+   ONE RULE SET. No more conflicting overrides.
    ═══════════════════════════════════════════════════════════════════════ */
 #matchInfo {
   position: fixed; top: 18px; left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
   pointer-events: none;
-  background: transparent !important;
-  border: 0 !important;
-  padding: 0 !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  /* Kill the legacy panel background — children carry the visual */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  backdrop-filter: none;
+  box-shadow: none;
 }
+
+/* Angled amber mode slate (e.g. "TDM") */
 .mi-mode {
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   font-size: 10px; font-weight: 700;
   letter-spacing: .35em;
   color: var(--void);
@@ -443,71 +546,56 @@ body.in-match:not(.mode-br) #lockHint {
   clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
   border: 0;
 }
-.mi-time {
-  font-family: var(--display-font);
-  font-size: 26px; font-weight: 400;
-  color: var(--bone);
-  letter-spacing: .02em;
-  min-width: 90px; text-align: center;
-  padding: 0 14px;
-  border-left: 1px solid var(--hairline);
-  border-right: 1px solid var(--hairline);
-  position: relative;
-}
-.mi-time::before {
-  content: 'MATCH'; position: absolute;
-  top: -13px; left: 50%; transform: translateX(-50%);
-  font-family: var(--mono-font);
-  font-size: 8px; font-weight: 500;
-  letter-spacing: .35em; color: var(--muted);
-}
-.mi-score { display: flex; align-items: center; gap: 10px; }
-.mi-sc {
-  font-family: var(--display-font);
-  font-size: 28px; font-weight: 400;
-  min-width: 44px; text-align: center;
-  letter-spacing: -.02em;
-}
-.mi-blue { color: var(--cyan); }
-.mi-red  { color: var(--hazard); }
-.mi-sep { color: var(--muted); font-size: 14px; font-family: var(--mono-font); }
 
-/* Wrap score row in its own slate via a pseudo-sibling container.
-   His HTML puts mi-mode, mi-time, mi-score as direct children of #matchInfo.
-   So we rebuild the slate using grid on the parent. */
-#matchInfo {
-  display: grid;
-  grid-template-areas: 'mode' 'row';
-  gap: 8px;
-  justify-items: center;
-}
-.mi-mode { grid-area: mode; }
-.mi-time, .mi-score { }
-/* Compose time + score into a visual row using a flex-wrapping trick */
-#matchInfo::after {
-  content: ''; grid-area: row;
-  width: 100%; height: 1px; background: transparent;
-}
-
-/* Re-layout: stack mode on top, then a single row with score-time-score */
-#matchInfo {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-}
-#matchInfo .mi-mode { margin-bottom: 8px; }
-/* Score + timer inline with a backing slate */
+/* Score+timer row slate — the three children below .mi-mode form this */
 #matchInfo > :not(.mi-mode) {
   position: relative;
   padding: 10px 20px;
   background: var(--panel-dense);
   border: 1px solid var(--hairline);
   backdrop-filter: blur(12px);
-  display: inline-block;
 }
 
+.mi-time {
+  font-family: var(--f-display);
+  font-size: 26px; font-weight: 400;
+  color: var(--bone);
+  letter-spacing: .02em;
+  min-width: 90px; text-align: center;
+  padding: 10px 14px;
+  position: relative;
+}
+.mi-time::before {
+  content: 'MATCH';
+  position: absolute;
+  top: -13px; left: 50%; transform: translateX(-50%);
+  font-family: var(--f-num);
+  font-size: 8px; font-weight: 500;
+  letter-spacing: .35em;
+  color: var(--mute);
+}
+.mi-time.urgent {
+  color: var(--hazard) !important;
+  animation: timerPulse 0.7s ease-in-out infinite;
+}
+@keyframes timerPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+
+.mi-score { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.mi-sc {
+  font-family: var(--f-display);
+  font-size: 28px; font-weight: 400;
+  min-width: 44px; text-align: center;
+  letter-spacing: -.02em;
+}
+.mi-blue { color: var(--cyan); }
+.mi-red  { color: var(--hazard); }
+.mi-sep  { color: var(--mute); font-size: 14px; font-family: var(--f-num); }
+
 /* ═══════════════════════════════════════════════════════════════════════
-   COMPASS
+   COMPASS — 360° strip below match slate
    ═══════════════════════════════════════════════════════════════════════ */
 #compass {
   position: fixed; top: 128px; left: 50%;
@@ -531,9 +619,9 @@ body.in-match:not(.mode-br) #lockHint {
   position: absolute; top: 0; left: 0;
   height: 100%; width: 2000px;
   display: flex; align-items: center;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
-  color: var(--text-dim);
+  color: var(--bone-dim);
   letter-spacing: .15em;
   will-change: transform;
 }
@@ -543,14 +631,15 @@ body.in-match:not(.mode-br) #lockHint {
   background: var(--hairline-strong);
   transform: translateY(-50%);
 }
-.compass-tick.major { height: 12px; background: var(--text-dim); }
+.compass-tick.major { height: 12px; background: var(--bone-dim); }
 .compass-label {
   position: absolute; top: 50%;
   transform: translate(-50%, -50%);
   white-space: nowrap;
 }
 .compass-label.cardinal {
-  color: var(--signal); font-weight: 700; font-size: 11px; letter-spacing: .1em;
+  color: var(--signal);
+  font-weight: 700; font-size: 11px; letter-spacing: .1em;
 }
 .compass-indicator {
   position: absolute; top: 0; left: 50%;
@@ -563,63 +652,70 @@ body.in-match:not(.mode-br) #lockHint {
   content: ''; position: absolute;
   top: 100%; left: 50%; transform: translateX(-50%);
   width: 0; height: 0;
-  border-left: 4px solid transparent;
+  border-left:  4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 5px solid var(--signal);
+  border-top:   5px solid var(--signal);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MINIMAP
+   MINIMAP — top-left tactical radar with corner brackets
    ═══════════════════════════════════════════════════════════════════════ */
 #minimap {
-  position: fixed; top: 16px; left: 16px;
+  position: fixed; top: 20px; left: 20px;
   z-index: 10;
-  width: 220px; height: 236px;
+  width: 220px;
   background: var(--panel-dense);
   border: 1px solid var(--hairline);
-  overflow: hidden;
   backdrop-filter: blur(12px);
 }
 .mm-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--hairline);
   background: transparent;
 }
 .mm-label {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   color: var(--signal);
   letter-spacing: .3em;
 }
+.mm-label::before { content: '// '; color: var(--mute); }
 .mm-coords {
-  font-family: var(--mono-font);
-  font-size: 10px; color: var(--text-dim);
+  font-family: var(--f-num);
+  font-size: 10px; color: var(--bone-dim);
   letter-spacing: .15em;
 }
-#minimap canvas { width: 100%; height: 196px; display: block; }
-.mm-border { position: absolute; inset: 0; pointer-events: none; border: 0; }
-/* Corner brackets */
-#minimap::before, #minimap::after,
-.mm-border::before, .mm-border::after {
+#minimap canvas {
+  width: 100%; height: 200px; display: block;
+}
+.mm-border {
+  position: absolute; inset: 0; pointer-events: none; border: 0;
+}
+
+/* Corner brackets on the minimap */
+#minimap::before,       #minimap::after,
+.mm-border::before,     .mm-border::after {
   content: ''; position: absolute;
   width: 10px; height: 10px;
   border: 1px solid var(--signal);
   pointer-events: none;
 }
-#minimap::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
-#minimap::after  { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
-.mm-border::before { bottom: -1px; left: -1px; border-right: 0; border-top: 0; }
-.mm-border::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+#minimap::before { top: -1px; left:  -1px; border-right: 0; border-bottom: 0; }
+#minimap::after  { top: -1px; right: -1px; border-left:  0; border-bottom: 0; }
+.mm-border::before { bottom: -1px; left:  -1px; border-right: 0; border-top: 0; }
+.mm-border::after  { bottom: -1px; right: -1px; border-left:  0; border-top: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   BOTTOM HUD
+   BOTTOM HUD — vitals (L) · weapon dock (C) · ammo card (R)
+   Backwards-compatible with existing .bh-* classes from index.html
    ═══════════════════════════════════════════════════════════════════════ */
 #bottomHud {
-  position: fixed; bottom: 16px; left: 50%;
+  position: fixed; bottom: 20px; left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  display: flex; align-items: stretch; gap: 12px;
+  display: flex; align-items: stretch;
+  gap: 12px;
   pointer-events: none;
 }
 .bh-section {
@@ -629,46 +725,58 @@ body.in-match:not(.mode-br) #lockHint {
   backdrop-filter: blur(12px);
   position: relative;
 }
+/* Subtle corner brackets on HUD sections */
 .bh-section::before, .bh-section::after {
   content: ''; position: absolute;
   width: 8px; height: 8px;
   border: 1px solid var(--signal);
   pointer-events: none; opacity: .7;
 }
-.bh-section::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
-.bh-section::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.bh-section::before { top: -1px; left:  -1px; border-right: 0; border-bottom: 0; }
+.bh-section::after  { bottom: -1px; right: -1px; border-left:  0; border-top: 0; }
 
-/* LEFT — Health + Armor */
-.bh-left { display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
+/* ── LEFT: Vitals (HP + Armor) ──────────────────────────── */
+.bh-left {
+  display: flex; flex-direction: column; gap: 10px;
+  min-width: 280px;
+}
 .bh-hp-group, .bh-armor-group {
   display: grid; grid-template-columns: 28px 1fr;
   align-items: center; gap: 10px;
 }
 .bh-hp-icon, .bh-armor-icon {
   text-align: center;
-  filter: saturate(0) brightness(1.8);
-  opacity: .5;
-  font-size: 16px;
+  opacity: .6;
+  color: var(--bone-dim);
 }
-.bh-hp-stack { flex: 1; }
+.bh-hp-stack { flex: 1; min-width: 0; }
 .bh-label {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 8px; font-weight: 500;
-  letter-spacing: .3em; color: var(--muted);
-  margin-bottom: 3px;
+  letter-spacing: .3em;
+  color: var(--mute);
+  margin-bottom: 4px;
 }
+
+/* Segmented HP bar — chevron tick overlay gives 12-unit feel */
 .bh-hp-bar, .bh-armor-bar {
   position: relative; height: 14px;
-  background: var(--steel-700); overflow: hidden;
+  background: var(--steel-700);
+  overflow: hidden;
 }
 .bh-hp-bar::before, .bh-armor-bar::before {
   content: ''; position: absolute; inset: 0;
-  background: repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,0,0,.35) 12px 13px);
+  background: repeating-linear-gradient(90deg,
+      transparent 0 12px,
+      rgba(0,0,0,.35) 12px 13px);
   z-index: 1; pointer-events: none;
 }
 .bh-hp-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--hazard) 0%, var(--signal) 45%, var(--toxic) 100%);
+  background: linear-gradient(90deg,
+      var(--hazard)  0%,
+      var(--signal)  45%,
+      var(--toxic)   100%);
   transition: width .15s ease-out;
   box-shadow: 0 0 8px rgba(184,255,61,.25);
   position: relative; z-index: 0;
@@ -682,18 +790,30 @@ body.in-match:not(.mode-br) #lockHint {
 .bh-hp-text, .bh-armor-text {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 700;
   color: var(--bone);
   text-shadow: 0 0 3px rgba(0,0,0,.9);
-  z-index: 2; letter-spacing: .05em;
+  z-index: 2;
+  letter-spacing: .05em;
 }
 
-/* CENTER — slots */
-.bh-slots { display: flex; gap: 6px; padding: 10px; }
+/* Low-HP pulse */
+.bh-hp-bar.low .bh-hp-fill {
+  animation: hpLowPulse 1.2s ease-in-out infinite;
+}
+@keyframes hpLowPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255,61,46,.25); }
+  50%      { box-shadow: inset 0 0 12px rgba(255,61,46,.6), 0 0 20px rgba(255,61,46,.4); }
+}
+
+/* ── CENTER: Weapon slot dock ──────────────────────────── */
+.bh-slots {
+  display: flex; gap: 8px; padding: 10px;
+}
 .bh-slot {
   position: relative;
-  width: 56px; height: 56px;
+  width: 64px; height: 58px;
   background: rgba(6,7,11,.55);
   border: 1px solid var(--hairline);
   display: flex; flex-direction: column;
@@ -704,7 +824,9 @@ body.in-match:not(.mode-br) #lockHint {
   background: linear-gradient(180deg, rgba(255,140,26,.18), rgba(255,140,26,.04));
   border-color: var(--signal);
   transform: translateY(-3px);
-  box-shadow: 0 0 16px rgba(255,140,26,.2), inset 0 0 12px rgba(255,140,26,.08);
+  box-shadow:
+    0 0 16px rgba(255,140,26,.2),
+    inset 0 0 12px rgba(255,140,26,.08);
 }
 .bh-slot.active::before {
   content: ''; position: absolute;
@@ -713,31 +835,35 @@ body.in-match:not(.mode-br) #lockHint {
 }
 .bh-slot.empty { opacity: .3; }
 .bh-slot-key {
-  position: absolute; top: 3px; left: 4px;
-  font-family: var(--mono-font);
-  font-size: 9px; color: var(--muted);
+  position: absolute; top: 3px; left: 5px;
+  font-family: var(--f-num);
+  font-size: 9px; color: var(--mute);
+  letter-spacing: .1em;
 }
 .bh-slot.active .bh-slot-key { color: var(--signal); }
 .bh-slot-icon {
-  font-size: 16px; color: var(--text-dim);
+  color: var(--bone-dim);
   line-height: 1; margin-bottom: 3px;
+  display: flex; align-items: center; justify-content: center;
 }
+.bh-slot-icon svg { width: 40px; height: 16px; }
 .bh-slot.active .bh-slot-icon { color: var(--bone); }
 .bh-slot-name {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 7px; font-weight: 500;
-  color: var(--muted);
+  color: var(--mute);
   letter-spacing: .15em;
   text-align: center;
-  max-width: 50px;
+  max-width: 58px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .bh-slot.active .bh-slot-name { color: var(--bone); }
 
-/* RIGHT — gadgets + weapon card */
+/* ── RIGHT: Ammo card + gadgets ─────────────────────────── */
 .bh-right {
   display: flex; flex-direction: column; gap: 8px;
-  min-width: 260px; align-items: stretch;
+  min-width: 280px;
+  align-items: stretch;
 }
 .bh-gadgets { display: flex; gap: 6px; justify-content: flex-end; }
 .bh-gadget {
@@ -746,27 +872,31 @@ body.in-match:not(.mode-br) #lockHint {
   background: rgba(184,255,61,.06);
   border: 1px solid rgba(184,255,61,.25);
   display: flex; align-items: center; justify-content: center;
+  color: var(--toxic);
 }
-.bh-gadget-icon { font-size: 16px; filter: saturate(.4); opacity: .7; }
+.bh-gadget-icon { opacity: .75; }
 .bh-gadget-count {
   position: absolute; bottom: 2px; right: 4px;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 700;
   color: var(--toxic);
 }
 .bh-gadget-key {
   position: absolute; top: 2px; left: 4px;
-  font-family: var(--mono-font);
-  font-size: 8px; color: var(--muted);
+  font-family: var(--f-num);
+  font-size: 8px; color: var(--mute);
 }
+
 .bh-weapon-card {
-  display: flex; flex-direction: column; gap: 4px; text-align: right;
+  display: flex; flex-direction: column; gap: 4px;
+  text-align: right;
 }
 .bh-wc-top {
-  display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+  display: flex; align-items: center; gap: 10px;
+  justify-content: flex-end;
 }
 .bh-wc-icon {
-  width: 32px; height: 20px;
+  width: 36px; height: 20px;
   display: flex; align-items: center; justify-content: center;
   color: var(--signal);
   filter: drop-shadow(0 0 4px var(--signal-glow));
@@ -774,38 +904,41 @@ body.in-match:not(.mode-br) #lockHint {
 .bh-wc-icon svg { width: 100%; height: auto; }
 .bh-wc-meta { flex: 1; text-align: left; }
 .bh-wc-name {
-  font-family: var(--tactical-font);
-  font-size: 13px; font-weight: 700;
+  font-family: var(--f-tactical);
+  font-size: 12px; font-weight: 700;
   color: var(--bone);
   letter-spacing: .15em; line-height: 1;
 }
 .bh-wc-mode {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 9px; font-weight: 500;
   color: var(--signal);
-  letter-spacing: .25em; margin-top: 3px;
+  letter-spacing: .25em;
+  margin-top: 3px;
 }
-.bh-wc-mode::before { content: '['; color: var(--muted); margin-right: 3px; }
-.bh-wc-mode::after  { content: ']'; color: var(--muted); margin-left: 3px; }
+.bh-wc-mode::before { content: '['; color: var(--mute); margin-right: 3px; }
+.bh-wc-mode::after  { content: ']'; color: var(--mute); margin-left:  3px; }
+
 .bh-wc-ammo-row {
-  display: flex; align-items: baseline; gap: 8px; justify-content: flex-end;
+  display: flex; align-items: baseline;
+  gap: 10px; justify-content: flex-end;
 }
 .bh-wc-ammo {
-  font-family: var(--display-font);
-  font-size: 44px; font-weight: 400;
+  font-family: var(--f-num);
+  font-size: 52px; font-weight: 400;
   color: var(--bone);
   letter-spacing: -.03em; line-height: 1;
   min-width: 64px; text-align: right;
 }
 .bh-wc-reserve {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 16px; font-weight: 500;
-  color: var(--text-dim);
+  color: var(--bone-dim);
   letter-spacing: -.01em;
 }
 .bh-wc-reload-hint {
   margin-left: 10px;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 700;
   padding: 3px 8px;
   border: 1px solid var(--signal);
@@ -816,19 +949,35 @@ body.in-match:not(.mode-br) #lockHint {
 .bh-wc-reload-hint.on { opacity: 1; animation: reloadHintPulse 1s ease-in-out infinite; }
 @keyframes reloadHintPulse {
   0%, 100% { background: transparent; }
-  50% { background: rgba(255,140,26,.2); }
+  50%      { background: rgba(255,140,26,.2); }
 }
 .bh-wc-ammo.low {
-  animation: ammoLow .5s ease-in-out infinite;
   color: var(--hazard);
+  animation: ammoLow .5s ease-in-out infinite;
 }
 @keyframes ammoLow {
   0%, 100% { opacity: 1; }
-  50% { opacity: .5; }
+  50%      { opacity: .5; }
+}
+
+/* Mag dots (bottom of ammo card) — drawn by AmmoDots.ts */
+.bh-wc-dots {
+  display: flex; gap: 2px; justify-content: flex-end;
+  margin-top: 6px;
+  min-height: 8px;
+}
+.bh-wc-dots span {
+  width: 3px; height: 8px;
+  background: var(--toxic);
+  box-shadow: 0 0 4px rgba(184,255,61,.4);
+}
+.bh-wc-dots span.empty {
+  background: var(--steel-700);
+  box-shadow: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   RELOAD (legacy text indicator)
+   LEGACY RELOAD BAR (kept for backwards compat, restyled)
    ═══════════════════════════════════════════════════════════════════════ */
 #reloadBar {
   position: fixed; bottom: 130px; left: 50%;
@@ -849,25 +998,17 @@ body.in-match:not(.mode-br) #lockHint {
   position: fixed; bottom: 138px; left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 700;
   letter-spacing: .4em; color: var(--signal);
   opacity: 0; pointer-events: none;
 }
 #reloadText.on { opacity: 1; }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   SCROLLBARS
-   ═══════════════════════════════════════════════════════════════════════ */
+/* Scrollbars — amber */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--signal); }
-
-/* — — — Continue to part 2 below — — — */
-/* ═══════════════════════════════════════════════════════════════════════
-   APEX PROTOCOL — index.css · PART 2
-   Append this to the end of apex_index_part1.css
-   ═══════════════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════════════
    TAB SCOREBOARD
@@ -880,7 +1021,7 @@ body.in-match:not(.mode-br) #lockHint {
   backdrop-filter: blur(10px);
 }
 #tabboard.on { display: flex; animation: tbIn .3s var(--ease-out-expo); }
-@keyframes tbIn { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; } }
+@keyframes tbIn { from { opacity: 0; } to { opacity: 1; } }
 
 .tb-inner {
   background: var(--panel-solid);
@@ -897,7 +1038,7 @@ body.in-match:not(.mode-br) #lockHint {
 .tb-inner::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
 
 .tb-title {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 28px; font-weight: 400;
   letter-spacing: -.01em;
   color: var(--bone);
@@ -905,29 +1046,31 @@ body.in-match:not(.mode-br) #lockHint {
   margin-bottom: 4px;
 }
 .tb-title::before {
-  content: '// SCOREBOARD'; display: block;
-  font-family: var(--mono-font);
+  content: '// SCOREBOARD';
+  display: block;
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   letter-spacing: 0.4em;
   color: var(--signal);
   margin-bottom: 10px;
 }
-.tb-header {
+.tb-header, .tb-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 0.8fr 1fr 1fr;
-  font-family: var(--mono-font);
+  gap: 8px;
+}
+.tb-header {
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   letter-spacing: 0.25em;
-  color: var(--muted);
+  color: var(--mute);
   padding: 12px 8px 10px;
   border-bottom: 1px solid var(--hairline);
   margin-top: 16px;
 }
 .tb-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 0.8fr 1fr 1fr;
-  padding: 8px 8px;
-  font-family: var(--mono-font);
+  padding: 8px;
+  font-family: var(--f-num);
   font-size: 13px;
   border-bottom: 1px solid rgba(233, 236, 241, 0.04);
   letter-spacing: .02em;
@@ -938,7 +1081,7 @@ body.in-match:not(.mode-br) #lockHint {
   padding-left: 6px;
 }
 .tb-section {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   letter-spacing: 0.3em;
   padding: 16px 8px 8px;
@@ -949,7 +1092,8 @@ body.in-match:not(.mode-br) #lockHint {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ROUND SUMMARY
+   ROUND SUMMARY — Victory / Defeat screen
+   Editorial layout: huge gradient-text banner → MVP slate → accolades
    ═══════════════════════════════════════════════════════════════════════ */
 #roundSummary {
   position: fixed; inset: 0; z-index: 100;
@@ -969,16 +1113,21 @@ body.in-match:not(.mode-br) #lockHint {
   display: flex; flex-direction: column;
   align-items: stretch; gap: 24px;
   padding: 56px 64px;
-  max-width: 920px; width: 92%;
+  max-width: 1000px; width: 92%;
 }
+
+/* BIG gradient text victory banner — the showpiece */
 .rs-result {
-  font-family: var(--display-font);
-  font-size: 120px; font-weight: 400;
+  font-family: var(--f-display);
+  font-size: 140px; font-weight: 400;
   letter-spacing: -.04em;
-  line-height: .9;
+  line-height: .88;
   opacity: 0;
   animation: rsZoom 1s 0.2s var(--ease-out-expo) forwards;
-  background: linear-gradient(90deg, var(--signal) 0%, var(--signal-hot) 50%, var(--bone) 100%);
+  background: linear-gradient(90deg,
+      var(--signal) 0%,
+      var(--signal-hot) 50%,
+      var(--bone) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -991,7 +1140,7 @@ body.in-match:not(.mode-br) #lockHint {
 .rs-result::before {
   content: '// MATCH CONCLUDED';
   display: block;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 12px; font-weight: 500;
   letter-spacing: 0.5em;
   color: var(--signal);
@@ -999,15 +1148,15 @@ body.in-match:not(.mode-br) #lockHint {
   -webkit-text-fill-color: var(--signal);
 }
 @keyframes rsZoom {
-  0% { opacity: 0; transform: translateX(-60px); letter-spacing: .3em; }
-  100% { opacity: 1; transform: none; letter-spacing: -.04em; }
+  0%   { opacity: 0; transform: translateX(-60px); letter-spacing: .3em;  }
+  100% { opacity: 1; transform: none;              letter-spacing: -.04em; }
 }
 
 .rs-team-score {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 32px; font-weight: 400;
   letter-spacing: -.01em;
-  color: var(--text-dim);
+  color: var(--bone-dim);
   opacity: 0;
   animation: rsFadeUp 0.5s 0.6s ease forwards;
 }
@@ -1018,76 +1167,74 @@ body.in-match:not(.mode-br) #lockHint {
 }
 @keyframes rsFadeUp {
   from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* MVP banner */
+/* MVP banner — left-accented slate, editorial feel */
 .rs-mvp {
   position: relative;
-  display: grid; grid-template-columns: auto 1fr auto;
-  align-items: center; gap: 24px;
+  display: block;
   background: linear-gradient(90deg, rgba(255, 140, 26, 0.14), transparent 70%);
   border-left: 3px solid var(--signal);
   padding: 22px 28px;
   opacity: 0;
   animation: rsMvpIn 0.6s 0.9s var(--ease-snap) forwards;
 }
-.rs-mvp::before {
-  display: none; /* replaced by inline content */
-}
 @keyframes rsMvpIn {
   from { opacity: 0; transform: translateX(-40px); }
-  to { opacity: 1; transform: translateX(0); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 .rs-mvp-card {
-  display: grid; grid-template-columns: auto 1fr auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center; gap: 18px;
   padding: 0;
   background: transparent; border: 0;
-  font-family: var(--body-font);
+  font-family: var(--f-ui);
   max-width: none; margin: 0;
 }
 .rs-mvp-icon {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 36px; color: var(--signal);
 }
 .rs-mvp-name {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 28px; font-weight: 400;
   color: var(--bone);
   letter-spacing: -.01em;
 }
 .rs-mvp-name::before {
   content: 'MVP — ';
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 500;
   letter-spacing: 0.4em;
-  color: var(--muted);
+  color: var(--mute);
   margin-right: 6px;
   display: inline-block; vertical-align: middle;
 }
 .rs-mvp-kd {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--bone-dim);
   font-weight: 500;
   letter-spacing: .15em;
 }
 
-/* Podium (stats progression row) */
-.rs-podium { display: none; } /* Hidden — we use the prog-level-row from his existing code */
+.rs-podium { display: none; } /* Replaced by progression card below */
 
-/* Progression card */
+/* Progression card with level badges + XP rail */
 .prog-level-row {
-  display: grid; grid-template-columns: auto 1fr auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center; gap: 24px;
   padding: 24px 28px;
   background: rgba(10, 12, 18, 0.7);
   border: 1px solid var(--hairline);
 }
 .prog-level-badge {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
   width: 64px; height: 64px;
   background: var(--steel-800);
   border: 0;
@@ -1101,20 +1248,20 @@ body.in-match:not(.mode-br) #lockHint {
 .prog-level-badge.new .prog-level-num { color: var(--void); }
 .prog-level-badge.new .prog-level-lbl { color: rgba(6,7,11,0.6); }
 @keyframes levelBadgePulse {
-  0% { transform: scale(0.7); }
-  50% { transform: scale(1.25); }
+  0%   { transform: scale(0.7); }
+  50%  { transform: scale(1.25); }
   100% { transform: scale(1); }
 }
 .prog-level-num {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 22px; font-weight: 400;
   color: var(--bone);
   line-height: 1;
 }
 .prog-level-lbl {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 8px; font-weight: 500;
-  color: var(--muted);
+  color: var(--mute);
   letter-spacing: 0.3em;
   margin-top: 3px;
 }
@@ -1136,7 +1283,7 @@ body.in-match:not(.mode-br) #lockHint {
   transition: width 1.6s cubic-bezier(.2, .9, .3, 1) 0.8s;
 }
 .prog-xp-text {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 12px; font-weight: 500;
   color: var(--signal-hot);
   margin-top: 10px;
@@ -1144,7 +1291,7 @@ body.in-match:not(.mode-br) #lockHint {
   letter-spacing: .15em;
 }
 .prog-levelup {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 14px; font-weight: 400;
   color: var(--signal);
   letter-spacing: 0.1em;
@@ -1155,10 +1302,10 @@ body.in-match:not(.mode-br) #lockHint {
 /* Section headers */
 .rs-section-header {
   display: flex; align-items: center; gap: 12px;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 500;
   letter-spacing: 0.4em;
-  color: var(--muted);
+  color: var(--mute);
   margin: 20px 0 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--hairline);
@@ -1188,43 +1335,45 @@ body.in-match:not(.mode-br) #lockHint {
 .rs-medal-card:nth-child(5) { animation-delay: 2.0s; }
 .rs-medal-card:nth-child(6) { animation-delay: 2.15s; }
 .rs-medal-card::before {
-  content: ''; position: absolute; top: -1px; left: 0; right: 0; height: 2px;
-  background: currentColor;
+  content: ''; position: absolute; top: -1px; left: 0; right: 0;
+  height: 2px; background: currentColor;
 }
 @keyframes medalPop {
   from { opacity: 0; transform: translateY(12px) scale(.92); }
-  to { opacity: 1; transform: none; }
+  to   { opacity: 1; transform: none; }
 }
 .rs-medal-icon {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 26px;
   filter: drop-shadow(0 0 8px currentColor);
   margin-bottom: 6px;
+  display: flex; align-items: center; justify-content: center;
 }
+.rs-medal-icon svg { width: 28px; height: 28px; }
 .rs-medal-name {
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   font-size: 10px; font-weight: 700;
   letter-spacing: 0.2em;
   color: var(--bone);
 }
 .rs-medal-x {
   position: absolute; top: 4px; right: 8px;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 500;
   color: inherit;
 }
 .rs-no-medals {
   grid-column: 1 / -1;
   text-align: center;
-  color: var(--muted);
-  font-family: var(--mono-font);
+  color: var(--mute);
+  font-family: var(--f-num);
   font-size: 11px;
   padding: 24px;
   letter-spacing: .3em;
   text-transform: uppercase;
 }
 
-/* Combat stats inline */
+/* Inline combat stats */
 .rs-combat-stats {
   display: grid; grid-template-columns: repeat(5, 1fr);
   gap: 1px;
@@ -1238,7 +1387,7 @@ body.in-match:not(.mode-br) #lockHint {
 }
 .rs-cs-val {
   display: block;
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 28px; font-weight: 400;
   color: var(--signal);
   letter-spacing: -.02em;
@@ -1246,58 +1395,73 @@ body.in-match:not(.mode-br) #lockHint {
 }
 .rs-cs-lbl {
   display: block;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 9px; font-weight: 500;
   letter-spacing: 0.3em;
-  color: var(--muted);
+  color: var(--mute);
 }
 
-/* Challenges completed */
+/* Challenges completed rows */
 .rs-challenges { display: flex; flex-direction: column; gap: 4px; }
 .rs-challenge-done {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 16px;
   background: rgba(184, 255, 61, 0.06);
   border-left: 2px solid var(--toxic);
-  font-family: var(--body-font);
+  font-family: var(--f-ui);
   font-size: 12px;
   letter-spacing: .08em;
 }
-.rs-ch-icon {
-  font-size: 14px;
-  filter: saturate(0.5); opacity: .8;
-}
+.rs-ch-icon { font-size: 14px; filter: saturate(0.5); opacity: .8; }
 .rs-ch-label { flex: 1; color: var(--bone); font-weight: 500; }
 .rs-ch-xp {
   color: var(--signal-hot);
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-weight: 700; letter-spacing: .15em;
 }
 
-/* Standings */
-.rs-stats-grid { display: flex; flex-direction: column; gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); }
+/* Standings table */
+.rs-stats-grid {
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+}
 .rs-stat-row {
   display: grid;
   grid-template-columns: 40px 1fr auto 70px;
   gap: 16px; align-items: center;
   padding: 10px 16px;
   background: var(--void);
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 13px;
+  animation: rowIn .4s var(--ease-out-expo) backwards;
+}
+.rs-stat-row:nth-child(1) { animation-delay: 1.9s; }
+.rs-stat-row:nth-child(2) { animation-delay: 1.97s; }
+.rs-stat-row:nth-child(3) { animation-delay: 2.04s; }
+.rs-stat-row:nth-child(4) { animation-delay: 2.11s; }
+.rs-stat-row:nth-child(5) { animation-delay: 2.18s; }
+.rs-stat-row:nth-child(6) { animation-delay: 2.25s; }
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: none; }
 }
 .rs-stat-row.me {
   background: rgba(255, 140, 26, 0.1);
   border-left: 2px solid var(--signal);
 }
-.rs-rank { color: var(--muted); font-weight: 500; letter-spacing: .1em; }
-.rs-name { font-weight: 500; letter-spacing: .08em; font-family: var(--tactical-font); font-size: 12px; }
-.rs-kd { color: var(--bone); font-weight: 500; }
-.rs-sep { color: var(--muted); margin: 0 2px; }
+.rs-rank { color: var(--mute); font-weight: 500; letter-spacing: .1em; }
+.rs-name {
+  font-weight: 500; letter-spacing: .08em;
+  font-family: var(--f-tactical); font-size: 12px;
+}
+.rs-kd  { color: var(--bone);   font-weight: 500; }
+.rs-sep { color: var(--mute);   margin: 0 2px; }
 .rs-kdr { color: var(--signal); font-weight: 500; text-align: right; }
 
-/* Main button */
+/* NEXT MATCH button */
 .rs-btn {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 18px; font-weight: 400;
   letter-spacing: .02em;
   color: var(--void);
@@ -1312,18 +1476,886 @@ body.in-match:not(.mode-br) #lockHint {
   align-self: flex-start;
   position: relative;
 }
-.rs-btn::before {
-  content: '▶ ';
-  margin-right: 6px;
-}
-.rs-btn:hover {
-  filter: brightness(1.15);
-  transform: translateX(6px);
-}
+.rs-btn::before { content: '▶ '; margin-right: 6px; }
+.rs-btn:hover  { filter: brightness(1.15); transform: translateX(6px); }
 .rs-btn:active { transform: translateX(2px); }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   LEGACY DROPDOWN MENU (still in DOM, hidden — kept minimal-styled just in case)
+   MAIN MENU — editorial tactical 3-column shell
+   These styles target the DOM rendered by src/ui/MainMenu.ts.
+   No more inline injectStyles() — all menu CSS lives here.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+#mainMenuRoot {
+  position: fixed; inset: 0; z-index: 20;
+  font-family: var(--f-ui);
+  color: var(--bone);
+  display: none;
+  overflow: hidden;
+}
+#mainMenuRoot.active { display: block; }
+
+/* Arena atmosphere — gradient + grid drift + silhouette horizon */
+.arena-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse at 70% 30%, rgba(255,140,26,.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 80%, rgba(57,240,255,.06) 0%, transparent 55%),
+    linear-gradient(180deg, #0a0d15 0%, #06070b 60%, #0a0808 100%);
+}
+.arena-bg::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, transparent 55%, rgba(0,0,0,.5) 100%),
+    linear-gradient(90deg, rgba(0,0,0,.6), transparent 20%, transparent 80%, rgba(0,0,0,.6));
+}
+.arena-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,140,26,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,140,26,.04) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+  animation: gridDrift 90s linear infinite;
+}
+@keyframes gridDrift { to { background-position: 80px 80px; } }
+
+.arena-horizon {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 45%;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(6,7,11,.7) 80%, rgba(6,7,11,1) 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 400' preserveAspectRatio='none'><polygon fill='%23090b11' points='0,400 0,280 120,260 180,220 260,240 340,180 430,200 520,160 640,180 730,140 840,190 950,150 1060,210 1180,170 1290,230 1400,190 1520,250 1600,220 1600,400'/><polygon fill='%2306070b' points='0,400 0,330 80,310 170,340 260,290 370,320 480,280 580,310 690,270 820,300 930,260 1050,290 1160,250 1280,310 1400,270 1510,300 1600,280 1600,400'/></svg>") bottom/cover no-repeat;
+  z-index: 0; pointer-events: none;
+}
+
+/* 3-row shell: topnav / main / bottom */
+.mn-root {
+  position: absolute; inset: 0; z-index: 1;
+  display: grid;
+  grid-template-rows: 64px 1fr 56px;
+}
+
+/* ── TOP NAV ─────────────────────────────────────────────── */
+.mn-top {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: stretch;
+  border-bottom: 1px solid var(--hairline);
+  padding-left: 40px;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(6,7,11,.96), rgba(6,7,11,.80));
+}
+.mn-brand { display: flex; align-items: center; gap: 14px; }
+.mn-mark {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+}
+.mn-mark svg { width: 100%; height: 100%; }
+.mn-brand-text {
+  font: 400 18px/1 var(--f-tactical);
+  letter-spacing: .4em; color: var(--bone);
+}
+.mn-brand-sub {
+  font: 400 10px/1 var(--f-num);
+  letter-spacing: .35em; color: var(--signal);
+  margin-top: 3px;
+}
+
+.mn-nav { display: flex; justify-content: center; }
+.mn-tab {
+  position: relative;
+  padding: 0 24px;
+  display: grid; place-items: center;
+  background: transparent; border: 0; cursor: pointer;
+  font: 500 11px/1 var(--f-tactical);
+  letter-spacing: .3em; color: var(--mute);
+  transition: color .15s;
+}
+.mn-tab::before {
+  content: ''; position: absolute; bottom: 0; left: 50%;
+  width: 0; height: 2px; background: var(--signal);
+  transform: translateX(-50%);
+  transition: width .25s var(--ease-out-expo);
+}
+.mn-tab:hover { color: var(--bone); }
+.mn-tab.on    { color: var(--signal); }
+.mn-tab.on::before { width: 60%; }
+
+.mn-user {
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 32px 0 20px;
+  border-left: 1px solid var(--hairline);
+}
+.mn-u-avatar {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--signal), var(--signal-dim));
+  display: grid; place-items: center;
+  font: 400 14px/1 var(--f-tactical);
+  color: var(--void);
+  clip-path: polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%);
+}
+.mn-u-meta { line-height: 1.2; }
+.mn-u-name {
+  font: 500 13px/1 var(--f-ui);
+  color: var(--bone); letter-spacing: .1em;
+}
+.mn-u-level {
+  display: flex; gap: 6px; align-items: baseline;
+  margin-top: 2px;
+  font: 400 10px/1 var(--f-num); letter-spacing: .2em;
+}
+.mn-u-level b    { color: var(--signal); font-weight: 500; }
+.mn-u-level span { color: var(--mute); }
+
+/* ── 3-COLUMN MAIN ──────────────────────────────────────── */
+.mn-main {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 340px 1fr 380px;
+  overflow: hidden;
+}
+.mn-col {
+  padding: 28px 32px;
+  overflow-y: auto;
+  position: relative;
+}
+.mn-col + .mn-col { border-left: 1px solid var(--hairline); }
+.mn-col::-webkit-scrollbar       { width: 2px; }
+.mn-col::-webkit-scrollbar-thumb { background: var(--signal); }
+
+/* Center column: flex col for hero/modes/loadout/deploy stacking */
+.mn-center {
+  display: flex; flex-direction: column; gap: 24px;
+  padding: 32px 40px;
+}
+
+/* Column header strip */
+.mn-col-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px;
+}
+.mn-col-head::before { content: ''; width: 4px; height: 16px; background: var(--signal); }
+.mn-col-head-text {
+  font: 500 11px/1 var(--f-num);
+  letter-spacing: .4em; color: var(--bone);
+}
+.mn-col-head-id {
+  margin-left: auto;
+  font: 400 10px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .2em;
+}
+
+/* ── LEFT COL: OPERATOR ─────────────────────────────────── */
+.mn-op-card {
+  position: relative;
+  padding: 20px;
+  background: linear-gradient(145deg, rgba(255,140,26,.05), transparent 60%);
+  border: 1px solid var(--hairline);
+  margin-bottom: 16px;
+}
+.mn-op-figure {
+  aspect-ratio: 3/4;
+  background:
+    radial-gradient(ellipse at top, rgba(255,140,26,.18), transparent 60%),
+    linear-gradient(180deg, #0f1220, #050708 80%);
+  position: relative; overflow: hidden;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+  margin-bottom: 14px;
+  display: grid; place-items: center;
+}
+.mn-op-silhouette {
+  width: 65%; opacity: .85;
+  filter: drop-shadow(0 0 20px rgba(255,140,26,.3));
+}
+.mn-op-figure::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 4px);
+  pointer-events: none;
+}
+.mn-op-rank-chip {
+  position: absolute; top: 10px; left: 10px;
+  padding: 4px 8px;
+  background: var(--signal); color: var(--void);
+  font: 500 10px/1 var(--f-num); letter-spacing: .2em;
+}
+.mn-op-name {
+  font: 400 22px/1 var(--f-display);
+  letter-spacing: .02em; color: var(--bone);
+}
+.mn-op-callsign {
+  font: 400 10px/1 var(--f-num);
+  color: var(--signal); letter-spacing: .3em; margin-top: 4px;
+}
+
+.mn-statgrid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--hairline); border: 1px solid var(--hairline);
+  margin-bottom: 20px;
+}
+.mn-stat {
+  background: var(--void);
+  padding: 10px 12px;
+}
+.mn-stat-label {
+  font: 400 9px/1 var(--f-num);
+  letter-spacing: .3em; color: var(--mute);
+  margin-bottom: 4px;
+}
+.mn-stat-val {
+  font: 400 22px/1 var(--f-num);
+  color: var(--bone); letter-spacing: -.01em;
+}
+.mn-stat-val.acc { color: var(--signal); }
+
+.mn-prog-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .25em; color: var(--mute);
+  margin-bottom: 6px;
+}
+.mn-prog-head b { color: var(--signal); font-weight: 500; }
+.mn-prog-rail {
+  position: relative; height: 4px; background: var(--steel-800);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+}
+.mn-prog-fill {
+  position: absolute; inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--signal-dim), var(--signal));
+  box-shadow: 0 0 8px var(--signal-glow);
+}
+.mn-prog-sub {
+  font: 400 10px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .2em; margin-top: 6px;
+}
+
+/* ── CENTER COL: PLAY TAB ───────────────────────────────── */
+.mn-hero-slate {
+  position: relative;
+  padding: 20px 28px 24px;
+  border-left: 3px solid var(--signal);
+  background: linear-gradient(90deg, rgba(255,140,26,.10), transparent 60%);
+}
+.mn-hero-kicker {
+  font: 500 10px/1 var(--f-num);
+  color: var(--signal); letter-spacing: .4em;
+  margin-bottom: 10px;
+}
+.mn-hero-title {
+  font: 400 48px/.95 var(--f-display);
+  color: var(--bone); letter-spacing: -.02em;
+}
+.mn-hero-sub {
+  margin-top: 8px;
+  font: 400 13px/1.5 var(--f-body);
+  color: var(--bone-dim); max-width: 520px;
+}
+
+.mn-modes {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.mn-mode {
+  position: relative;
+  padding: 16px 18px 14px;
+  background: rgba(10,12,18,.7);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color .18s, transform .18s var(--ease-out-expo), background .18s;
+  overflow: hidden;
+}
+.mn-mode::before {
+  content: ''; position: absolute; top: 0; left: 0; width: 0; height: 2px;
+  background: var(--signal);
+  transition: width .3s var(--ease-out-expo);
+}
+.mn-mode:hover {
+  border-color: var(--hairline-strong);
+  background: rgba(255,140,26,.03);
+}
+.mn-mode:hover::before { width: 100%; }
+.mn-mode.on {
+  background: linear-gradient(135deg, rgba(255,140,26,.15), transparent 60%);
+  border-color: var(--signal);
+}
+.mn-mode.on::before { width: 100%; }
+.mn-mode-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 6px;
+}
+.mn-mode-ico {
+  width: 22px; height: 22px;
+  color: var(--signal); flex-shrink: 0;
+}
+.mn-mode-ico svg { width: 100%; height: 100%; }
+.mn-mode-name {
+  font: 500 12px/1 var(--f-tactical);
+  letter-spacing: .18em; color: var(--bone);
+}
+.mn-mode-sub {
+  font: 400 11px/1.4 var(--f-body);
+  color: var(--bone-dim);
+}
+.mn-mode-tag {
+  margin-top: 10px; display: inline-block;
+  font: 400 10px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .2em;
+}
+.mn-mode-tag::before { content: '['; color: var(--signal); margin-right: 2px; }
+.mn-mode-tag::after  { content: ']'; color: var(--signal); margin-left: 2px; }
+
+/* Active-loadout strip */
+.mn-loadout {
+  padding: 16px 20px;
+  background: rgba(10,12,18,.55);
+  border: 1px solid var(--hairline);
+}
+.mn-loadout-head {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 12px;
+}
+.mn-loadout-title {
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .3em; color: var(--mute);
+}
+.mn-loadout-active {
+  padding: 3px 10px;
+  background: var(--signal); color: var(--void);
+  font: 500 10px/1 var(--f-tactical);
+  letter-spacing: .15em;
+}
+.mn-loadout-cycle {
+  margin-left: auto;
+  font: 400 9px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .15em;
+}
+.mn-loadout-slots {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 6px;
+}
+.mn-slot {
+  padding: 8px 10px;
+  background: rgba(6,7,11,.7);
+  border: 1px solid var(--hairline);
+}
+.mn-slot-label {
+  font: 400 8px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .25em;
+  margin-bottom: 4px;
+}
+.mn-slot-value {
+  font: 500 10px/1 var(--f-ui);
+  color: var(--bone); letter-spacing: .04em;
+}
+.mn-slot.primary .mn-slot-value {
+  font-family: var(--f-tactical);
+  font-size: 11px; letter-spacing: .1em;
+}
+
+/* DEPLOY button — primary CTA */
+.mn-deploy {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 18px 24px;
+  background: linear-gradient(90deg, var(--signal) 0%, var(--signal-hot) 100%);
+  color: var(--void);
+  border: 0; cursor: pointer;
+  position: relative;
+  clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 100%, 0 100%);
+  transition: filter .2s, transform .2s var(--ease-out-expo);
+  margin-top: auto;
+}
+.mn-deploy:hover { filter: brightness(1.1); transform: translateX(4px); }
+.mn-deploy::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(135deg, rgba(0,0,0,.08) 0 8px, transparent 8px 16px);
+  pointer-events: none;
+}
+.mn-deploy-kicker {
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .3em; color: rgba(6,7,11,.75);
+  margin-bottom: 6px;
+}
+.mn-deploy-label {
+  font: 400 26px/1 var(--f-display);
+  letter-spacing: .02em;
+}
+.mn-deploy-arrow { font-size: 36px; font-weight: 900; padding-right: 16px; }
+
+/* ── RIGHT COL: INTEL / contracts ───────────────────────── */
+.mn-news {
+  padding: 12px 14px;
+  border-left: 2px solid var(--cyan);
+  background: linear-gradient(90deg, rgba(57,240,255,.06), transparent 70%);
+  margin-bottom: 14px;
+}
+.mn-news-tag {
+  font: 500 9px/1 var(--f-num);
+  color: var(--cyan); letter-spacing: .3em;
+  margin-bottom: 4px;
+}
+.mn-news-title {
+  font: 500 12px/1.3 var(--f-tactical);
+  letter-spacing: .08em; color: var(--bone);
+  margin-bottom: 4px;
+}
+.mn-news-desc {
+  font: 400 11px/1.4 var(--f-body);
+  color: var(--bone-dim);
+}
+
+.mn-contract {
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(10,12,18,.7);
+  margin-bottom: 8px;
+  position: relative;
+  transition: border-color .2s, background .2s;
+}
+.mn-contract:hover { border-color: var(--signal); background: rgba(255,140,26,.04); }
+.mn-contract.done  { border-color: var(--toxic); background: rgba(184,255,61,.06); }
+.mn-contract-head {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 4px;
+}
+.mn-contract-name {
+  font: 500 11px/1 var(--f-tactical);
+  letter-spacing: .12em; color: var(--bone); flex: 1;
+}
+.mn-contract-xp {
+  font: 500 10px/1 var(--f-num);
+  color: var(--signal); letter-spacing: .1em;
+}
+.mn-contract-desc {
+  font: 400 10px/1.4 var(--f-body);
+  color: var(--bone-dim); margin-bottom: 8px;
+}
+.mn-contract-rail {
+  position: relative; height: 2px; background: var(--steel-800);
+}
+.mn-contract-rail-fill {
+  position: absolute; inset: 0 auto 0 0;
+  background: var(--signal); box-shadow: 0 0 6px var(--signal-glow);
+}
+.mn-contract.done .mn-contract-rail-fill {
+  background: var(--toxic); box-shadow: 0 0 6px rgba(184,255,61,.5);
+}
+.mn-contract-meta {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 6px;
+  font: 400 9px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .15em;
+}
+.mn-empty-intel {
+  font: 500 10px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .35em;
+  text-align: center; padding: 24px 0;
+}
+.mn-claim-btn {
+  width: 100%; padding: 12px;
+  background: rgba(184,255,61,.12);
+  border: 1px solid var(--toxic);
+  color: var(--toxic);
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .3em; cursor: pointer;
+  transition: background .15s;
+}
+.mn-claim-btn:hover { background: rgba(184,255,61,.22); }
+
+/* ── BOTTOM STRIP ───────────────────────────────────────── */
+.mn-bottom {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: 24px;
+  padding: 0 32px;
+  border-top: 1px solid var(--hairline);
+  background: rgba(6,7,11,.95);
+  z-index: 2;
+}
+.mn-server {
+  display: flex; align-items: center; gap: 10px;
+  font: 400 10px/1 var(--f-num);
+  letter-spacing: .2em; color: var(--mute);
+}
+.mn-server .dot {
+  width: 6px; height: 6px;
+  background: var(--toxic); box-shadow: 0 0 6px var(--toxic);
+  border-radius: 50%;
+  animation: serverPulse 1.8s ease-in-out infinite;
+}
+@keyframes serverPulse { 50% { transform: scale(1.4); opacity: .5; } }
+.mn-server b { color: var(--bone); font-weight: 500; }
+.mn-keys { display: flex; gap: 10px; justify-content: center; }
+.mn-key {
+  display: flex; align-items: center; gap: 6px;
+  font: 400 10px/1 var(--f-num);
+  letter-spacing: .15em; color: var(--mute);
+}
+.mn-key kbd {
+  display: inline-block;
+  min-width: 16px; padding: 3px 6px;
+  background: var(--steel-800);
+  border: 1px solid var(--hairline);
+  color: var(--bone); font: inherit;
+}
+.mn-quit-btn {
+  background: transparent; border: 1px solid var(--hairline);
+  color: var(--mute);
+  font: 500 10px/1 var(--f-tactical);
+  letter-spacing: .25em; padding: 10px 20px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.mn-quit-btn:hover { color: var(--hazard); border-color: var(--hazard); }
+
+/* ── CAREER TAB ─────────────────────────────────────────── */
+.mm-career { flex: 1; }
+.mm-career-head {
+  display: flex; gap: 20px; align-items: center;
+  margin-bottom: 24px;
+}
+.mm-avatar {
+  width: 72px; height: 72px;
+  background: var(--steel-800);
+  border: 1px solid var(--signal);
+  display: grid; place-items: center;
+  font-family: var(--f-display);
+  font-size: 28px; font-weight: 400;
+  color: var(--signal); position: relative;
+  flex-shrink: 0;
+}
+.mm-avatar::before, .mm-avatar::after {
+  content: ''; position: absolute;
+  width: 8px; height: 8px;
+  border: 1px solid var(--signal);
+}
+.mm-avatar::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+.mm-avatar::after  { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+.mm-career-name { flex: 1; }
+.mm-career-username {
+  font-family: var(--f-display);
+  font-size: 26px; font-weight: 400;
+  letter-spacing: -.01em; color: var(--bone);
+}
+.mm-career-level {
+  display: flex; align-items: center; gap: 10px;
+  margin: 8px 0;
+}
+.mm-level-pill {
+  background: rgba(255,140,26,.15);
+  color: var(--signal);
+  padding: 4px 12px;
+  font: 700 11px/1 var(--f-num);
+  letter-spacing: .2em;
+}
+.mm-level-sub {
+  font: 500 11px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .12em;
+}
+.mm-xp-bar {
+  height: 4px; width: 100%; max-width: 440px;
+  background: var(--steel-700);
+}
+.mm-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--signal-dim), var(--signal), var(--signal-hot));
+  transition: width .4s ease-out;
+  box-shadow: 0 0 8px rgba(255,140,26,.5);
+}
+
+.mm-prestige-section {
+  background: linear-gradient(135deg, rgba(194,123,255,.1), transparent 70%);
+  border: 1px solid rgba(194,123,255,.3);
+  border-left: 3px solid var(--purple);
+  padding: 14px 18px; margin-bottom: 20px;
+}
+.mm-prestige-title {
+  font-family: var(--f-tactical);
+  color: var(--purple); font-size: 12px;
+  letter-spacing: .3em; margin-bottom: 6px;
+}
+.mm-prestige-desc {
+  font: 400 12px/1.4 var(--f-body);
+  color: var(--bone-dim); margin-bottom: 10px;
+}
+
+.mm-stats-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+  margin-bottom: 20px;
+}
+.mm-stat {
+  background: var(--steel-900);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--signal);
+  padding: 10px 12px;
+}
+.mm-stat-label {
+  font: 500 9px/1 var(--f-num);
+  letter-spacing: .25em; color: var(--mute);
+}
+.mm-stat-val {
+  font: 400 20px/1 var(--f-display);
+  color: var(--bone); margin-top: 4px;
+}
+
+.mm-section-head {
+  font: 700 10px/1 var(--f-num);
+  letter-spacing: .35em; color: var(--signal);
+  margin: 18px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 8px;
+}
+.mm-section-head::before { content: ''; width: 3px; height: 12px; background: var(--signal); }
+
+.mm-weapons { display: flex; flex-direction: column; gap: 3px; }
+.mm-weapon-row {
+  display: grid;
+  grid-template-columns: 150px 48px 1fr 56px;
+  gap: 10px; align-items: center;
+  background: var(--steel-900);
+  padding: 7px 12px;
+}
+.mm-weapon-name {
+  font: 500 10px/1 var(--f-tactical);
+  letter-spacing: .12em; color: var(--bone);
+}
+.mm-weapon-lvl {
+  font: 700 11px/1 var(--f-num);
+  color: var(--signal);
+}
+.mm-weapon-bar  { height: 3px; background: var(--steel-700); }
+.mm-weapon-fill { height: 100%; background: linear-gradient(90deg, var(--signal-dim), var(--signal)); }
+.mm-weapon-kills {
+  font: 500 11px/1 var(--f-num);
+  text-align: right; color: var(--mute);
+}
+
+/* ── LOADOUT TAB ────────────────────────────────────────── */
+.mm-loadouts-list {
+  display: flex; gap: 6px; margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.mm-loadout-btn {
+  background: var(--steel-900);
+  border: 1px solid var(--hairline);
+  padding: 10px 16px; cursor: pointer;
+  font: 500 11px/1 var(--f-num);
+  letter-spacing: .2em; color: var(--mute);
+  transition: all .15s;
+}
+.mm-loadout-btn:hover    { border-color: var(--signal); color: var(--signal); }
+.mm-loadout-btn.active   { border-color: var(--signal); color: var(--signal); background: rgba(255,140,26,.1); }
+.mm-loadout-btn.equipped { border-color: var(--toxic);  color: var(--toxic);  background: rgba(184,255,61,.07); }
+.mm-loadout-editor {
+  background: var(--steel-900);
+  border: 1px solid var(--hairline);
+  padding: 20px;
+}
+.mm-loadout-head {
+  display: flex; gap: 12px; align-items: center;
+  margin-bottom: 16px;
+}
+.mm-loadout-name-input {
+  background: transparent; color: var(--bone);
+  border: none; border-bottom: 1px solid var(--hairline);
+  font: 500 16px/1 var(--f-tactical);
+  letter-spacing: .1em;
+  width: 100%; padding: 6px 0;
+}
+.mm-loadout-name-input:focus {
+  outline: none; border-bottom-color: var(--signal);
+}
+.mm-slots-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 16px;
+}
+.mm-slot {
+  background: var(--steel-800);
+  border: 1px solid var(--hairline);
+  padding: 10px 12px;
+}
+.mm-slot-label {
+  font: 500 9px/1 var(--f-num);
+  letter-spacing: .3em; color: var(--mute);
+  margin-bottom: 4px;
+}
+.mm-slot-val {
+  font: 600 12px/1 var(--f-ui);
+  color: var(--bone);
+}
+.mm-slot-desc {
+  font: 400 10px/1.3 var(--f-body);
+  color: var(--mute); margin-top: 3px;
+}
+.mm-loadout-name {
+  font: 500 10px/1 var(--f-tactical);
+  letter-spacing: .2em; color: var(--bone);
+}
+.mm-loadout-weapons {
+  font: 400 9px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .1em;
+  margin-top: 3px;
+}
+.mm-equipped-badge {
+  font: 500 9px/1 var(--f-num);
+  color: var(--toxic); letter-spacing: .2em;
+  margin-top: 3px;
+}
+
+/* ── CONTRACTS TAB ──────────────────────────────────────── */
+.mm-contract-head-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.mm-contract-title-main {
+  font: 500 11px/1 var(--f-tactical);
+  letter-spacing: .25em; color: var(--bone);
+}
+.mm-contracts-grid {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;
+}
+.mm-contract {
+  background: var(--steel-900);
+  border: 1px solid var(--hairline);
+  padding: 12px 16px; position: relative;
+}
+.mm-contract.completed { border-left: 3px solid var(--toxic); }
+.mm-contract.claimed   { opacity: .45; }
+.mm-contract-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 4px;
+}
+.mm-contract-title {
+  font: 600 12px/1 var(--f-ui);
+  color: var(--bone); letter-spacing: .08em;
+}
+.mm-contract-reward {
+  font: 700 11px/1 var(--f-num);
+  color: var(--signal); letter-spacing: .15em;
+}
+.mm-contract-desc {
+  font: 400 11px/1.4 var(--f-body);
+  color: var(--mute); margin-bottom: 8px;
+}
+.mm-contract-progress {
+  display: flex; align-items: center; gap: 10px;
+}
+.mm-contract-bar {
+  flex: 1; height: 3px;
+  background: var(--steel-700); overflow: hidden;
+}
+.mm-contract-fill {
+  height: 100%; background: var(--signal);
+  box-shadow: 0 0 4px rgba(255,140,26,.5);
+  transition: width .3s ease;
+}
+.mm-contract-num {
+  font: 500 10px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .1em;
+}
+.mm-contract-claim {
+  font: 500 9px/1 var(--f-num);
+  color: var(--toxic); letter-spacing: .25em;
+  margin-top: 6px;
+}
+
+/* ── COSMETICS TAB ──────────────────────────────────────── */
+.mm-cos-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+.mm-cos-section {
+  background: var(--steel-900);
+  border: 1px solid var(--hairline);
+  padding: 14px 16px;
+}
+.mm-cos-row {
+  display: flex; justify-content: space-between;
+  padding: 4px 0;
+  font: 400 12px/1 var(--f-ui);
+}
+.mm-cos-label { color: var(--mute); }
+.mm-cos-val   { font-weight: 700; color: var(--bone); }
+.mm-cos-emotes { display: flex; gap: 6px; }
+.mm-cos-slot {
+  background: var(--steel-800);
+  padding: 8px 10px; text-align: center;
+  border: 1px solid var(--hairline); flex: 1;
+}
+.mm-cos-slot-num {
+  font: 500 9px/1 var(--f-num);
+  color: var(--mute); margin-bottom: 4px;
+  letter-spacing: .2em;
+}
+.mm-cos-slot-val {
+  font: 700 10px/1 var(--f-ui);
+  color: var(--bone);
+}
+.mm-cos-unlocks {
+  display: flex; gap: 14px;
+  font: 400 11px/1 var(--f-num);
+  color: var(--mute); letter-spacing: .1em;
+}
+.mm-cos-unlock { grid-column: span 2; }
+
+/* ── SETTINGS TAB ───────────────────────────────────────── */
+.mm-settings { max-width: 600px; flex: 1; }
+.mm-setting-group { margin-bottom: 20px; }
+.mm-setting-row {
+  display: grid; grid-template-columns: 200px 1fr 52px;
+  align-items: center; gap: 14px;
+  padding: 7px 0;
+}
+.mm-setting-row label {
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .25em; color: var(--mute);
+}
+.mm-setting-row input[type="range"]    { accent-color: var(--signal); }
+.mm-setting-row input[type="checkbox"] { accent-color: var(--signal); width: 18px; height: 18px; }
+.mm-setting-row select {
+  background: var(--steel-800); color: var(--bone);
+  border: 1px solid var(--hairline);
+  padding: 6px 10px;
+  font: 400 11px/1 var(--f-num);
+}
+.mm-setting-row span {
+  font: 500 11px/1 var(--f-num);
+  min-width: 40px; text-align: right;
+  color: var(--signal); letter-spacing: .1em;
+}
+
+/* Shared button */
+.mm-btn {
+  background: var(--steel-800); color: var(--bone);
+  border: 1px solid var(--hairline-strong);
+  padding: 10px 20px;
+  font: 500 11px/1 var(--f-tactical);
+  letter-spacing: .25em;
+  cursor: pointer;
+  transition: all .15s var(--ease-out-expo);
+  white-space: nowrap;
+}
+.mm-btn:hover        { border-color: var(--signal); color: var(--signal); }
+.mm-btn-primary {
+  background: var(--signal); color: var(--void);
+  border-color: var(--signal);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%);
+}
+.mm-btn-primary:hover {
+  filter: brightness(1.12); color: var(--void);
+  transform: translateX(4px);
+}
+.mm-btn-secondary {
+  background: transparent; border-color: var(--hairline);
+}
+.mm-empty {
+  text-align: center; color: var(--mute);
+  font: 400 12px/1 var(--f-num);
+  padding: 60px 0; letter-spacing: .25em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LEGACY DROPDOWN MENU  (#mainMenu)
+   Kept in the DOM for the <select> data, but hidden at boot. The new
+   career-style MainMenu owns the boot UI. If old code toggles it on,
+   these styles at least keep it coherent with the rest of the system.
    ═══════════════════════════════════════════════════════════════════════ */
 #mainMenu, #pauseMenu {
   position: fixed; inset: 0; z-index: 40;
@@ -1333,6 +2365,7 @@ body.in-match:not(.mode-br) #lockHint {
   backdrop-filter: blur(16px);
 }
 #mainMenu.on, #pauseMenu.on { display: flex; }
+
 .menu-panel {
   min-width: 400px;
   display: flex; flex-direction: column; gap: 14px;
@@ -1352,12 +2385,12 @@ body.in-match:not(.mode-br) #lockHint {
 .menu-logo {
   font-size: 36px; text-align: center;
   color: var(--signal);
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-weight: 400;
   margin-bottom: 4px;
 }
 .menu-panel h1 {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 40px; font-weight: 400;
   letter-spacing: -.02em;
   color: var(--bone);
@@ -1367,28 +2400,28 @@ body.in-match:not(.mode-br) #lockHint {
 .menu-panel h1::after {
   content: '// TACTICAL COMBAT SIMULATION';
   display: block;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   letter-spacing: 0.4em;
   color: var(--signal);
   margin-top: 10px;
 }
 .menu-sub {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--bone-dim);
   letter-spacing: 0.2em;
   text-align: center;
 }
 .menu-label {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   letter-spacing: 0.3em;
-  color: var(--muted);
+  color: var(--mute);
   margin-top: 10px;
 }
 .menu-select, .menu-btn {
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   border: 1px solid var(--hairline-strong);
   background: var(--steel-800);
   color: var(--bone);
@@ -1398,8 +2431,7 @@ body.in-match:not(.mode-br) #lockHint {
   transition: all 0.2s var(--ease-out-expo);
 }
 .menu-select {
-  appearance: none;
-  -webkit-appearance: none;
+  appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%23ff8c1a' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
@@ -1407,33 +2439,18 @@ body.in-match:not(.mode-br) #lockHint {
   padding-right: 36px;
   cursor: pointer;
 }
-.menu-select:focus {
-  outline: none;
-  border-color: var(--signal);
-}
-.menu-select option {
-  background: var(--panel-solid);
-  color: var(--bone);
-  padding: 8px 12px;
-}
-.menu-btn {
-  cursor: pointer;
-  font-weight: 700;
-}
-.menu-btn:hover {
-  border-color: var(--signal);
-  color: var(--signal);
-}
+.menu-select:focus { outline: none; border-color: var(--signal); }
+.menu-select option { background: var(--panel-solid); color: var(--bone); padding: 8px 12px; }
+.menu-btn { cursor: pointer; font-weight: 700; }
+.menu-btn:hover { border-color: var(--signal); color: var(--signal); }
 .menu-btn-primary {
-  background: var(--signal);
-  color: var(--void);
+  background: var(--signal); color: var(--void);
   border-color: var(--signal);
   margin-top: 10px;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
 }
 .menu-btn-primary:hover {
-  filter: brightness(1.12);
-  color: var(--void);
+  filter: brightness(1.12); color: var(--void);
   transform: translateX(4px);
 }
 .menu-btn-danger {
@@ -1447,19 +2464,19 @@ body.in-match:not(.mode-br) #lockHint {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   PAUSE MENU — override the legacy look
+   PAUSE MENU — drawer layout (overrides the legacy centered modal)
+   "Stand Down" big editorial header + numbered options sliding right.
    ═══════════════════════════════════════════════════════════════════════ */
 #pauseMenu.on {
   justify-content: flex-start;
   background: rgba(6, 7, 11, 0.5);
-  backdrop-filter: blur(18px) brightness(0.55) saturate(0.5);
+  backdrop-filter: blur(18px) brightness(0.55) saturate(0.6);
 }
 #pauseMenu .menu-panel {
   height: 100vh;
-  width: 440px;
-  min-width: 440px;
+  width: 440px; min-width: 440px;
   padding: 56px 48px;
-  background: linear-gradient(90deg, rgba(6, 7, 11, 0.94), rgba(6, 7, 11, 0.72));
+  background: linear-gradient(90deg, rgba(6,7,11,.94), rgba(6,7,11,.72));
   border-right: 1px solid var(--hairline-accent);
   clip-path: none;
   gap: 10px;
@@ -1475,7 +2492,7 @@ body.in-match:not(.mode-br) #lockHint {
 #pauseMenu .menu-panel h1::before {
   content: '// SIMULATION HALTED';
   display: block;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 500;
   letter-spacing: 0.5em;
   color: var(--signal);
@@ -1492,14 +2509,14 @@ body.in-match:not(.mode-br) #lockHint {
   padding: 16px 20px;
   font-size: 16px;
   letter-spacing: .25em;
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   font-weight: 700;
   transition: all 0.2s var(--ease-out-expo);
   clip-path: none;
 }
 #pauseMenu .menu-btn::after {
   content: '▸';
-  color: var(--muted);
+  color: var(--mute);
   opacity: 0;
   transform: translateX(-8px);
   transition: opacity 0.15s, transform 0.15s, color 0.15s;
@@ -1530,7 +2547,94 @@ body.in-match:not(.mode-br) #lockHint {
 #pauseMenu .menu-btn-danger:hover::after { color: var(--hazard); }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ANNOUNCER — big center-screen callouts
+   SETTINGS MENU (centered panel, three-column rows)
+   ═══════════════════════════════════════════════════════════════════════ */
+#settingsMenu {
+  position: fixed; inset: 0; z-index: 40;
+  display: none;
+  align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(6,7,11,.88), rgba(2,3,6,.98));
+  backdrop-filter: blur(16px);
+}
+#settingsMenu.on { display: flex; }
+.settings-panel {
+  min-width: 480px; max-width: 560px;
+  display: flex; flex-direction: column; gap: 18px;
+  padding: 48px 52px;
+  background: var(--panel-dense);
+  position: relative;
+}
+.settings-panel::before, .settings-panel::after {
+  content: ''; position: absolute;
+  width: 20px; height: 20px;
+  border: 1px solid var(--signal);
+}
+.settings-panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.settings-panel::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.settings-panel h1 {
+  font-family: var(--f-display);
+  font-size: 32px; font-weight: 400;
+  letter-spacing: -.01em;
+  color: var(--bone);
+}
+.settings-panel h1::before {
+  content: '// SYSTEM CONFIG';
+  display: block;
+  font-family: var(--f-num);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.4em;
+  color: var(--signal);
+  margin-bottom: 8px;
+}
+.settings-group {
+  display: grid; grid-template-columns: 160px 1fr 60px;
+  align-items: center; gap: 14px;
+}
+.settings-group .settings-label {
+  font-family: var(--f-num);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.25em;
+  color: var(--bone-dim);
+  text-transform: uppercase;
+}
+.settings-group input[type="range"] {
+  accent-color: var(--signal);
+  height: 4px;
+}
+.settings-group .settings-val {
+  font-family: var(--f-num);
+  font-size: 12px; font-weight: 500;
+  color: var(--signal);
+  text-align: right;
+  letter-spacing: .1em;
+}
+.settings-divider {
+  height: 1px; background: var(--hairline);
+  margin: 6px 0;
+}
+.settings-group input[type="color"] {
+  width: 42px; height: 26px;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  background: transparent;
+}
+.settings-group input[type="checkbox"] {
+  accent-color: var(--signal);
+  width: 18px; height: 18px;
+}
+.menu-select-sm {
+  font-family: var(--f-num);
+  font-size: 11px;
+  padding: 6px 10px;
+  background: var(--steel-800);
+  border: 1px solid var(--hairline);
+  color: var(--bone);
+  letter-spacing: .1em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANNOUNCER — center-top editorial callouts
+   EXTRA IDEA #1: Letterbox bars for epic tier (class .letterbox)
    ═══════════════════════════════════════════════════════════════════════ */
 #announcer {
   position: fixed;
@@ -1553,7 +2657,7 @@ body.in-match:not(.mode-br) #lockHint {
   margin: 0 auto 14px;
 }
 .anc-text {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-weight: 400;
   letter-spacing: -.01em;
   line-height: 1;
@@ -1571,7 +2675,7 @@ body.in-match:not(.mode-br) #lockHint {
   80% { transform: translate(2px, -1px); }
 }
 .anc-sub {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 12px; font-weight: 500;
   color: var(--signal-hot);
   letter-spacing: 0.45em;
@@ -1586,12 +2690,39 @@ body.in-match:not(.mode-br) #lockHint {
   opacity: .55;
 }
 
+/* EXTRA IDEA #1 — Letterbox bars for epic announcements.
+   Applied as an additional class on #announcer when tier === 'epic'.
+   Uses fixed-position pseudos so they sweep the full viewport. */
+#announcer.letterbox::before,
+#announcer.letterbox::after {
+  content: ''; position: fixed;
+  left: 0; right: 0;
+  height: 40px;
+  background: linear-gradient(90deg, var(--hazard) 0%, var(--signal) 100%);
+  opacity: 0;
+  animation: letterboxIn 1.2s var(--ease-out-expo) forwards;
+  pointer-events: none;
+  z-index: 49;
+  margin: 0; width: auto;
+}
+#announcer.letterbox::before { top: 0;    transform-origin: top; }
+#announcer.letterbox::after  { bottom: 0; transform-origin: bottom; left: 0; right: 0; }
+/* The ::before hairline we use for the plain announcer is now hidden
+   under the letterbox bar (fixed). We'll overwrite its positioning so
+   it doesn't conflict — the letterbox bars are fixed positioned. */
+@keyframes letterboxIn {
+  0%   { opacity: 0; transform: scaleY(0); }
+  15%  { opacity: 1; transform: scaleY(1); }
+  75%  { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0; transform: scaleY(1); }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
-   MEDAL TICKER (left-center, stacks downward)
+   MEDAL TICKER — left-edge stack of earned medals
    ═══════════════════════════════════════════════════════════════════════ */
 #medalTicker {
   position: fixed;
-  left: 16px; top: 42%;
+  left: 20px; top: 42%;
   transform: translateY(-50%);
   z-index: 11;
   display: flex; flex-direction: column; gap: 6px;
@@ -1612,38 +2743,39 @@ body.in-match:not(.mode-br) #lockHint {
 .medal-item.fade-out { opacity: 0; transform: translateX(-40px); }
 @keyframes medalSlideIn {
   from { opacity: 0; transform: translateX(-60px) scale(0.92); }
-  to { opacity: 1; transform: none; }
+  to   { opacity: 1; transform: none; }
 }
 .medal-icon {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 24px; font-weight: 400;
   filter: drop-shadow(0 0 8px currentColor);
   min-width: 28px; text-align: center;
+  display: flex; align-items: center; justify-content: center;
 }
+.medal-icon svg { width: 24px; height: 24px; }
 .medal-meta { display: flex; flex-direction: column; line-height: 1.1; }
 .medal-name {
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   font-size: 13px; font-weight: 700;
   letter-spacing: 0.2em;
   color: var(--bone);
 }
 .medal-xp {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   color: var(--signal-hot);
-  letter-spacing: .15em;
-  margin-top: 3px;
+  letter-spacing: .15em; margin-top: 3px;
 }
 .medal-epic {
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 32px currentColor;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MATCH CHALLENGE PANEL (right side)
+   CHALLENGE PANEL — in-match contract tracker (right edge)
    ═══════════════════════════════════════════════════════════════════════ */
 #challengePanel {
   position: fixed;
-  right: 16px; bottom: 160px;
+  right: 20px; bottom: 180px;
   z-index: 9;
   width: 280px;
   padding: 12px 14px;
@@ -1654,7 +2786,7 @@ body.in-match:not(.mode-br) #lockHint {
 }
 .ch-header {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   letter-spacing: 0.35em;
   color: var(--signal);
@@ -1679,7 +2811,7 @@ body.in-match:not(.mode-br) #lockHint {
 }
 .ch-body { min-width: 0; }
 .ch-label {
-  font-family: var(--body-font);
+  font-family: var(--f-ui);
   font-size: 11px; font-weight: 500;
   color: var(--bone);
   line-height: 1.2;
@@ -1699,22 +2831,95 @@ body.in-match:not(.mode-br) #lockHint {
   transition: width 0.3s ease;
 }
 .ch-progress {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px;
-  color: var(--text-dim);
+  color: var(--bone-dim);
   letter-spacing: .1em;
 }
 .ch-xp {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 700;
   color: var(--signal-hot);
   letter-spacing: .1em;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   PING SYSTEM
+   CONTRACT HUD  (#contractHud) — compact persistent contract tracker
    ═══════════════════════════════════════════════════════════════════════ */
-#pingLayer {
+#contractHud {
+  position: fixed; top: 110px; right: 20px;
+  z-index: 10; pointer-events: auto;
+  width: 260px;
+  background: var(--panel-dense);
+  border: 1px solid var(--hairline);
+  border-left: 2px solid var(--signal);
+  font-family: var(--f-num);
+  color: var(--bone);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+  transition: box-shadow 0.2s;
+  backdrop-filter: blur(10px);
+}
+#contractHud:hover {
+  box-shadow: 0 4px 24px rgba(255,140,26,0.25);
+}
+.ch-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--hairline);
+  user-select: none;
+}
+.ch-ico    { color: var(--signal); font-size: 14px; }
+.ch-title {
+  flex: 1;
+  font: 700 10px/1 var(--f-num);
+  letter-spacing: 0.22em;
+  color: var(--signal);
+}
+.ch-bell   { font: 700 10px/1 var(--f-num); color: var(--toxic); }
+.ch-bell.has-claim::before {
+  content: '● CLAIM';
+  animation: chPulse 1.3s ease-in-out infinite;
+}
+@keyframes chPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.ch-body {
+  padding: 8px 10px;
+  max-height: 90px;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+#contractHud.expanded .ch-body { max-height: 400px; }
+.ch-item-icon { font-size: 14px; flex-shrink: 0; }
+.ch-item-body { flex: 1; min-width: 0; }
+.ch-item-title {
+  font: 700 10px/1 var(--f-num);
+  color: var(--bone);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ch-item-bar {
+  height: 2px; background: var(--hairline);
+  margin-top: 3px; overflow: hidden;
+}
+.ch-item-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--signal-dim), var(--signal));
+  transition: width 0.4s ease-out;
+}
+.ch-item.done .ch-item-bar-fill { background: linear-gradient(90deg, var(--toxic), #5fe891); }
+.ch-item-prog {
+  font-family: var(--f-num);
+  font-size: 9px; color: var(--cyan);
+  margin-left: auto; white-space: nowrap;
+  letter-spacing: .1em;
+}
+.ch-item.done .ch-item-prog { color: var(--toxic); font-weight: 700; }
+.ch-item.claimable              { background: rgba(184,255,61,.08); }
+.ch-item.claimable .ch-item-title { color: var(--toxic); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PING SYSTEM — world-pinned tactical ping markers
+   ═══════════════════════════════════════════════════════════════════════ */
+#pingLayer, #pingContainer {
   position: fixed; inset: 0;
   pointer-events: none;
   z-index: 14;
@@ -1727,26 +2932,28 @@ body.in-match:not(.mode-br) #lockHint {
   transition: opacity 0.3s;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
 }
-.ping-icon {
-  font-family: var(--display-font);
-  font-size: 28px; font-weight: 400;
+.ping-icon, .pm-dot {
+  font-family: var(--f-display);
   text-shadow: 0 0 10px currentColor;
-  animation: pingPulse 1.3s var(--ease-out-expo) infinite;
   line-height: 1;
+}
+.ping-icon {
+  font-size: 28px; font-weight: 400;
+  animation: pingPulse 1.3s var(--ease-out-expo) infinite;
 }
 @keyframes pingPulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.25); }
+  50%      { transform: scale(1.25); }
 }
 .ping-label {
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   font-size: 10px; font-weight: 700;
   letter-spacing: 0.25em;
   margin-top: 5px;
   text-shadow: 0 0 8px currentColor, 0 1px 2px rgba(0, 0, 0, 0.95);
 }
-.ping-dist {
-  font-family: var(--mono-font);
+.ping-dist, .pm-dist {
+  font-family: var(--f-num);
   font-size: 10px; font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   margin-top: 2px;
@@ -1758,7 +2965,52 @@ body.in-match:not(.mode-br) #lockHint {
 .ping-enemy .ping-icon { animation-duration: 0.7s; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   WAYPOINTS
+   COMM WHEEL  (#pingWheel) — 8-slot radial communications menu
+   EXTRA IDEA #5: restyle to match APEX aesthetic (hard edges, amber accents)
+   High specificity (body prefix) overrides the CommWheel's inline styles.
+   ═══════════════════════════════════════════════════════════════════════ */
+body #pingWheel .pw-bg {
+  background: radial-gradient(circle at center,
+      rgba(6,7,11,0.55) 0%,
+      rgba(6,7,11,0.72) 60%);
+  backdrop-filter: blur(4px) brightness(0.6);
+}
+body #pingWheel .pw-slot {
+  border-radius: 0;
+  border: 1px solid var(--hairline-strong);
+  background: var(--panel-dense);
+  font-family: var(--f-num);
+}
+body #pingWheel .pw-slot.hover {
+  border-color: var(--signal);
+  background: var(--steel-800);
+  box-shadow: 0 0 16px rgba(255,140,26,.25);
+}
+body #pingWheel .pw-slot .pw-ic {
+  font-family: var(--f-display);
+  color: var(--signal);
+  text-shadow: 0 0 8px var(--signal-glow);
+}
+body #pingWheel .pw-slot .pw-lb {
+  font-family: var(--f-num);
+  letter-spacing: .2em;
+  color: var(--bone-dim);
+}
+body #pingWheel .pw-title {
+  font-family: var(--f-tactical);
+  letter-spacing: 0.4em;
+  color: var(--signal);
+  text-shadow: 0 0 8px var(--signal-glow);
+}
+body #pingWheel .pw-center-dot {
+  border-radius: 0;
+  width: 6px; height: 6px;
+  background: var(--signal);
+  box-shadow: 0 0 8px var(--signal-glow);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   WAYPOINTS — world-pinned objective markers
    ═══════════════════════════════════════════════════════════════════════ */
 #waypointLayer {
   position: fixed; inset: 0;
@@ -1774,7 +3026,7 @@ body.in-match:not(.mode-br) #lockHint {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
 }
 .wp-icon {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 16px; font-weight: 400;
   width: 30px; height: 30px;
   border: 1px solid currentColor;
@@ -1784,14 +3036,14 @@ body.in-match:not(.mode-br) #lockHint {
   backdrop-filter: blur(4px);
 }
 .wp-label {
-  font-family: var(--tactical-font);
+  font-family: var(--f-tactical);
   font-size: 9px; font-weight: 700;
   letter-spacing: 0.2em;
   margin-top: 4px;
   text-shadow: 0 0 6px currentColor, 0 1px 2px rgba(0, 0, 0, 0.95);
 }
 .wp-dist {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 9px; font-weight: 500;
   color: rgba(255, 255, 255, 0.8);
   margin-top: 1px;
@@ -1805,6 +3057,8 @@ body.in-match:not(.mode-br) #lockHint {
 
 /* ═══════════════════════════════════════════════════════════════════════
    KILLCAM + POTG
+   EXTRA IDEA #3: Chromatic-aberration filter during killcam ("enemy vision")
+   EXTRA IDEA #4: POTG name reveal — full-width bottom slate
    ═══════════════════════════════════════════════════════════════════════ */
 #killcam {
   position: fixed; inset: 0;
@@ -1827,13 +3081,13 @@ body.in-match:not(.mode-br) #lockHint {
   padding: 0 36px;
 }
 .kc-label {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 12px; font-weight: 500;
   letter-spacing: 0.5em;
   color: var(--hazard);
 }
 .kc-killer {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 18px; font-weight: 400;
   letter-spacing: .02em;
   color: var(--bone);
@@ -1844,8 +3098,69 @@ body.in-match:not(.mode-br) #lockHint {
   background: linear-gradient(0deg, rgba(0, 0, 0, 0.88), transparent);
 }
 
+/* EXTRA IDEA #3: chromatic-aberration on #cw canvas while killcam is active */
+body.killcam-active #cw,
+#killcam.on ~ #cw {
+  filter: hue-rotate(8deg) saturate(1.4) contrast(1.15);
+  transition: filter 0.3s ease-out;
+}
+
+/* EXTRA IDEA #4: POTG name-reveal overlay */
+#potg {
+  position: fixed; inset: 0;
+  z-index: 800;
+  pointer-events: none;
+  display: none;
+}
+#potg.on { display: block; }
+#potg .potg-frame {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 28px 64px 34px;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.88) 100%);
+  animation: potgIn .6s var(--ease-out-expo);
+}
+@keyframes potgIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}
+#potg .potg-label {
+  font-family: var(--f-num);
+  font-size: 11px; font-weight: 500;
+  letter-spacing: .6em;
+  color: var(--signal);
+  margin-bottom: 8px;
+  animation: potgType 1s steps(20) forwards;
+  overflow: hidden; white-space: nowrap;
+  max-width: 0;
+}
+@keyframes potgType { to { max-width: 100%; } }
+#potg .potg-name {
+  font-family: var(--f-display);
+  font-size: 48px; font-weight: 400;
+  letter-spacing: -.02em;
+  color: var(--bone);
+  line-height: 1;
+  text-shadow: 0 0 20px var(--signal-glow);
+}
+#potg .potg-meta {
+  display: flex; gap: 24px;
+  margin-top: 10px;
+  font-family: var(--f-num);
+  font-size: 12px;
+  color: var(--bone-dim);
+  letter-spacing: .25em;
+}
+#potg .potg-meta b { color: var(--signal); font-weight: 500; }
+#potg .potg-meta::before {
+  content: ''; display: block;
+  width: 40px; height: 1px;
+  background: var(--signal);
+  align-self: center;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
-   STANCE INDICATOR
+   STANCE INDICATOR — stand/crouch/lean/ADS chips
    ═══════════════════════════════════════════════════════════════════════ */
 #stanceIndicator {
   position: fixed;
@@ -1858,10 +3173,10 @@ body.in-match:not(.mode-br) #lockHint {
   width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   background: var(--panel);
   border: 1px solid var(--hairline);
-  color: var(--muted);
+  color: var(--mute);
   transition: all 0.2s;
 }
 .stance-icon.active {
@@ -1871,133 +3186,13 @@ body.in-match:not(.mode-br) #lockHint {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   SETTINGS MENU
-   ═══════════════════════════════════════════════════════════════════════ */
-#settingsMenu {
-  position: fixed; inset: 0; z-index: 40;
-  display: none;
-  align-items: center; justify-content: center;
-  background: radial-gradient(ellipse at center, rgba(6, 7, 11, 0.88), rgba(2, 3, 6, 0.98));
-  backdrop-filter: blur(16px);
-}
-#settingsMenu.on { display: flex; }
-.settings-panel {
-  min-width: 480px; max-width: 560px;
-  display: flex; flex-direction: column; gap: 18px;
-  padding: 48px 52px;
-  background: var(--panel-dense);
-  position: relative;
-}
-.settings-panel::before, .settings-panel::after {
-  content: ''; position: absolute;
-  width: 20px; height: 20px;
-  border: 1px solid var(--signal);
-}
-.settings-panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
-.settings-panel::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+   LOADING SCREEN — editorial mission-briefing layout
+   EXTRA IDEA #10 — topstrip (session/region/build), coords row, intel
+   transmission with typing cursor, stage ticks beneath the progress bar.
 
-.settings-panel h1 {
-  font-family: var(--display-font);
-  font-size: 32px; font-weight: 400;
-  letter-spacing: -.01em;
-  color: var(--bone);
-}
-.settings-panel h1::before {
-  content: '// SYSTEM CONFIG';
-  display: block;
-  font-family: var(--mono-font);
-  font-size: 10px; font-weight: 500;
-  letter-spacing: 0.4em;
-  color: var(--signal);
-  margin-bottom: 8px;
-}
-.settings-group {
-  display: grid; grid-template-columns: 160px 1fr 60px;
-  align-items: center; gap: 14px;
-}
-.settings-group .settings-label {
-  font-family: var(--mono-font);
-  font-size: 10px; font-weight: 500;
-  letter-spacing: 0.25em;
-  color: var(--text-dim);
-  text-transform: uppercase;
-}
-.settings-group input[type="range"] {
-  accent-color: var(--signal);
-  height: 4px;
-}
-.settings-group .settings-val {
-  font-family: var(--mono-font);
-  font-size: 12px; font-weight: 500;
-  color: var(--signal);
-  text-align: right;
-  letter-spacing: .1em;
-}
-.settings-divider {
-  height: 1px; background: var(--hairline);
-  margin: 6px 0;
-}
-.settings-group input[type="color"] {
-  width: 42px; height: 26px;
-  border: 1px solid var(--hairline);
-  cursor: pointer;
-  background: transparent;
-}
-.settings-group input[type="checkbox"] {
-  accent-color: var(--signal);
-  width: 18px; height: 18px;
-}
-.menu-select-sm {
-  font-family: var(--mono-font);
-  font-size: 11px;
-  padding: 6px 10px;
-  background: var(--steel-800);
-  border: 1px solid var(--hairline);
-  color: var(--bone);
-  letter-spacing: .1em;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   KILLSTREAK BANNER
-   ═══════════════════════════════════════════════════════════════════════ */
-#killstreak {
-  position: fixed;
-  top: 18%; left: 50%;
-  transform: translateX(-50%);
-  z-index: 25;
-  font-family: var(--display-font);
-  font-size: 38px; font-weight: 400;
-  letter-spacing: -.01em;
-  color: var(--signal-hot);
-  text-shadow:
-    0 0 20px var(--signal-glow),
-    0 0 40px rgba(255, 140, 26, 0.3),
-    0 2px 6px rgba(0, 0, 0, 0.9);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s;
-  text-align: center;
-}
-#killstreak::before {
-  content: '// STREAK'; display: block;
-  font-family: var(--mono-font);
-  font-size: 10px; font-weight: 500;
-  letter-spacing: 0.5em;
-  color: var(--signal);
-  margin-bottom: 8px;
-  text-shadow: none;
-}
-#killstreak.on {
-  opacity: 1;
-  animation: streakPop 0.45s var(--ease-snap);
-}
-@keyframes streakPop {
-  0% { transform: translateX(-50%) scale(1.5); opacity: 0; }
-  100% { transform: translateX(-50%) scale(1); opacity: 1; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   LOADING SCREEN
+   Works with BOTH the simple legacy markup (.ls-title / .ls-bar / .ls-fill
+   / .ls-text) and the richer enhanced markup (.ld-shell with .ld-topstrip,
+   .ld-slate, .ld-intel, .ld-ticks).
    ═══════════════════════════════════════════════════════════════════════ */
 #loadingScreen {
   position: fixed; inset: 0; z-index: 9999;
@@ -2005,9 +3200,11 @@ body.in-match:not(.mode-br) #lockHint {
   background:
     radial-gradient(ellipse at 30% 40%, rgba(255, 140, 26, 0.08) 0%, transparent 50%),
     linear-gradient(180deg, #0a0d15 0%, #06070b 60%, #0a0808 100%);
-  font-family: var(--body-font);
+  font-family: var(--f-body);
 }
 #loadingScreen.on { display: flex; }
+
+/* Animated grid mask */
 #loadingScreen::before {
   content: ''; position: absolute; inset: 0;
   background-image:
@@ -2017,17 +3214,17 @@ body.in-match:not(.mode-br) #lockHint {
   mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
   pointer-events: none;
 }
+
+/* ── LEGACY simple layout (from original index.html) ─────── */
+.ls-bg { position: absolute; inset: 0; }
 .ls-inner {
   text-align: center;
   padding: 48px 64px;
-  position: relative;
-  z-index: 1;
+  position: relative; z-index: 1;
 }
-.ls-logo {
-  display: none; /* replaced by title */
-}
+.ls-logo { display: none; }    /* We use editorial text instead */
 .ls-title {
-  font-family: var(--display-font);
+  font-family: var(--f-display);
   font-size: 88px; font-weight: 400;
   letter-spacing: -.02em;
   color: var(--bone);
@@ -2037,7 +3234,7 @@ body.in-match:not(.mode-br) #lockHint {
 .ls-title::before {
   content: '// DEPLOYING';
   display: block;
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 12px; font-weight: 500;
   letter-spacing: 0.5em;
   color: var(--signal);
@@ -2057,19 +3254,179 @@ body.in-match:not(.mode-br) #lockHint {
   transition: width 0.3s linear;
 }
 .ls-text {
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 500;
-  color: var(--text-dim);
+  color: var(--bone-dim);
   letter-spacing: 0.3em;
   text-transform: uppercase;
+}
+
+/* ── ENHANCED layout (EXTRA IDEA #10 — if the richer DOM is present) ── */
+.ld-shell {
+  position: absolute; inset: 0;
+  display: grid; grid-template-rows: auto 1fr auto;
+  padding: 64px 80px;
+}
+.ld-topstrip {
+  display: flex; justify-content: space-between; align-items: center;
+  font: 500 11px/1 var(--f-num); letter-spacing: .35em;
+  color: var(--mute);
+}
+.ld-topstrip .tick { color: var(--signal); }
+.ld-center { display: grid; place-items: center; align-content: center; gap: 32px; }
+.ld-slate { text-align: center; }
+.ld-miss-tag {
+  display: inline-flex; align-items: center; gap: 10px;
+  font: 500 11px/1 var(--f-num); letter-spacing: .4em;
+  color: var(--signal);
+  margin-bottom: 22px;
+}
+.ld-miss-tag::before, .ld-miss-tag::after {
+  content: ''; width: 40px; height: 1px; background: var(--signal);
+}
+.ld-map-name {
+  font: 400 120px/.88 var(--f-display);
+  letter-spacing: -.02em;
+  color: var(--bone);
+  text-shadow: 0 0 40px rgba(255, 140, 26, .18);
+}
+.ld-map-sub {
+  margin-top: 10px;
+  font: 700 16px/1 var(--f-tactical);
+  letter-spacing: .6em; color: var(--bone-dim);
+  padding-left: .6em;
+}
+.ld-coords {
+  margin-top: 18px;
+  display: inline-flex; gap: 24px;
+  font: 500 11px/1 var(--f-num); letter-spacing: .2em;
+  color: var(--mute);
+}
+.ld-coords b { color: var(--bone); font-weight: 500; }
+.ld-intel {
+  max-width: 560px; text-align: left;
+  padding: 16px 20px;
+  border-left: 2px solid var(--signal);
+  background: linear-gradient(90deg, rgba(255,140,26,.06), transparent 80%);
+  transition: opacity .2s ease;
+}
+.ld-intel-head {
+  font: 500 10px/1 var(--f-num); letter-spacing: .4em;
+  color: var(--signal); margin-bottom: 6px;
+}
+.ld-intel-body {
+  font: 400 14px/1.5 var(--f-ui);
+  color: var(--bone-dim);
+}
+.ld-intel-body::after {
+  content: '▋'; color: var(--signal);
+  animation: blink 1s steps(2) infinite;
+  margin-left: 4px;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.ld-progress { display: grid; gap: 10px; }
+.ld-progress-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .3em; color: var(--mute);
+}
+.ld-progress-head b {
+  color: var(--signal); font-weight: 500; font-size: 14px;
+}
+.ld-progress-head .pct {
+  font: 400 24px/1 var(--f-num);
+  color: var(--bone);
+  letter-spacing: -.02em;
+}
+.ld-rail {
+  position: relative; height: 2px;
+  background: var(--steel-800);
+}
+.ld-rail-fill {
+  position: absolute; inset: 0 auto 0 0;
+  background: var(--signal);
+  box-shadow: 0 0 12px var(--signal-glow);
+  width: 0; transition: width .3s linear;
+}
+.ld-ticks {
+  display: flex; justify-content: space-between;
+  font: 400 9px/1 var(--f-num);
+  color: var(--ghost);
+  letter-spacing: .2em;
+  padding-top: 6px;
+}
+.ld-ticks span { position: relative; }
+.ld-ticks span::before {
+  content: ''; position: absolute; top: -10px; left: 0;
+  width: 1px; height: 4px; background: var(--ghost);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   START GATE — splash with WARZONE logo + PLAY button
+   Required to unlock the Web Audio context on first click.
+   ═══════════════════════════════════════════════════════════════════════ */
+#startGate {
+  position: fixed; inset: 0; z-index: 9998;
+  display: none;
+  align-items: center; justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255,140,26,.10), transparent 60%),
+    linear-gradient(180deg, var(--void) 0%, #000 100%);
+  overflow: hidden;
+}
+#startGate.on { display: flex; }
+#startGate::before {
+  content: ''; position: absolute; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+  opacity: .6;
+}
+.sg-inner {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 48px;
+  animation: sgFadeIn .6s var(--ease-out-expo) both;
+}
+.sg-logo {
+  width: min(420px, 60vw); height: auto;
+  filter: drop-shadow(0 0 32px rgba(255,140,26,.35));
+  user-select: none; -webkit-user-drag: none;
+}
+.sg-play {
+  font-family: var(--f-display);
+  font-size: 28px; font-weight: 400;
+  letter-spacing: .28em;
+  color: var(--void);
+  background: var(--signal);
+  border: 0;
+  padding: 22px 96px;
+  cursor: pointer;
+  clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+  box-shadow: 0 0 32px rgba(255,140,26,.45), 0 0 64px rgba(255,140,26,.15);
+  transition: background .15s var(--ease-out-expo),
+              transform .15s var(--ease-out-expo),
+              box-shadow .15s var(--ease-out-expo);
+}
+.sg-play:hover {
+  background: var(--signal-hot);
+  transform: scale(1.04);
+  box-shadow: 0 0 48px rgba(255,140,26,.65), 0 0 96px rgba(255,140,26,.25);
+}
+.sg-play:active { transform: scale(.98); }
+@keyframes sgFadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    FPS COUNTER
    ═══════════════════════════════════════════════════════════════════════ */
 #fpsCounter {
-  position: fixed; top: 8px; right: 8px; z-index: 90;
-  font-family: var(--mono-font);
+  position: fixed; top: 8px; right: 8px;
+  z-index: 90;
+  font-family: var(--f-num);
   font-size: 11px; font-weight: 500;
   letter-spacing: .1em;
   color: var(--toxic);
@@ -2086,8 +3443,9 @@ body.in-match:not(.mode-br) #lockHint {
 #subtitleOverlay {
   position: fixed; bottom: 15%; left: 50%;
   transform: translateX(-50%);
-  z-index: 85; pointer-events: none;
-  font-family: var(--body-font);
+  z-index: 85;
+  pointer-events: none;
+  font-family: var(--f-ui);
   font-size: 13px; font-weight: 500;
   color: var(--bone);
   letter-spacing: .05em;
@@ -2101,45 +3459,8 @@ body.in-match:not(.mode-br) #lockHint {
 #subtitleOverlay.on { opacity: 1; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   WALLBANG + EXTRAS
+   WARNINGS — grenade / friendly-fire / cook timer / spawn shield
    ═══════════════════════════════════════════════════════════════════════ */
-.xh-hit.wallbang::before, .xh-hit.wallbang::after {
-  background: var(--signal-hot);
-  box-shadow: 0 0 8px var(--signal-glow);
-}
-
-.mi-time.urgent {
-  color: var(--hazard) !important;
-  animation: timerPulse 0.7s ease-in-out infinite;
-}
-@keyframes timerPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-
-/* Colorblind overrides */
-body.cb-deuteranopia { --signal: #ff9500; --cyan: #56b4e9; --hazard: #e69f00; --team-blue: #56b4e9; --team-red: #e69f00; }
-body.cb-protanopia   { --signal: #fab038; --cyan: #56b4e9; --hazard: #e6a000; --team-blue: #56b4e9; --team-red: #e6a000; }
-body.cb-tritanopia   { --signal: #00c5b8; --cyan: #009e73; --hazard: #cc79a7; --team-blue: #009e73; --team-red: #cc79a7; }
-
-/* Spawn protection indicator */
-.spawn-shield {
-  position: fixed; top: 58%; left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--mono-font);
-  font-size: 12px; font-weight: 700;
-  letter-spacing: 0.35em;
-  color: var(--cyan);
-  text-shadow: 0 0 10px var(--cyan-glow);
-  pointer-events: none; z-index: 70;
-  opacity: 0; transition: opacity 0.2s;
-  padding: 4px 16px;
-  border-left: 2px solid var(--cyan);
-  border-right: 2px solid var(--cyan);
-}
-.spawn-shield.on { opacity: 1; }
-
-/* Grenade warnings */
 #grenadeWarn {
   position: fixed;
   top: 50%; left: 50%;
@@ -2162,16 +3483,15 @@ body.cb-tritanopia   { --signal: #00c5b8; --cyan: #009e73; --hazard: #cc79a7; --
 }
 #grenadeWarn.on { opacity: 1; }
 @keyframes grenPulse {
-  from { transform: translateX(-50%) scale(1); }
-  to { transform: translateX(-50%) scale(1.28); }
+  from { transform: translateX(-50%) scale(1);    }
+  to   { transform: translateX(-50%) scale(1.28); }
 }
 
 #ffWarn {
   position: fixed;
-  top: 38%;
-  left: 50%;
+  top: 38%; left: 50%;
   transform: translateX(-50%);
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 16px; font-weight: 700;
   color: var(--hazard);
   text-shadow: 0 0 10px var(--hazard-glow);
@@ -2187,16 +3507,15 @@ body.cb-tritanopia   { --signal: #00c5b8; --cyan: #009e73; --hazard: #cc79a7; --
 }
 #ffWarn.on { opacity: 1; animation: ffPulse 0.15s ease-in-out 2; }
 @keyframes ffPulse {
-  0%, 100% { transform: translateX(-50%) scale(1); }
-  50% { transform: translateX(-50%) scale(1.1); }
+  0%, 100% { transform: translateX(-50%) scale(1);   }
+  50%      { transform: translateX(-50%) scale(1.1); }
 }
 
 #cookTimer {
   position: fixed;
-  bottom: 52%;
-  left: 50%;
+  bottom: 52%; left: 50%;
   transform: translateX(-50%);
-  font-family: var(--mono-font);
+  font-family: var(--f-num);
   font-size: 15px; font-weight: 700;
   color: var(--signal-hot);
   letter-spacing: .1em;
@@ -2214,158 +3533,45 @@ body.cb-tritanopia   { --signal: #00c5b8; --cyan: #009e73; --hazard: #cc79a7; --
   border-left-color: var(--hazard);
 }
 
+/* Spawn protection indicator */
+.spawn-shield {
+  position: fixed; top: 58%; left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--f-num);
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.35em;
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan-glow);
+  pointer-events: none; z-index: 70;
+  opacity: 0; transition: opacity 0.2s;
+  padding: 4px 16px;
+  border-left: 2px solid var(--cyan);
+  border-right: 2px solid var(--cyan);
+}
+.spawn-shield.on { opacity: 1; }
+
 /* ═══════════════════════════════════════════════════════════════════════
-   EXTRA IDEA #3 — Killcam chromatic aberration (enemy-vision look)
+   COLORBLIND OVERRIDES — swap hues while preserving luminance
    ═══════════════════════════════════════════════════════════════════════ */
-#killcam.on ~ #cw,
-body.killcam-active #cw {
-  filter: hue-rotate(8deg) saturate(1.4) contrast(1.15);
-  transition: filter 0.3s ease-out;
+body.cb-deuteranopia {
+  --signal: #ff9500; --cyan: #56b4e9; --hazard: #e69f00;
+  --team-blue: #56b4e9; --team-red: #e69f00;
+}
+body.cb-protanopia {
+  --signal: #fab038; --cyan: #56b4e9; --hazard: #e6a000;
+  --team-blue: #56b4e9; --team-red: #e6a000;
+}
+body.cb-tritanopia {
+  --signal: #00c5b8; --cyan: #009e73; --hazard: #cc79a7;
+  --team-blue: #009e73; --team-red: #cc79a7;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   EXTRA IDEA #5 — CommWheel re-skin: override the inline-injected styles
-   with apex palette via specificity (these selectors are more specific
-   than the dynamically-injected ones, so they always win).
-   ═══════════════════════════════════════════════════════════════════════ */
-body #pingWheel .pw-bg {
-  background: radial-gradient(circle at center, rgba(6,7,11,0.55) 0%, rgba(6,7,11,0.72) 60%);
-}
-body #pingWheel .pw-slot {
-  border-radius: 0;
-  border: 1px solid var(--hairline-strong);
-  background: var(--panel-dense);
-  font-family: var(--mono-font);
-}
-body #pingWheel .pw-slot.hover {
-  border-color: var(--signal);
-  background: var(--steel-800);
-}
-body #pingWheel .pw-title {
-  font-family: var(--tactical-font);
-  letter-spacing: 0.4em;
-  color: var(--signal);
-  text-shadow: 0 0 8px var(--signal-glow);
-}
-body #pingWheel .pw-center-dot {
-  border-radius: 0;
-  width: 6px; height: 6px;
-  background: var(--signal);
-  box-shadow: 0 0 8px var(--signal-glow);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   EXTRA IDEA #1 — Dynamic announcer letterbox bars
-   Show cinematic letterbox bars for epic announcements
-   ═══════════════════════════════════════════════════════════════════════ */
-#announcer.letterbox::before,
-#announcer.letterbox::after {
-  content: '';
-  position: fixed;
-  left: 0; right: 0;
-  height: 44px;
-  background: linear-gradient(90deg, var(--hazard) 0%, var(--signal) 100%);
-  opacity: 0;
-  animation: letterboxIn 1.2s var(--ease-out-expo) forwards;
-  pointer-events: none;
-  z-index: 49;
-}
-#announcer.letterbox::before { top: 0; transform-origin: top; }
-#announcer.letterbox::after  { bottom: 0; transform-origin: bottom; }
-@keyframes letterboxIn {
-  0%   { opacity: 0; transform: scaleY(0); }
-  15%  { opacity: 1; transform: scaleY(1); }
-  75%  { opacity: 1; transform: scaleY(1); }
-  100% { opacity: 0; transform: scaleY(1); }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   LOW HP vignette pulse (intensity scaling during combat)
-   ═══════════════════════════════════════════════════════════════════════ */
-.bh-hp-bar.low .bh-hp-fill {
-  animation: hpLowPulse 1.2s ease-in-out infinite;
-}
-@keyframes hpLowPulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(255,61,46,.25); }
-  50%       { box-shadow: inset 0 0 12px rgba(255,61,46,.6), 0 0 20px rgba(255,61,46,.4); }
-}
-
-/* Match timer urgent state */
-.mi-time.urgent {
-  color: var(--hazard) !important;
-  animation: timerPulse 0.7s ease-in-out infinite;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   START GATE  (WARZONE logo + PLAY button — first user-gesture splash
-   that runs between the loading screen and the Main Menu; required to
-   unlock the Web Audio context so lobby music can start)
-   ═══════════════════════════════════════════════════════════════════════ */
-#startGate {
-  position: fixed; inset: 0; z-index: 9998;
-  display: none;
-  align-items: center; justify-content: center;
-  background:
-    radial-gradient(ellipse at 50% 40%, rgba(255,140,26,.10), transparent 60%),
-    linear-gradient(180deg, var(--void) 0%, #000 100%);
-  overflow: hidden;
-}
-#startGate.on { display: flex; }
-#startGate::before {
-  /* subtle scanlines to match match-in-progress atmosphere */
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px);
-  mix-blend-mode: overlay; opacity: .6;
-}
-.sg-inner {
-  position: relative;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 48px;
-  animation: sgFadeIn .6s var(--ease-out-expo) both;
-}
-.sg-logo {
-  width: min(420px, 60vw);
-  height: auto;
-  filter: drop-shadow(0 0 32px rgba(255,140,26,.35));
-  user-select: none; -webkit-user-drag: none;
-}
-.sg-play {
-  font-family: var(--display-font);
-  font-size: 28px; font-weight: 400;
-  letter-spacing: .28em;
-  color: var(--void);
-  background: var(--signal);
-  border: 0;
-  padding: 22px 96px;
-  cursor: pointer;
-  clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
-  box-shadow: 0 0 32px rgba(255,140,26,.45), 0 0 64px rgba(255,140,26,.15);
-  transition: background .15s var(--ease-out-expo),
-              transform .15s var(--ease-out-expo),
-              box-shadow .15s var(--ease-out-expo);
-  position: relative;
-}
-.sg-play:hover {
-  background: var(--signal-hot);
-  transform: scale(1.04);
-  box-shadow: 0 0 48px rgba(255,140,26,.65), 0 0 96px rgba(255,140,26,.25);
-}
-.sg-play:active { transform: scale(.98); }
-@keyframes sgFadeIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   HUD VISIBILITY GATE
-
-   In-match HUD overlays must not render while the player is on the
-   loading screen, start gate, or main menu. The apex CSS pass dropped
-   this rule, which caused minimap / matchInfo / compass / killfeed /
-   crosshair / damage arcs to stack on top of the start screen.
-
-   `body.in-match` is toggled by Menus.ts (startMatchFromMenu adds it;
-   returnToMenu / MainMenu.showMainMenu remove it).
+   HUD VISIBILITY GATE  — the KEY integration safety rule
+   In-match HUD overlays must NOT render while the player is on the loading
+   screen, start gate, or main menu.  body.in-match is toggled by Menus.ts
+   (startMatchFromMenu adds it, returnToMenu / showMainMenu remove it).
+   body.intro-active is toggled by MatchIntro while the cinematic runs.
    ═══════════════════════════════════════════════════════════════════════ */
 body:not(.in-match) #matchInfo,
 body:not(.in-match) #minimap,
@@ -2374,15 +3580,46 @@ body:not(.in-match) #killfeed,
 body:not(.in-match) #xh,
 body:not(.in-match) #dmgArcs,
 body:not(.in-match) #scopeOverlay,
-body:not(.in-match) #hud,
+body:not(.in-match) #bottomHud,
 body:not(.in-match) #kn,
 body:not(.in-match) #stanceIndicator,
 body:not(.in-match) #subtitleOverlay,
 body:not(.in-match) #dmg,
 body:not(.in-match) #hlf,
-body:not(.in-match) #lockHint {
+body:not(.in-match) #lockHint,
+body:not(.in-match) #contractHud,
+body:not(.in-match) #challengePanel,
+body:not(.in-match) #medalTicker,
+body:not(.in-match) #announcer,
+body:not(.in-match) #killstreak,
+body:not(.in-match) #pingLayer,
+body:not(.in-match) #pingContainer,
+body:not(.in-match) #waypointLayer,
+body.intro-active  #matchInfo,
+body.intro-active  #minimap,
+body.intro-active  #compass,
+body.intro-active  #killfeed,
+body.intro-active  #xh,
+body.intro-active  #dmgArcs,
+body.intro-active  #bottomHud,
+body.intro-active  #kn,
+body.intro-active  #stanceIndicator,
+body.intro-active  #contractHud,
+body.intro-active  #challengePanel,
+body.intro-active  #medalTicker,
+body.intro-active  #announcer,
+body.intro-active  #killstreak,
+body.intro-active  #lockHint {
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
 }
 
+/* Lock hint is only meaningful in Battle Royale, where the player has to
+   click in after being knocked out of pointer lock by the revive UI. Hide
+   it in every other mode even while in-match. */
+body.in-match:not(.mode-br) #lockHint {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
