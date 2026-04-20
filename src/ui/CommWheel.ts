@@ -36,17 +36,17 @@ interface PingDef {
 }
 
 const PINGS: Record<PingKind, PingDef> = {
-  enemy:     { label: 'ENEMY',         color: '#ff3040', icon: '✕', voiceLine: 'Enemy spotted!' },
-  attacking: { label: 'ATTACKING',     color: '#ff9933', icon: '▲', voiceLine: 'Attacking!' },
-  defending: { label: 'DEFENDING',     color: '#4a9eff', icon: '◆', voiceLine: 'Defending!' },
-  help:      { label: 'NEED HELP',     color: '#ff5544', icon: '!', voiceLine: 'Need backup!' },
-  retreat:   { label: 'RETREAT',       color: '#aa66ff', icon: '⇆', voiceLine: 'Falling back!' },
-  onme:      { label: 'ON ME',         color: '#22d66a', icon: '●', voiceLine: 'Rally on me!' },
-  nice:      { label: 'NICE',          color: '#ffcc44', icon: '✓' },
-  sorry:     { label: 'SORRY',         color: '#888888', icon: '—' },
-  going:     { label: 'GOING HERE',    color: '#6abfff', icon: '↑' },
-  objective: { label: 'OBJECTIVE',     color: '#ffcc44', icon: '⯁' },
-  loot:      { label: 'LOOT',          color: '#44ff88', icon: '♦' },
+  enemy:     { label: 'ENEMY',         color: '#ff3d2e', icon: '✕', voiceLine: 'Enemy spotted!' },
+  attacking: { label: 'ATTACKING',     color: '#ff8c1a', icon: '▲', voiceLine: 'Attacking!' },
+  defending: { label: 'DEFENDING',     color: '#39f0ff', icon: '◆', voiceLine: 'Defending!' },
+  help:      { label: 'NEED HELP',     color: '#ff3d2e', icon: '!', voiceLine: 'Need backup!' },
+  retreat:   { label: 'RETREAT',       color: '#c27bff', icon: '⇆', voiceLine: 'Falling back!' },
+  onme:      { label: 'ON ME',         color: '#b8ff3d', icon: '●', voiceLine: 'Rally on me!' },
+  nice:      { label: 'NICE',          color: '#ff8c1a', icon: '✓' },
+  sorry:     { label: 'SORRY',         color: '#6d7689', icon: '—' },
+  going:     { label: 'GOING HERE',    color: '#39f0ff', icon: '↑' },
+  objective: { label: 'OBJECTIVE',     color: '#ff8c1a', icon: '⯁' },
+  loot:      { label: 'LOOT',          color: '#b8ff3d', icon: '♦' },
 };
 
 interface ActivePing {
@@ -112,8 +112,8 @@ function ensureContainer(): HTMLDivElement {
       .ping-marker {
         position: absolute;
         transform: translate(-50%, -50%);
-        font-family: 'Consolas', monospace;
-        animation: pingPop 0.3s ease-out;
+        font-family: var(--mono-font);
+        animation: pingPop 0.3s var(--ease-out-expo);
       }
       @keyframes pingPop {
         from { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
@@ -121,22 +121,23 @@ function ensureContainer(): HTMLDivElement {
       }
       .ping-marker .pm-dot {
         display: inline-flex; align-items: center; gap: 6px;
-        padding: 2px 8px;
-        background: rgba(8,14,24,0.9);
+        padding: 3px 10px;
+        background: var(--panel-dense);
         border: 1px solid;
+        border-left-width: 2px;
         font-size: 11px; font-weight: 700;
-        letter-spacing: 0.15em;
+        letter-spacing: 0.2em;
         white-space: nowrap;
+        backdrop-filter: blur(8px);
       }
       .ping-marker .pm-icon {
-        font-size: 14px; font-weight: 900;
+        font-size: 13px; font-weight: 900;
         text-shadow: 0 0 6px currentColor;
       }
       .ping-marker .pm-dist {
-        font-size: 10px; color: #ccc; opacity: 0.7;
+        font-size: 9px; color: var(--text-dim); opacity: 0.8;
+        font-family: var(--mono-font); letter-spacing: 0.1em;
       }
-      .ping-marker.team-blue .pm-dot { border-left-width: 3px; }
-      .ping-marker.team-red .pm-dot { border-left-width: 3px; }
       .ping-marker.fading { animation: pingFade 0.4s forwards; }
       @keyframes pingFade {
         to { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
@@ -167,7 +168,8 @@ function ensureWheelContainer(): HTMLDivElement {
       #pingWheel.active { display: block; }
       .pw-bg {
         position: absolute; inset: 0;
-        background: radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 60%);
+        background: radial-gradient(circle at center, rgba(6,7,11,0.55) 0%, rgba(6,7,11,0.72) 60%);
+        backdrop-filter: blur(4px) brightness(0.6);
       }
       .pw-center {
         position: absolute; left: 50%; top: 50%;
@@ -180,42 +182,45 @@ function ensureWheelContainer(): HTMLDivElement {
         transform-origin: center;
         display: flex; align-items: center; justify-content: center;
         flex-direction: column;
-        border-radius: 50%;
-        background: rgba(8,14,24,0.88);
-        border: 2px solid rgba(255,255,255,0.15);
-        font-family: 'Consolas', monospace;
-        color: #e0ecff;
-        transition: transform 0.12s, background 0.12s, border 0.12s;
+        background: var(--panel-dense);
+        border: 1px solid var(--hairline-strong);
+        font-family: var(--mono-font);
+        color: var(--bone);
+        transition: transform 0.12s var(--ease-out-expo), background 0.12s, border 0.12s;
       }
       .pw-slot.hover {
-        background: rgba(40,60,90,0.95);
-        border-color: var(--ping-color, #ffcc44);
+        background: var(--steel-800);
+        border-color: var(--ping-color, var(--signal));
         transform: scale(1.15) translate(var(--pw-dx), var(--pw-dy));
+        box-shadow: 0 0 16px rgba(255,140,26,0.25);
       }
       .pw-slot .pw-ic {
-        font-size: 20px; font-weight: 900;
-        color: var(--ping-color, #ffcc44);
+        font-size: 18px; font-weight: 900;
+        color: var(--ping-color, var(--signal));
+        text-shadow: 0 0 8px currentColor;
       }
       .pw-slot .pw-lb {
-        font-size: 9px; letter-spacing: 0.15em;
-        margin-top: 3px;
+        font-family: var(--mono-font);
+        font-size: 8px; letter-spacing: 0.2em;
+        color: var(--text-dim);
+        margin-top: 4px;
         text-align: center;
       }
       .pw-title {
         position: absolute; left: 50%; top: calc(50% - 200px);
         transform: translateX(-50%);
-        font: bold 13px 'Consolas', monospace;
-        letter-spacing: 0.3em;
-        color: #ffcc44;
-        text-shadow: 0 0 8px rgba(255,204,68,0.4);
+        font-family: var(--tactical-font);
+        font-size: 11px; font-weight: 700;
+        letter-spacing: 0.4em;
+        color: var(--signal);
+        text-shadow: 0 0 8px var(--signal-glow);
       }
       .pw-center-dot {
         position: absolute; left: 50%; top: 50%;
         transform: translate(-50%, -50%);
-        width: 10px; height: 10px;
-        background: #ffcc44;
-        border-radius: 50%;
-        box-shadow: 0 0 8px #ffcc44;
+        width: 6px; height: 6px;
+        background: var(--signal);
+        box-shadow: 0 0 8px var(--signal-glow);
       }
     `;
     document.head.appendChild(s);

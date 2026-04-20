@@ -3,7 +3,7 @@ import { announce } from './Announcer';
 import { fireChallengeEvent } from './Challenges';
 import { playMedalSound } from '@/audio/SoundHooks';
 import type { TDMAgent } from '@/entities/TDMAgent';
-import { WEAPONS } from '@/config/weapons';
+import { GLYPHS } from './Glyphs';
 
 export type MedalId =
   | 'first_blood' | 'headshot' | 'long_shot' | 'point_blank'
@@ -20,22 +20,22 @@ interface MedalDef {
 }
 
 export const MEDALS: Record<MedalId, MedalDef> = {
-  first_blood:  { name: 'FIRST BLOOD',  xp: 150, color: '#ef4444', tier: 'gold',   icon: '🩸' },
-  headshot:     { name: 'HEADSHOT',     xp: 50,  color: '#ffcc33', tier: 'silver', icon: '🎯' },
-  long_shot:    { name: 'LONG SHOT',    xp: 75,  color: '#60a5fa', tier: 'silver', icon: '🔭' },
-  point_blank:  { name: 'POINT BLANK',  xp: 40,  color: '#f97316', tier: 'bronze', icon: '💥' },
-  revenge:      { name: 'REVENGE',      xp: 60,  color: '#a855f7', tier: 'gold', icon: '⚔' },
-  clutch:       { name: 'CLUTCH',       xp: 150, color: '#eab308', tier: 'epic',   icon: '💎' },
-  savior:       { name: 'SAVIOR',       xp: 80,  color: '#22d66a', tier: 'silver', icon: '🛡' },
-  multi_kill:   { name: 'DOUBLE KILL',  xp: 100, color: '#f59e0b', tier: 'silver', icon: '2×' },
-  triple_kill:  { name: 'TRIPLE KILL',  xp: 200, color: '#f97316', tier: 'gold',   icon: '3×' },
-  quad_kill:    { name: 'QUAD KILL',    xp: 350, color: '#dc2626', tier: 'epic',   icon: '4×' },
-  ace:          { name: 'ACE',          xp: 500, color: '#eab308', tier: 'epic',   icon: '★'  },
-  knife_kill:   { name: 'HUMILIATION',  xp: 100, color: '#94a3b8', tier: 'gold',   icon: '🔪' },
-  execution:    { name: 'EXECUTION',    xp: 35,  color: '#64748b', tier: 'bronze', icon: '✖' },
-  nade_kill:    { name: 'FRAG OUT',     xp: 60,  color: '#84cc16', tier: 'silver', icon: '🧨' },
-  rocket_kill:  { name: 'DIRECT HIT',   xp: 75,  color: '#f97316', tier: 'silver', icon: '🚀' },
-  collateral:   { name: 'COLLATERAL',   xp: 100, color: '#ec4899', tier: 'gold',   icon: '☍' },
+  first_blood:  { name: 'FIRST BLOOD',  xp: 150, color: '#ff3d2e', tier: 'gold',   icon: GLYPHS.medal_drop },
+  headshot:     { name: 'HEADSHOT',     xp: 50,  color: '#ff8c1a', tier: 'silver', icon: GLYPHS.medal_crosshair },
+  long_shot:    { name: 'LONG SHOT',    xp: 75,  color: '#39f0ff', tier: 'silver', icon: GLYPHS.medal_scope },
+  point_blank:  { name: 'POINT BLANK',  xp: 40,  color: '#ffa73a', tier: 'bronze', icon: GLYPHS.medal_explosion },
+  revenge:      { name: 'REVENGE',      xp: 60,  color: '#c27bff', tier: 'gold',   icon: GLYPHS.medal_x },
+  clutch:       { name: 'CLUTCH',       xp: 150, color: '#ff8c1a', tier: 'epic',   icon: GLYPHS.medal_diamond },
+  savior:       { name: 'SAVIOR',       xp: 80,  color: '#b8ff3d', tier: 'silver', icon: GLYPHS.medal_shield },
+  multi_kill:   { name: 'DOUBLE KILL',  xp: 100, color: '#ffa73a', tier: 'silver', icon: GLYPHS.medal_double },
+  triple_kill:  { name: 'TRIPLE KILL',  xp: 200, color: '#ff8c1a', tier: 'gold',   icon: GLYPHS.medal_triple },
+  quad_kill:    { name: 'QUAD KILL',    xp: 350, color: '#ff3d2e', tier: 'epic',   icon: GLYPHS.medal_quad },
+  ace:          { name: 'ACE',          xp: 500, color: '#ff8c1a', tier: 'epic',   icon: GLYPHS.medal_star },
+  knife_kill:   { name: 'HUMILIATION',  xp: 100, color: '#6d7689', tier: 'gold',   icon: GLYPHS.medal_blade },
+  execution:    { name: 'EXECUTION',    xp: 35,  color: '#3f4758', tier: 'bronze', icon: GLYPHS.medal_x },
+  nade_kill:    { name: 'FRAG OUT',     xp: 60,  color: '#b8ff3d', tier: 'silver', icon: GLYPHS.medal_explosion },
+  rocket_kill:  { name: 'DIRECT HIT',   xp: 75,  color: '#ffa73a', tier: 'silver', icon: GLYPHS.medal_rocket },
+  collateral:   { name: 'COLLATERAL',   xp: 100, color: '#c27bff', tier: 'gold',   icon: GLYPHS.medal_double_circle },
 };
 
 interface MedalTickerItem {
@@ -80,7 +80,7 @@ export function awardMedal(id: MedalId): void {
   item.className = `medal-item medal-${def.tier}`;
   item.style.borderColor = def.color;
   item.innerHTML = `
-    <div class="medal-icon" style="color:${def.color}">${def.icon}</div>
+    <div class="medal-icon" style="color:${def.color};width:28px;height:28px;display:flex;align-items:center;justify-content:center">${def.icon}</div>
     <div class="medal-meta">
       <div class="medal-name" style="color:${def.color}">${def.name}</div>
       <div class="medal-xp">+${def.xp} XP</div>
