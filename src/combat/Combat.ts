@@ -339,7 +339,7 @@ export function dealDmgAgent(ag: TDMAgent, dmg: number, attacker: TDMAgent | nul
     showHitMarker(hsMarker);
     spawnDamageNumber(
       new THREE.Vector3(ag.position.x, 1.5, ag.position.z),
-      { amount: dmg, isHeadshot: hsMarker, isFalloff },
+      { amount: dmg, isHeadshot: hsMarker, isFalloff, target: ag },
     );
   }
 
