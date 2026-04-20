@@ -12,6 +12,16 @@ import { rebuildWaypoints } from '@/ui/Waypoints';
 import { startDynamicMusic, playMusicState, stopDynamicMusic } from '@/audio/DynamicMusic';
 import { playMatchIntro } from '@/ui/MatchIntro';
 import { showMainMenu } from '@/ui/MainMenu';
+import { showPauseMenu, hidePauseMenu, isPauseMenuOpen } from '@/ui/PauseMenu';
+
+export function syncLockHintVisibility(): void {
+  const hint = document.getElementById('lockHint');
+  if (!hint) return;
+
+  const locked = document.pointerLockElement === gameState.renderer?.domElement;
+  const scoreboardOpen = !!document.getElementById('tabboard')?.classList.contains('on');
+  hint.classList.toggle('on', !locked && !gameState.mainMenuOpen && !gameState.paused && !gameState.roundOver && !gameState._introActive && !scoreboardOpen && !gameState.keys.tab);
+}
 
 /**
  * Shows/hides the legacy simple-dropdown menu. The app now uses the full
@@ -21,7 +31,7 @@ import { showMainMenu } from '@/ui/MainMenu';
  * the user — `index.html` no longer starts it with the `.on` class.
  */
 function setMainMenuVisible(on: boolean): void {
-  dom.mainMenu.classList.toggle('on', on);
+  dom.mainMenu?.classList.toggle('on', on);
   // Do NOT touch lockHint here. The career-style MainMenu owns the
   // "main menu open" state, and lockHint is managed by the pointer-lock
   // change listener in EventManager. Forcing `.on` here caused the
@@ -55,7 +65,9 @@ export async function startMatchFromMenu(
   // intro is done AND pointer lock is in flight, so player and bots
   // start moving at the same instant.
   gameState.paused = true;
+  gameState._pauseOnIntroEnd = false;
   gameState.mainMenuOpen = false;
+  let pauseAfterIntro = false;
   document.body.classList.add('in-match');
   // Mode-specific body class drives CSS rules such as hiding the
   // CLICK-TO-DEPLOY banner everywhere except Battle Royale.
@@ -80,6 +92,10 @@ export async function startMatchFromMenu(
         teamRed:   redAgents.map(a  => ({ name: a.name, level: 1 })),
         camera:    gameState.camera,
       });
+      if (gameState._pauseOnIntroEnd) {
+        gameState._pauseOnIntroEnd = false;
+        pauseAfterIntro = true;
+      }
     }
   }
 
@@ -88,23 +104,33 @@ export async function startMatchFromMenu(
   startDynamicMusic();
   Audio.startEnvironmentAmbience();
 
+  if (pauseAfterIntro) {
+    showPauseMenu();
+    return;
+  }
+
   // Intro is done. Request pointer lock and unfreeze the simulation so
   // the player and bots start the match at the same instant.
   setTimeout(() => {
     gameState.renderer?.domElement?.requestPointerLock();
     gameState.paused = false;
+    setTimeout(syncLockHintVisibility, 80);
   }, 60);
 }
 
 export function togglePause(force?: boolean): void {
   if (gameState.mainMenuOpen || gameState.roundOver) return;
   gameState.paused = typeof force === 'boolean' ? force : !gameState.paused;
-  dom.pauseMenu.classList.toggle('on', gameState.paused);
   if (gameState.paused) {
+    showPauseMenu();
     document.exitPointerLock?.();
     dom.lockHint.classList.remove('on');
   } else {
-    setTimeout(() => gameState.renderer?.domElement?.requestPointerLock(), 30);
+    if (isPauseMenuOpen()) hidePauseMenu();
+    setTimeout(() => {
+      gameState.renderer?.domElement?.requestPointerLock();
+      setTimeout(syncLockHintVisibility, 80);
+    }, 30);
   }
 }
 
@@ -115,23 +141,10 @@ export function initMenus(): void {
   // style MainMenu (src/ui/MainMenu.ts) is the real boot UI.
   if (dom.startBtn) dom.startBtn.onclick = () => startMatchFromMenu();
   if (dom.modeSelect) dom.modeSelect.onchange = () => updateMenuCopy();
-  dom.pauseResume.onclick = () => togglePause(false);
-  dom.pauseRestart.onclick = () => { togglePause(false); resetMatch(gameState.mode); resetMatchMedals(); rollChallenges(3); };
-  dom.pauseQuit.onclick = () => {
-    gameState.paused = false;
-    dom.pauseMenu.classList.remove('on');
-    // Return to the career-style main menu, not the legacy dropdown.
-    gameState.mainMenuOpen = true;
-    document.body.classList.remove('in-match');
-    showMainMenu();
-    document.exitPointerLock?.();
-    stopDynamicMusic();
-    playMusicState('lobby');
-  };
   updateMenuCopy();
   // Legacy menu stays hidden (it's `display:none` in index.html). The
   // new MainMenu drives boot UI via main.ts → showMainMenu().
-  dom.mainMenu.classList.remove('on');
+  dom.mainMenu?.classList.remove('on');
 
   // Try playing lobby music on first interact
   const startLobbyMusic = () => {
@@ -163,8 +176,8 @@ function updateMenuCopy(): void {
   const label = getModeLabel(mode);
   dom.startBtn.textContent = `DEPLOY ${label}`;
 
-  const descEl = dom.mainMenu.querySelector('.menu-panel p.menu-sub') as HTMLElement | null
-              ?? dom.mainMenu.querySelector('.menu-panel p') as HTMLElement | null;
+  const descEl = dom.mainMenu?.querySelector('.menu-panel p.menu-sub') as HTMLElement | null
+              ?? dom.mainMenu?.querySelector('.menu-panel p') as HTMLElement | null;
   if (descEl) {
     descEl.textContent = MODE_DESCRIPTIONS[mode] || '';
   }

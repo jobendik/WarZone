@@ -26,6 +26,7 @@ import { getPlayerInventory } from '@/br/InventoryUI';
 import { GLYPHS } from './Glyphs';
 import { getWeaponIconSVG, getWeaponModeLabel } from './WeaponIcons';
 import { getProfile } from '@/core/PlayerProfile';
+import { getRecoilSpreadContribution } from '@/combat/Recoil';
 
 // ── DOM cache ───────────────────────────────────────────────────────────
 interface ApexDOM {
@@ -61,6 +62,7 @@ let magDotEls: HTMLElement[] = [];
 let lastMagSize = -1;
 const lastSlotWep: (WeaponId | null)[] = [null, null, null];
 let glyphsInjected = false;
+let currentCrosshairVariant: CrosshairVariant | null = null;
 
 function cacheDOM(): ApexDOM {
   if (dom) return dom;
@@ -265,17 +267,174 @@ export function updateHUD(): void {
 
 // ── CROSSHAIR ───────────────────────────────────────────────────────────
 
-// Typed weapon-keyed lookups for crosshair tuning.  Using Partial so
-// the fallback `?? 12` / `?? 8` remain live for IDs not in the table
-// (e.g. 'unarmed' *is* in the table but TS wants the partial guard).
-const XH_BASE_GAP: Partial<Record<WeaponId, number>> = {
-  unarmed: 10, knife: 10, pistol: 12, smg: 14, assault_rifle: 13,
-  shotgun: 18, sniper_rifle: 16, rocket_launcher: 15,
+type CrosshairVariant = 'dot' | 'precision' | 'rifle' | 'shotgun' | 'launcher';
+
+interface CrosshairSpec {
+  variant: CrosshairVariant;
+  baseGap: number;
+  lineLen: number;
+  adsMul: number;
+  moveKick: number;
+  airKick: number;
+  spreadKick: number;
+  recoilKick: number;
+  circlePad?: number;
+}
+
+const XH_SPECS: Record<WeaponId, CrosshairSpec> = {
+  unarmed: {
+    variant: 'dot',
+    baseGap: 0,
+    lineLen: 0,
+    adsMul: 1,
+    moveKick: 0,
+    airKick: 0,
+    spreadKick: 0,
+    recoilKick: 0,
+  },
+  knife: {
+    variant: 'dot',
+    baseGap: 0,
+    lineLen: 0,
+    adsMul: 1,
+    moveKick: 0,
+    airKick: 0,
+    spreadKick: 0,
+    recoilKick: 0,
+  },
+  pistol: {
+    variant: 'precision',
+    baseGap: 7,
+    lineLen: 8,
+    adsMul: 0.4,
+    moveKick: 3,
+    airKick: 5,
+    spreadKick: 1.5,
+    recoilKick: 0.9,
+  },
+  smg: {
+    variant: 'rifle',
+    baseGap: 10,
+    lineLen: 9,
+    adsMul: 0.62,
+    moveKick: 4.5,
+    airKick: 6,
+    spreadKick: 1.9,
+    recoilKick: 0.8,
+  },
+  assault_rifle: {
+    variant: 'rifle',
+    baseGap: 8,
+    lineLen: 10,
+    adsMul: 0.5,
+    moveKick: 4,
+    airKick: 5,
+    spreadKick: 1.55,
+    recoilKick: 1.05,
+  },
+  shotgun: {
+    variant: 'shotgun',
+    baseGap: 13,
+    lineLen: 8,
+    adsMul: 0.9,
+    moveKick: 3,
+    airKick: 4,
+    spreadKick: 2.6,
+    recoilKick: 0.45,
+    circlePad: 6,
+  },
+  sniper_rifle: {
+    variant: 'precision',
+    baseGap: 4,
+    lineLen: 12,
+    adsMul: 0.2,
+    moveKick: 5.5,
+    airKick: 8,
+    spreadKick: 1.1,
+    recoilKick: 1.35,
+  },
+  rocket_launcher: {
+    variant: 'launcher',
+    baseGap: 11,
+    lineLen: 9,
+    adsMul: 0.7,
+    moveKick: 3.5,
+    airKick: 5,
+    spreadKick: 0.8,
+    recoilKick: 0.35,
+  },
 };
-const XH_LINE_LEN: Partial<Record<WeaponId, number>> = {
-  unarmed: 7, knife: 7, pistol: 8, smg: 9, assault_rifle: 10,
-  shotgun: 11, sniper_rifle: 12, rocket_launcher: 11,
-};
+
+function renderCrosshairShell(variant: CrosshairVariant): void {
+  const d = cacheDOM();
+  const el = d.xh;
+  if (!el) return;
+  if (currentCrosshairVariant === variant && el.querySelector('#xhReloadFill')) {
+    el.dataset.variant = variant;
+    return;
+  }
+
+  const rifleMarkup = `
+    <div class="xh-arm xh-top"></div>
+    <div class="xh-arm xh-bot"></div>
+    <div class="xh-arm xh-left"></div>
+    <div class="xh-arm xh-right"></div>
+  `;
+  const launcherMarkup = `
+    <div class="xh-corner xh-tl"></div>
+    <div class="xh-corner xh-tr"></div>
+    <div class="xh-corner xh-bl"></div>
+    <div class="xh-corner xh-br"></div>
+  `;
+
+  el.innerHTML = `
+    ${variant === 'launcher' ? launcherMarkup : rifleMarkup}
+    ${variant === 'shotgun' ? '<div class="xh-circle"></div>' : ''}
+    <div class="xh-dot"></div>
+    <div class="xh-hit" id="xhHit"></div>
+    <div class="xh-kill" id="xhKill"></div>
+    <div class="xh-reload-ring" id="xhReload">
+      <svg viewBox="0 0 64 64" width="64" height="64">
+        <circle class="xh-reload-track" cx="32" cy="32" r="28"></circle>
+        <circle class="xh-reload-fill" id="xhReloadFill" cx="32" cy="32" r="28"
+                stroke-dasharray="176" stroke-dashoffset="176"
+                transform="rotate(-90 32 32)"></circle>
+      </svg>
+    </div>
+  `;
+  el.dataset.variant = variant;
+  currentCrosshairVariant = variant;
+}
+
+function setBox(el: HTMLElement | null, left: number, top: number, width: number, height: number): void {
+  if (!el) return;
+  el.style.left = `${left.toFixed(3)}px`;
+  el.style.top = `${top.toFixed(3)}px`;
+  el.style.width = `${width.toFixed(3)}px`;
+  el.style.height = `${height.toFixed(3)}px`;
+}
+
+function layoutCrosshairGeometry(el: HTMLElement, variant: CrosshairVariant, gap: number, lineLen: number, radius: number, stroke: number, dotSize: number, cornerSize: number): void {
+  setBox(el.querySelector('.xh-top') as HTMLElement | null, -stroke / 2, -(gap + lineLen), stroke, lineLen);
+  setBox(el.querySelector('.xh-bot') as HTMLElement | null, -stroke / 2, gap, stroke, lineLen);
+  setBox(el.querySelector('.xh-left') as HTMLElement | null, -(gap + lineLen), -stroke / 2, lineLen, stroke);
+  setBox(el.querySelector('.xh-right') as HTMLElement | null, gap, -stroke / 2, lineLen, stroke);
+  setBox(el.querySelector('.xh-dot') as HTMLElement | null, -dotSize / 2, -dotSize / 2, dotSize, dotSize);
+
+  const circle = el.querySelector('.xh-circle') as HTMLElement | null;
+  if (circle) {
+    const diameter = radius * 2;
+    setBox(circle, -radius, -radius, diameter, diameter);
+  }
+
+  const cornerOffset = gap;
+  setBox(el.querySelector('.xh-tl') as HTMLElement | null, -(cornerOffset + cornerSize), -(cornerOffset + cornerSize), cornerSize, cornerSize);
+  setBox(el.querySelector('.xh-tr') as HTMLElement | null, cornerOffset, -(cornerOffset + cornerSize), cornerSize, cornerSize);
+  setBox(el.querySelector('.xh-bl') as HTMLElement | null, -(cornerOffset + cornerSize), cornerOffset, cornerSize, cornerSize);
+  setBox(el.querySelector('.xh-br') as HTMLElement | null, cornerOffset, cornerOffset, cornerSize, cornerSize);
+
+  el.dataset.variant = variant;
+}
 
 export function updateCrosshair(): void {
   const d = cacheDOM();
@@ -283,28 +442,46 @@ export function updateCrosshair(): void {
   if (!el) return;
   const keys = gameState.keys;
   const pWeaponId = gameState.pWeaponId;
+  const spec = XH_SPECS[pWeaponId] ?? XH_SPECS.assault_rifle;
+  renderCrosshairShell(spec.variant);
+
   const isMoving  = !!(keys?.w || keys?.a || keys?.s || keys?.d);
   const isRunning = isMoving && !!keys?.shift;
   const airborne  = (gameState.pPosY ?? 0) > 0.05;
+  const weaponDef = WEAPONS[pWeaponId];
+  const recoilSpread = getRecoilSpreadContribution();
+  const sustainedFire = gameState.pSpreadAccum ?? 0;
 
-  const baseGap = XH_BASE_GAP[pWeaponId] ?? 12;
-  const lineLen = XH_LINE_LEN[pWeaponId] ?? 8;
+  const moveKick = (isRunning ? spec.moveKick * 1.5 : isMoving ? spec.moveKick : 0) * (weaponDef?.movePenalty ?? 1);
+  const airKick = airborne ? spec.airKick : 0;
+  const fireKick = sustainedFire * spec.spreadKick + recoilSpread * spec.recoilKick;
+  const aimErrorKick = Math.max(0, (weaponDef?.aimError ?? 0) * 110 - 1);
+  const adsMul = gameState.isADS ? spec.adsMul : 1;
+  const gap = Math.max(0, (spec.baseGap + aimErrorKick + moveKick + airKick + fireKick) * adsMul);
+  const sizeMul = Math.max(0.5, Number(gameState.crosshairSize) || 1);
+  const lineLen = spec.lineLen * sizeMul;
+  const radius = Math.max(8, gap + (spec.circlePad ?? 4)) * sizeMul;
+  const stroke = Math.max(1, sizeMul);
+  const dotSize = Math.max(2, sizeMul * 2);
+  const cornerSize = Math.max(8, sizeMul * 8);
 
-  const moveKick = isRunning ? 10 : isMoving ? 5 : 0;
-  const airKick  = airborne ? 7 : 0;
-  const fireKick = Math.min(10, (gameState.pShootTimer ?? 0) * 55);
-  const adsMul   = gameState.isADS ? (pWeaponId === 'sniper_rifle' ? 0.2 : 0.55) : 1;
-  const gap = (baseGap + moveKick + airKick + fireKick) * adsMul;
-
-  el.style.setProperty('--xh-gap', `${gap.toFixed(1)}px`);
-  el.style.setProperty('--xh-len', `${lineLen}px`);
+  el.style.setProperty('--xh-gap', `${(gap * sizeMul).toFixed(1)}px`);
+  el.style.setProperty('--xh-len', `${lineLen.toFixed(1)}px`);
+  el.style.setProperty('--xh-radius', `${radius.toFixed(1)}px`);
+  el.style.setProperty('--xh-stroke', `${stroke.toFixed(2)}px`);
+  el.style.setProperty('--xh-dot-size', `${dotSize.toFixed(1)}px`);
+  el.style.setProperty('--xh-corner-size', `${cornerSize.toFixed(1)}px`);
+  layoutCrosshairGeometry(el, spec.variant, gap * sizeMul, lineLen, radius, stroke, dotSize, cornerSize);
 
   const hideCrosshair = !!gameState.isADS && pWeaponId === 'sniper_rifle';
   el.classList.toggle('hidden', hideCrosshair);
   if (d.scope) d.scope.classList.toggle('on', hideCrosshair);
 
   const dot = el.querySelector('.xh-dot') as HTMLElement | null;
-  if (dot) dot.style.opacity = (gameState.isADS && pWeaponId !== 'shotgun') ? '0.25' : '1';
+  if (dot) {
+    dot.style.display = gameState.crosshairDot ? '' : 'none';
+    dot.style.opacity = (gameState.isADS && pWeaponId !== 'shotgun' && pWeaponId !== 'rocket_launcher') ? '0.25' : '1';
+  }
 }
 
 let fireTO: ReturnType<typeof setTimeout> | null = null;

@@ -7,7 +7,8 @@ import { WEAPONS, GRENADE_CONFIG } from '@/config/weapons';
 import { hitscanShot, shotgunBlast, spawnRocket, spawnGrenade } from '@/combat/Hitscan';
 import { updateHUD, flashCrosshairFire } from '@/ui/HUD';
 import { fireViewmodel, setViewmodelWeapon, resizeViewmodel } from '@/rendering/WeaponViewmodel';
-import { togglePause } from '@/ui/Menus';
+import { togglePause, syncLockHintVisibility } from '@/ui/Menus';
+import { skipIntro } from '@/ui/MatchIntro';
 import { isPlayerInAir, drop, playerJumpFromPlane, deployParachute } from '@/br/DropPlane';
 import { getPlayerInventory, setBRActiveSlotByOrder, syncInventoryFromCombat, toggleInventory, pickupNearestLoot, isInventoryOpen, closeInventory } from '@/br/InventoryUI';
 import { getAmmoPool, getAttachmentModifiers } from '@/br/Inventory';
@@ -290,7 +291,7 @@ function requestMouseLock(): void {
 function onPointerLockChange(): void {
   gameState.mouseLocked = document.pointerLockElement === gameState.renderer.domElement;
   if (!gameState.mouseLocked) gameState.isADS = false;
-  dom.lockHint.classList.toggle('on', !gameState.mouseLocked && !gameState.mainMenuOpen && !gameState.paused && !gameState.roundOver);
+  syncLockHintVisibility();
 }
 
 function onMouseMove(e: MouseEvent): void {
@@ -401,6 +402,11 @@ export function bindEvents(): void {
 
     if (k === 'escape') {
       e.preventDefault();
+      if (gameState._introActive) {
+        gameState._pauseOnIntroEnd = true;
+        skipIntro();
+        return;
+      }
       if (gameState.mode === 'br') {
         if (isInventoryOpen()) { closeInventory(); return; }
       }
@@ -447,6 +453,7 @@ export function bindEvents(): void {
 
   document.addEventListener('pointerlockchange', onPointerLockChange);
   document.addEventListener('mousemove', onMouseMove);
+  onPointerLockChange();
 
   gameState.renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
   gameState.renderer.domElement.addEventListener('mousedown', (e) => {

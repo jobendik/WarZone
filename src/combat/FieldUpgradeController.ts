@@ -37,6 +37,10 @@ const state: ControllerState = {
 };
 
 let hudEl: HTMLDivElement | null = null;
+let hudIconEl: HTMLDivElement | null = null;
+let hudNameEl: HTMLDivElement | null = null;
+let hudStatusEl: HTMLDivElement | null = null;
+let hudFillEl: HTMLDivElement | null = null;
 
 // ═══════════════════════════════════════════
 //  INIT / HUD
@@ -44,72 +48,34 @@ let hudEl: HTMLDivElement | null = null;
 
 function ensureHUD(): HTMLDivElement {
   if (hudEl) return hudEl;
-  hudEl = document.createElement('div');
-  hudEl.id = 'fieldUpgradeHUD';
-  hudEl.innerHTML = `
-    <div class="fu-ring">
-      <svg viewBox="0 0 42 42" width="54" height="54">
-        <circle class="fu-ring-bg" cx="21" cy="21" r="18"/>
-        <circle class="fu-ring-fill" cx="21" cy="21" r="18"/>
-      </svg>
-      <div class="fu-icon" id="fuIcon">💉</div>
-    </div>
-    <div class="fu-label"><span class="fu-key">Z</span> <span id="fuName">STIM</span></div>
-  `;
-  document.body.appendChild(hudEl);
-  injectStyle();
+  hudEl = document.getElementById('hvFuRow') as HTMLDivElement | null;
+  if (!hudEl) {
+    hudEl = document.createElement('div');
+    hudEl.id = 'hvFuRow';
+    hudEl.className = 'hv-fu-row';
+    hudEl.innerHTML = `
+      <div class="hv-fu-icon" id="hvFuIcon"></div>
+      <div class="hv-fu-meta">
+        <div class="hv-fu-name" id="hvFuName">FIELD UPGRADE</div>
+        <div class="hv-fu-status" id="hvFuStatus">CHARGED · [Z] DEPLOY</div>
+      </div>
+      <div class="hv-fu-rail" id="hvFuRail"><div class="hv-fu-fill" id="hvFuFill"></div></div>
+    `;
+    document.body.appendChild(hudEl);
+  }
+  hudIconEl = document.getElementById('hvFuIcon') as HTMLDivElement | null;
+  hudNameEl = document.getElementById('hvFuName') as HTMLDivElement | null;
+  hudStatusEl = document.getElementById('hvFuStatus') as HTMLDivElement | null;
+  hudFillEl = document.getElementById('hvFuFill') as HTMLDivElement | null;
   return hudEl;
-}
-
-function injectStyle(): void {
-  if (document.getElementById('fieldUpgradeCSS')) return;
-  const s = document.createElement('style');
-  s.id = 'fieldUpgradeCSS';
-  s.textContent = `
-#fieldUpgradeHUD {
-  position:fixed; bottom:110px; left:28px; z-index:7;
-  display:flex; flex-direction:column; align-items:center; gap:4px;
-  font-family:'Rajdhani','Orbitron',system-ui,sans-serif;
-  pointer-events:none; user-select:none;
-  opacity:0.9; transition:opacity 0.2s, transform 0.2s;
-}
-#fieldUpgradeHUD.charged { opacity:1; transform:scale(1.05); }
-#fieldUpgradeHUD.charged .fu-icon { animation:fuPulse 1.2s ease-in-out infinite; }
-@keyframes fuPulse { 0%,100%{filter:drop-shadow(0 0 6px #ffcc33);} 50%{filter:drop-shadow(0 0 18px #ffcc33);} }
-.fu-ring { position:relative; width:54px; height:54px; }
-.fu-ring svg { transform: rotate(-90deg); }
-.fu-ring-bg { fill:transparent; stroke:rgba(255,255,255,0.12); stroke-width:2.5; }
-.fu-ring-fill {
-  fill:transparent; stroke:#ffcc33; stroke-width:2.5;
-  stroke-dasharray:113; stroke-dashoffset:113;
-  transition:stroke-dashoffset 0.3s ease-out;
-  filter:drop-shadow(0 0 4px #ffcc3360);
-}
-.fu-icon {
-  position:absolute; inset:0;
-  display:flex; align-items:center; justify-content:center;
-  font-size:22px;
-}
-.fu-label {
-  font-size:10px; color:rgba(255,255,255,0.75); letter-spacing:0.15em; font-weight:700;
-}
-.fu-key {
-  display:inline-block; padding:1px 5px;
-  background:rgba(255,204,51,0.15); border:1px solid rgba(255,204,51,0.4);
-  border-radius:2px; color:#ffcc33; font-size:9px; font-weight:900;
-}
-  `;
-  document.head.appendChild(s);
 }
 
 function refreshHUDMeta(): void {
   const def = state.def;
   if (!def) return;
   ensureHUD();
-  const iconEl = document.getElementById('fuIcon');
-  const nameEl = document.getElementById('fuName');
-  if (iconEl) iconEl.textContent = def.icon;
-  if (nameEl) nameEl.textContent = def.name.toUpperCase();
+  if (hudIconEl) hudIconEl.textContent = def.icon;
+  if (hudNameEl) hudNameEl.textContent = def.name.toUpperCase();
 }
 
 // ═══════════════════════════════════════════
@@ -174,12 +140,17 @@ export function updateFieldUpgrade(dt: number): void {
 
 function updateHUD(): void {
   ensureHUD();
-  const fill = document.querySelector<SVGCircleElement>('.fu-ring-fill');
-  if (fill) {
-    const offset = 113 * (1 - state.charge);
-    fill.style.strokeDashoffset = String(offset);
+  if (!hudEl) return;
+  hudEl.style.display = '';
+  hudEl.classList.toggle('charged', state.ready);
+  if (hudStatusEl) {
+    hudStatusEl.textContent = state.ready
+      ? 'CHARGED · [Z] DEPLOY'
+      : `${Math.round(state.charge * 100)}% · CHARGING`;
   }
-  hudEl?.classList.toggle('charged', state.ready);
+  if (hudFillEl) {
+    hudFillEl.style.width = `${Math.max(0, Math.min(100, state.charge * 100))}%`;
+  }
 }
 
 /** Award charge on events (damage dealt/taken if the upgrade supports it). */

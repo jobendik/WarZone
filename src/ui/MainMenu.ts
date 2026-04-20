@@ -19,11 +19,13 @@ import {
   getProfile, subscribeProfile, getXpProgress, getOverallKD, getWinRate,
   MAX_LEVEL, prestige,
 } from '@/core/PlayerProfile';
+import { gameState } from '@/core/GameState';
 import {
   getLoadouts, setActiveLoadout, updateLoadout,
   PERKS, FIELD_UPGRADES, LETHALS, TACTICALS,
 } from '@/config/Loadouts';
 import { getContracts, claimAllCompleted, getActiveContractCount } from './ContractSystem';
+import { bindSettingsPanel } from './Settings';
 import type { GameMode } from '@/core/GameModes';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -544,24 +546,27 @@ function renderSettingsTab(): string {
     <div class="mm-settings">
       <div class="mm-setting-group">
         <div class="mm-section-head">AUDIO</div>
-        <div class="mm-setting-row"><label>Master Volume</label><input type="range" min="0" max="100" value="80" id="sMaster"/><span id="sMasterVal">80%</span></div>
-        <div class="mm-setting-row"><label>Music</label><input type="range" min="0" max="100" value="60" id="sMusic"/><span id="sMusicVal">60%</span></div>
-        <div class="mm-setting-row"><label>SFX</label><input type="range" min="0" max="100" value="90" id="sSfx"/><span id="sSfxVal">90%</span></div>
-        <div class="mm-setting-row"><label>Voice Callouts</label><input type="range" min="0" max="100" value="75" id="sVoice"/><span id="sVoiceVal">75%</span></div>
+        <div class="mm-setting-row"><label>Master Volume</label><input type="range" min="0" max="100" step="5" data-setting="masterVol"/><span data-setting-value="masterVol">100%</span></div>
+        <div class="mm-setting-row"><label>Music</label><input type="range" min="0" max="100" step="5" data-setting="musicVol"/><span data-setting-value="musicVol">50%</span></div>
+        <div class="mm-setting-row"><label>SFX</label><input type="range" min="0" max="100" step="5" data-setting="sfxVol"/><span data-setting-value="sfxVol">100%</span></div>
       </div>
 
       <div class="mm-setting-group">
-        <div class="mm-section-head">GRAPHICS</div>
-        <div class="mm-setting-row"><label>FOV</label><input type="range" min="60" max="110" value="75" id="sFov"/><span id="sFovVal">75</span></div>
-        <div class="mm-setting-row"><label>Shadows</label><select id="sShadows"><option>Low</option><option selected>Medium</option><option>High</option></select></div>
-        <div class="mm-setting-row"><label>Particles</label><select id="sParticles"><option>Low</option><option selected>Medium</option><option>High</option></select></div>
+        <div class="mm-section-head">VISUALS</div>
+        <div class="mm-setting-row"><label>FOV</label><input type="range" min="60" max="110" step="1" data-setting="fov"/><span data-setting-value="fov">78</span></div>
+        <div class="mm-setting-row"><label>Crosshair Color</label><input type="color" data-setting="crosshairColor"/><span data-setting-value="crosshairColor">#f0faff</span></div>
+        <div class="mm-setting-row"><label>Crosshair Size</label><input type="range" min="0.5" max="2" step="0.1" data-setting="crosshairSize"/><span data-setting-value="crosshairSize">1.0</span></div>
+        <div class="mm-setting-row"><label>Crosshair Dot</label><label class="mm-checkbox"><input type="checkbox" data-setting="crosshairDot"/><span>Enabled</span></label><span data-setting-value="crosshairDot">ON</span></div>
+        <div class="mm-setting-row"><label>Colorblind Mode</label><select data-setting="colorblindMode"><option value="off">Off</option><option value="deuteranopia">Deuteranopia</option><option value="protanopia">Protanopia</option><option value="tritanopia">Tritanopia</option></select><span data-setting-value="colorblindMode">off</span></div>
       </div>
 
       <div class="mm-setting-group">
-        <div class="mm-section-head">CONTROLS</div>
-        <div class="mm-setting-row"><label>Mouse Sensitivity</label><input type="range" min="1" max="20" value="8" id="sSens"/><span id="sSensVal">8</span></div>
-        <div class="mm-setting-row"><label>ADS Sensitivity Mult</label><input type="range" min="5" max="15" value="10" id="sAds"/><span id="sAdsVal">1.0</span></div>
-        <div class="mm-setting-row"><label>Invert Y</label><input type="checkbox" id="sInvert"/></div>
+        <div class="mm-section-head">CONTROLS & GAMEPLAY</div>
+        <div class="mm-setting-row"><label>Mouse Sensitivity</label><input type="range" min="0.0005" max="0.006" step="0.0001" data-setting="sensitivity"/><span data-setting-value="sensitivity">0.0022</span></div>
+        <div class="mm-setting-row"><label>Head Bob</label><input type="range" min="0" max="100" step="5" data-setting="headBobScale"/><span data-setting-value="headBobScale">100%</span></div>
+        <div class="mm-setting-row"><label>Bot Difficulty</label><input type="range" min="0" max="100" step="10" data-setting="botDifficulty"/><span data-setting-value="botDifficulty">50%</span></div>
+        <div class="mm-setting-row"><label>Show FPS</label><label class="mm-checkbox"><input type="checkbox" data-setting="showFPS"/><span>Enabled</span></label><span data-setting-value="showFPS">OFF</span></div>
+        <div class="mm-setting-row"><label>Subtitles</label><label class="mm-checkbox"><input type="checkbox" data-setting="showSubtitles"/><span>Enabled</span></label><span data-setting-value="showSubtitles">ON</span></div>
       </div>
     </div>
   `;
@@ -645,6 +650,10 @@ function build(): HTMLDivElement {
 function refresh(): void {
   if (!state.container) return;
 
+  state.container.querySelectorAll('.mn-tab').forEach((btn) => {
+    btn.classList.toggle('on', (btn as HTMLElement).dataset.tab === state.activeTab);
+  });
+
   const leftCol  = state.container.querySelector('#mmLeftCol');
   const rightCol = state.container.querySelector('#mmRightCol');
   const content  = state.container.querySelector('#mmContent');
@@ -653,6 +662,7 @@ function refresh(): void {
   if (rightCol) rightCol.innerHTML = renderRightCol();
 
   if (content) {
+    content.className = state.activeTab === 'play' ? 'mn-col mn-center' : 'mn-col mm-panel';
     switch (state.activeTab) {
       case 'play':      content.innerHTML = renderPlayTab();      break;
       case 'career':    content.innerHTML = renderCareerTab();    break;
@@ -660,6 +670,10 @@ function refresh(): void {
       case 'contracts': content.innerHTML = renderContractsTab(); break;
       case 'cosmetics': content.innerHTML = renderCosmeticsTab(); break;
       case 'settings':  content.innerHTML = renderSettingsTab();  break;
+    }
+
+    if (state.activeTab === 'settings') {
+      bindSettingsPanel(content);
     }
   }
 
@@ -716,6 +730,7 @@ function wireTabEvents(): void {
   const deployBtn = state.container.querySelector('#mmDeploy');
   if (deployBtn) {
     deployBtn.addEventListener('click', () => {
+      gameState.renderer?.domElement?.requestPointerLock();
       if (state.selectedMode === 'training') {
         state.onTraining?.();
       } else {
@@ -762,27 +777,6 @@ function wireTabEvents(): void {
     });
   }
 
-  // SETTINGS: slider live labels (cosmetic only — hook up real persistence via Settings.ts)
-  const sliders: [string, string][] = [
-    ['sMaster', 'sMasterVal'], ['sMusic', 'sMusicVal'],
-    ['sSfx', 'sSfxVal'],       ['sVoice', 'sVoiceVal'],
-    ['sFov', 'sFovVal'],       ['sSens', 'sSensVal'], ['sAds', 'sAdsVal'],
-  ];
-  for (const [id, valId] of sliders) {
-    const slider = state.container.querySelector(`#${id}`) as HTMLInputElement | null;
-    const valEl  = state.container.querySelector(`#${valId}`);
-    if (slider && valEl) {
-      slider.addEventListener('input', () => {
-        if (id === 'sAds') {
-          valEl.textContent = (parseInt(slider.value) / 10).toFixed(1);
-        } else if (['sMaster', 'sMusic', 'sSfx', 'sVoice'].includes(id)) {
-          valEl.textContent = slider.value + '%';
-        } else {
-          valEl.textContent = slider.value;
-        }
-      });
-    }
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────

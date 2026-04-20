@@ -359,155 +359,78 @@ export function getActiveContractCount(): { daily: number; weekly: number; claim
 //  HUD WIDGET (compact on-screen tracker)
 // ─────────────────────────────────────────────────────────────────────
 
-let hudEl: HTMLDivElement | null = null;
-let hudExpanded = false;
-let renderCachedJson = '';
-
-function ensureHud(): HTMLDivElement {
-  if (hudEl) return hudEl;
-  hudEl = document.createElement('div');
-  hudEl.id = 'contractHud';
-  hudEl.innerHTML = `
-    <div class="ch-head" id="chHead">
-      <span class="ch-ico">◈</span>
-      <span class="ch-title">CONTRACTS</span>
-      <span class="ch-bell" id="chBell"></span>
-    </div>
-    <div class="ch-body" id="chBody"></div>
-  `;
-  document.body.appendChild(hudEl);
-
-  // Toggle expand on click
-  const head = hudEl.querySelector('#chHead') as HTMLElement;
-  head.addEventListener('click', () => {
-    hudExpanded = !hudExpanded;
-    hudEl!.classList.toggle('expanded', hudExpanded);
-  });
-
-  injectContractStyles();
-  return hudEl;
+interface ContractHudRefs {
+  root: HTMLDivElement;
+  headXp: HTMLElement | null;
+  name: HTMLElement | null;
+  fill: HTMLElement | null;
+  progress: HTMLElement | null;
 }
 
-function injectContractStyles(): void {
-  if (document.getElementById('contractHudStyle')) return;
-  const s = document.createElement('style');
-  s.id = 'contractHudStyle';
-  s.textContent = `
-    #contractHud {
-      position: fixed; top: 110px; right: 16px;
-      z-index: 10; pointer-events: auto;
-      width: 240px;
-      background: linear-gradient(145deg, rgba(12,18,30,0.92), rgba(8,12,22,0.95));
-      border: 1px solid rgba(255, 204, 68, 0.35);
-      border-radius: 3px;
-      font-family: 'JetBrains Mono', 'Consolas', monospace;
-      color: #e8f0ff;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
-      transition: box-shadow 0.2s;
-    }
-    #contractHud:hover {
-      box-shadow: 0 4px 24px rgba(255,204,68,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
-    }
-    .ch-head {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 10px;
-      cursor: pointer;
-      border-bottom: 1px solid rgba(255,204,68,0.15);
-      user-select: none;
-    }
-    .ch-ico { color: #ffcc44; font-size: 14px; }
-    .ch-title {
-      flex: 1;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.22em;
-      color: #ffcc44;
-    }
-    .ch-bell {
-      font-size: 10px; font-weight: 700; color: #22d66a;
-    }
-    .ch-bell.has-claim::before {
-      content: '● CLAIM';
-      animation: chPulse 1.3s ease-in-out infinite;
-    }
-    @keyframes chPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    .ch-body {
-      padding: 8px 10px;
-      max-height: 90px;
-      overflow: hidden;
-      transition: max-height 0.3s ease;
-    }
-    #contractHud.expanded .ch-body {
-      max-height: 400px;
-    }
-    .ch-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 5px 0;
-      font-size: 10px;
-      border-bottom: 1px dashed rgba(255,255,255,0.08);
-    }
-    .ch-item:last-child { border-bottom: none; }
-    .ch-item-icon { font-size: 14px; flex-shrink: 0; }
-    .ch-item-body { flex: 1; min-width: 0; }
-    .ch-item-title {
-      font-weight: 700; color: #e8f0ff; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
-    }
-    .ch-item-bar {
-      height: 2px; background: rgba(255,255,255,0.1);
-      margin-top: 3px; border-radius: 1px; overflow: hidden;
-    }
-    .ch-item-bar-fill {
-      height: 100%; background: linear-gradient(90deg, #ff8833, #ffcc44);
-      transition: width 0.4s ease-out;
-    }
-    .ch-item.done .ch-item-bar-fill { background: linear-gradient(90deg, #22d66a, #5fe891); }
-    .ch-item-prog {
-      font-size: 9px; color: #8ab4f0;
-      margin-left: auto; white-space: nowrap;
-    }
-    .ch-item.done .ch-item-prog { color: #22d66a; font-weight: 700; }
-    .ch-item.claimable { background: rgba(34,214,106,0.08); }
-    .ch-item.claimable .ch-item-title { color: #22d66a; }
-  `;
-  document.head.appendChild(s);
+let hudRefs: ContractHudRefs | null = null;
+let renderCachedJson = '';
+
+function ensureHud(): ContractHudRefs | null {
+  if (hudRefs?.root.isConnected) return hudRefs;
+
+  const panels = Array.from(document.querySelectorAll<HTMLDivElement>('#contractHud'));
+  const root = panels[0] ?? null;
+  for (const extra of panels.slice(1)) extra.remove();
+  document.getElementById('contractHudStyle')?.remove();
+
+  if (!root) return null;
+
+  hudRefs = {
+    root,
+    headXp: document.getElementById('chHeadXp'),
+    name: document.getElementById('chName'),
+    fill: document.getElementById('chFill'),
+    progress: document.getElementById('chProgress'),
+  };
+  return hudRefs;
+}
+
+function pickTrackedContract(): ContractView | null {
+  const daily = getContracts('daily').filter((view) => !view.progress.claimed);
+  const weekly = getContracts('weekly').filter((view) => !view.progress.claimed);
+
+  return daily.find((view) => view.claimable)
+    ?? daily.find((view) => view.progress.progress < view.progress.target)
+    ?? weekly.find((view) => view.claimable)
+    ?? weekly.find((view) => view.progress.progress < view.progress.target)
+    ?? daily[0]
+    ?? weekly[0]
+    ?? null;
 }
 
 export function updateContractHud(): void {
-  const el = ensureHud();
-  const daily = getContracts('daily');
-  const weekly = getContracts('weekly');
-  const all = [...daily, ...weekly];
+  const hud = ensureHud();
+  if (!hud) return;
 
-  // Cache check to avoid DOM churn
-  const cacheKey = JSON.stringify(all.map(v => ({
-    id: v.def.id, p: v.progress.progress, c: v.progress.claimed,
-  })));
+  const tracked = pickTrackedContract();
+  if (!tracked) {
+    hud.root.style.display = 'none';
+    renderCachedJson = '';
+    return;
+  }
+
+  const cacheKey = JSON.stringify({
+    id: tracked.def.id,
+    progress: tracked.progress.progress,
+    target: tracked.progress.target,
+    claimed: tracked.progress.claimed,
+  });
   if (cacheKey === renderCachedJson) return;
   renderCachedJson = cacheKey;
 
-  const body = el.querySelector('#chBody') as HTMLElement;
-  const bell = el.querySelector('#chBell') as HTMLElement;
+  const pct = Math.min(100, (tracked.progress.progress / Math.max(1, tracked.progress.target)) * 100);
+  hud.root.style.display = '';
+  hud.root.dataset.state = tracked.claimable ? 'claimable' : tracked.progress.progress >= tracked.progress.target ? 'done' : 'active';
 
-  const claimableCount = all.filter(v => v.claimable).length;
-  bell.classList.toggle('has-claim', claimableCount > 0);
-
-  body.innerHTML = all.slice(0, 6).map(v => {
-    const pct = Math.min(100, (v.progress.progress / v.progress.target) * 100);
-    const done = v.progress.progress >= v.progress.target;
-    const cls = v.claimable ? 'claimable' : done ? 'done' : '';
-    return `
-      <div class="ch-item ${cls}">
-        <div class="ch-item-icon">${v.def.icon}</div>
-        <div class="ch-item-body">
-          <div class="ch-item-title">${v.def.title}</div>
-          <div class="ch-item-bar"><div class="ch-item-bar-fill" style="width:${pct}%"></div></div>
-        </div>
-        <div class="ch-item-prog">${v.progress.progress}/${v.progress.target}</div>
-      </div>
-    `;
-  }).join('');
+  if (hud.headXp) hud.headXp.textContent = tracked.claimable ? 'READY' : `+${tracked.def.xpReward} XP`;
+  if (hud.name) hud.name.textContent = `${tracked.def.icon} ${tracked.def.title}`;
+  if (hud.fill) hud.fill.style.width = `${pct}%`;
+  if (hud.progress) hud.progress.textContent = `${tracked.progress.progress} / ${tracked.progress.target}`;
 }
 
 export function initContracts(): void {

@@ -263,7 +263,8 @@ body::after {
 /* ═══════════════════════════════════════════════════════════════════════
    SCENE 2 — MAIN MENU
    ═══════════════════════════════════════════════════════════════════════ */
-#sc-menu .mn-root {
+#sc-menu .mn-root,
+#mainMenuRoot .mn-root {
   position: absolute; inset: 0;
   display: grid;
   grid-template-rows: 64px 1fr 72px;
@@ -882,7 +883,21 @@ body::after {
 .kf-victim.hostile { color: var(--hazard); }
 .kf-wep { color: var(--signal); opacity: .9; }
 .kf-wep svg { width: 22px; height: 10px; }
-.kf-hs { color: var(--signal); font-size: 13px; font-weight: 900; }
+.kf-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  color: var(--signal);
+  font-size: 12px;
+  font-weight: 900;
+}
+.kf-tag-assist {
+  padding-right: 2px;
+  color: var(--signal-hot);
+  font-size: 11px;
+}
+.kf-tag-headshot { font-size: 13px; }
 
 /* ── CENTER: crosshair + hit markers ─────────────────────── */
 .hud-xh {
@@ -900,7 +915,7 @@ body::after {
 .xh-blade.r { right: 0; }
 .xh-blade.t { top: 0; }
 .xh-blade.b { bottom: 0; }
-.xh-dot {
+.hud-xh .xh-dot {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: 2px; height: 2px; background: var(--signal);
   box-shadow: 0 0 4px var(--signal);
@@ -1116,6 +1131,14 @@ body::after {
   font: 400 10px/1 var(--f-num); color: var(--mute); letter-spacing: .15em;
 }
 .hc-sub b { color: var(--bone); font-weight: 500; }
+.hud-contract[data-state="claimable"] {
+  border-left-color: var(--toxic);
+  box-shadow: 0 0 20px rgba(184,255,61,.12);
+}
+.hud-contract[data-state="claimable"] .hc-head-xp,
+.hud-contract[data-state="done"] .hc-head-xp {
+  color: var(--toxic);
+}
 
 /* ── LEFT: medal ticker ──────────────────────────────────── */
 .hud-medals {
@@ -1569,34 +1592,83 @@ body.intro-active #matchInfo { display: none; }
 
 /* ── Crosshair (live; replaces preview's static .hud-xh) ── */
 #xh {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  z-index: 50;
   pointer-events: none;
   --xh-gap: 12px;
   --xh-len: 8px;
+  --xh-radius: 16px;
   --xh-color: #e9ecf1;
+  --xh-stroke: 1px;
+  --xh-dot-size: 2px;
+  --xh-corner-size: 8px;
+  --xh-size: 1;
 }
-#xh .xh-line {
-  position: absolute; top: 50%; left: 50%;
-  background: var(--xh-color);
-  box-shadow: 0 0 2px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.5);
-  transition: transform .08s var(--ease-out-expo);
-}
-#xh .xh-top    { width: 1px; height: var(--xh-len); transform: translate(-50%, calc(-50% - var(--xh-gap) - var(--xh-len))); }
-#xh .xh-bot    { width: 1px; height: var(--xh-len); transform: translate(-50%, calc(-50% + var(--xh-gap))); }
-#xh .xh-left   { height: 1px; width:  var(--xh-len); transform: translate(calc(-50% - var(--xh-gap) - var(--xh-len)), -50%); }
-#xh .xh-right  { height: 1px; width:  var(--xh-len); transform: translate(calc(-50% + var(--xh-gap)), -50%); }
+#xh .xh-arm,
+#xh .xh-corner,
+#xh .xh-circle,
 #xh .xh-dot {
-  position: absolute; top: 50%; left: 50%;
-  width: 2px; height: 2px; background: var(--signal);
-  transform: translate(-50%, -50%);
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: transform .08s var(--ease-out-expo), opacity .12s ease-out;
+}
+#xh .xh-arm,
+#xh .xh-corner {
+  box-shadow: 0 0 2px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.5);
+}
+#xh .xh-arm {
+  background: var(--xh-color);
+}
+
+#xh .xh-circle {
+  border: 1px solid color-mix(in srgb, var(--xh-color) 85%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0,0,0,.75);
+}
+
+#xh .xh-corner {
+  border-style: solid;
+  border-color: var(--xh-color);
+  background: transparent;
+}
+#xh .xh-tl { border-width: 1px 0 0 1px; }
+#xh .xh-tr { border-width: 1px 1px 0 0; }
+#xh .xh-bl { border-width: 0 0 1px 1px; }
+#xh .xh-br { border-width: 0 1px 1px 0; }
+
+#xh .xh-dot {
+  background: var(--signal);
   box-shadow: 0 0 4px var(--signal-glow);
+}
+#xh[data-variant="dot"] .xh-arm,
+#xh[data-variant="dot"] .xh-circle,
+#xh[data-variant="dot"] .xh-corner {
+  opacity: 0;
+}
+#xh[data-variant="launcher"] .xh-arm,
+#xh[data-variant="launcher"] .xh-circle {
+  opacity: 0;
+}
+#xh:not([data-variant="launcher"]) .xh-corner,
+#xh:not([data-variant="shotgun"]) .xh-circle {
+  opacity: 0;
 }
 #xh.hidden { opacity: 0; }
 #xh.fire .xh-dot { transform: translate(-50%, -50%) scale(1.8); }
+#xh.fire .xh-arm,
+#xh.fire .xh-corner,
+#xh.fire .xh-circle {
+  filter: brightness(1.2);
+}
 
 /* Hit & kill markers */
 #xh .xh-hit, #xh .xh-kill {
-  position: absolute; top: 50%; left: 50%;
+  position: absolute; top: 0; left: 0;
   width: 20px; height: 20px;
   transform: translate(-50%, -50%) scale(0);
   opacity: 0; pointer-events: none;
@@ -1622,7 +1694,7 @@ body.intro-active #matchInfo { display: none; }
 
 /* Reload ring around crosshair */
 #xh .xh-reload-ring {
-  position: absolute; top: 50%; left: 50%;
+  position: absolute; top: 0; left: 0;
   width: 64px; height: 64px;
   transform: translate(-50%, -50%);
   opacity: 0; pointer-events: none;
@@ -2073,6 +2145,305 @@ body.killcam-active #cw { filter: hue-rotate(8deg) saturate(1.4) contrast(1.15);
 }
 #mainMenuRoot.active { display: block; }
 
+.mm-panel {
+  display: block;
+  padding: 32px 40px 36px;
+}
+
+.mm-btn {
+  padding: 12px 18px;
+  border: 1px solid var(--hairline-strong);
+  background: rgba(6,7,11,.82);
+  color: var(--bone);
+  font: 500 11px/1 var(--f-tactical);
+  letter-spacing: .2em;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.mm-btn:hover { border-color: var(--signal); color: var(--signal); }
+.mm-btn-primary {
+  background: linear-gradient(90deg, rgba(255,140,26,.14), rgba(255,140,26,.05));
+  border-color: var(--hairline-accent);
+}
+
+.mm-section-head {
+  margin: 24px 0 14px;
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .35em;
+  color: var(--signal);
+}
+
+.mm-career,
+.mm-loadout-editor,
+.mm-settings,
+.mm-cos-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.mm-career-head,
+.mm-loadout-head,
+.mm-contract-head-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.mm-avatar {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--signal), var(--signal-dim));
+  color: var(--void);
+  font: 400 22px/1 var(--f-display);
+  clip-path: polygon(0 0, 100% 0, 100% 78%, 78% 100%, 0 100%);
+}
+
+.mm-career-name,
+.mm-career-level { display: grid; gap: 8px; }
+.mm-career-username {
+  font: 400 34px/.95 var(--f-display);
+  letter-spacing: -.02em;
+  color: var(--bone);
+}
+.mm-level-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(255,140,26,.14);
+  color: var(--signal);
+  font: 500 11px/1 var(--f-num);
+  letter-spacing: .22em;
+}
+.mm-level-sub {
+  font: 400 11px/1 var(--f-num);
+  letter-spacing: .18em;
+  color: var(--mute);
+}
+.mm-xp-bar,
+.mm-weapon-bar,
+.mm-contract-bar {
+  position: relative;
+  height: 3px;
+  background: var(--steel-800);
+}
+.mm-xp-fill,
+.mm-weapon-fill,
+.mm-contract-fill,
+.hv-fu-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--signal-dim), var(--signal));
+  box-shadow: 0 0 8px var(--signal-glow);
+}
+
+.mm-prestige-section,
+.mm-loadout-editor,
+.mm-cos-section,
+.mm-setting-group {
+  padding: 18px 20px;
+  border: 1px solid var(--hairline);
+  background: rgba(10,12,18,.62);
+}
+
+.mm-prestige-title,
+.mm-contract-title-main {
+  font: 500 14px/1 var(--f-tactical);
+  letter-spacing: .14em;
+  color: var(--bone);
+}
+.mm-prestige-desc,
+.mm-slot-desc,
+.mm-contract-desc,
+.mm-cos-unlocks,
+.mm-setting-row label,
+.mm-cos-val {
+  font: 400 12px/1.45 var(--f-body);
+  color: var(--bone-dim);
+}
+
+.mm-stats-grid,
+.mm-slots-grid,
+.mm-contracts-grid,
+.mm-cos-emotes {
+  display: grid;
+  gap: 10px;
+}
+.mm-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mm-slots-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mm-contracts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mm-cos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mm-cos-emotes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.mm-stat,
+.mm-slot,
+.mm-contract,
+.mm-cos-slot,
+.mm-weapon-row {
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(6,7,11,.72);
+}
+
+.mm-stat-label,
+.mm-slot-label,
+.mm-cos-label,
+.mm-setting-row span[data-setting-value],
+.mm-contract-num,
+.mm-equipped-badge,
+.mm-loadout-weapons,
+.mm-weapon-lvl,
+.mm-weapon-kills {
+  font: 400 10px/1 var(--f-num);
+  letter-spacing: .2em;
+  color: var(--mute);
+}
+.mm-stat-val,
+.mm-slot-val,
+.mm-loadout-name,
+.mm-contract-title,
+.mm-weapon-name {
+  font: 500 14px/1.2 var(--f-tactical);
+  color: var(--bone);
+  letter-spacing: .08em;
+}
+
+.mm-loadouts-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.mm-loadout-btn {
+  position: relative;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  background: rgba(10,12,18,.62);
+  cursor: pointer;
+  transition: border-color .15s, transform .15s, background .15s;
+}
+.mm-loadout-btn:hover,
+.mm-loadout-btn.active {
+  border-color: var(--signal);
+  background: rgba(255,140,26,.06);
+  transform: translateY(-2px);
+}
+.mm-loadout-btn.equipped::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: var(--signal);
+}
+.mm-equipped-badge {
+  margin-top: 10px;
+  color: var(--signal);
+}
+
+.mm-loadout-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  background: rgba(6,7,11,.72);
+  border: 1px solid var(--hairline);
+  color: var(--bone);
+  font: 500 14px/1 var(--f-tactical);
+  letter-spacing: .08em;
+}
+
+.mm-contract.completed { border-color: rgba(184,255,61,.4); }
+.mm-contract.claimed { opacity: .55; }
+.mm-contract-claim {
+  margin-top: 10px;
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .22em;
+  color: var(--toxic);
+}
+.mm-contract-reward { color: var(--signal); }
+
+.mm-cos-slot {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+.mm-cos-slot-num {
+  font: 500 10px/1 var(--f-num);
+  color: var(--signal);
+}
+
+.mm-setting-group { gap: 12px; }
+.mm-setting-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 88px;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(233,236,241,.06);
+}
+.mm-setting-row:first-of-type { border-top: 0; }
+.mm-setting-row input[type="range"],
+.mm-setting-row input[type="color"],
+.mm-setting-row select {
+  width: 100%;
+  accent-color: var(--signal);
+  background: transparent;
+  color: var(--bone);
+}
+.mm-setting-row select {
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  background: rgba(6,7,11,.72);
+}
+.mm-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 12px/1 var(--f-ui);
+  color: var(--bone);
+}
+.mm-checkbox input { accent-color: var(--signal); }
+
+.mn-quit-btn {
+  padding: 12px 18px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--bone-dim);
+  font: 500 11px/1 var(--f-tactical);
+  letter-spacing: .2em;
+  cursor: pointer;
+}
+.mn-quit-btn:hover { color: var(--signal); border-color: var(--signal); }
+
+.hv-fu-rail::after { display: none; }
+.hv-fu-fill {
+  width: 0;
+  height: 100%;
+}
+
+@media (max-width: 1280px) {
+  .mn-main { grid-template-columns: 300px 1fr 320px; }
+  .mm-loadouts-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mm-contracts-grid,
+  .mm-cos-grid,
+  .mm-slots-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 980px) {
+  #mainMenuRoot .mn-root { grid-template-rows: auto 1fr auto; }
+  .mn-top,
+  .mn-bottom { padding-left: 20px; padding-right: 20px; }
+  .mn-main { grid-template-columns: 1fr; }
+  .mn-col + .mn-col { border-left: 0; border-top: 1px solid var(--hairline); }
+  .mm-loadouts-list,
+  .mm-contracts-grid,
+  .mm-cos-grid,
+  .mm-slots-grid,
+  .mm-cos-emotes,
+  .mm-stats-grid { grid-template-columns: 1fr; }
+  .mm-setting-row { grid-template-columns: 1fr; }
+}
+
 /* Hide legacy #mainMenu / #pauseMenu / #settingsMenu — MainMenu.ts and
    PauseMenu.ts drive the real UI now. These are still in index.html for
    any code that queries them as a fallback. */
@@ -2100,6 +2471,61 @@ body.killcam-active #cw { filter: hue-rotate(8deg) saturate(1.4) contrast(1.15);
 }
 #pauseDrawer.on { display: block; animation: sceneIn .25s var(--ease-out-expo); }
 /* .pz-shell is the left drawer, rules inherited from preview CSS above */
+
+#pauseSettingsOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 410;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: rgba(6,7,11,.42);
+}
+#pauseSettingsOverlay.on { display: flex; }
+.ps-settings-shell {
+  width: min(760px, calc(100vw - 64px));
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--hairline-strong);
+  background: linear-gradient(180deg, rgba(10,12,18,.96), rgba(10,12,18,.9));
+  box-shadow: 0 28px 60px rgba(0,0,0,.45);
+}
+.ps-settings-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.ps-settings-kicker {
+  font: 500 10px/1 var(--f-num);
+  letter-spacing: .34em;
+  color: var(--signal);
+}
+.ps-settings-title {
+  margin-top: 10px;
+  font: 400 42px/.92 var(--f-display);
+  color: var(--bone);
+}
+.ps-settings-close {
+  padding: 12px 18px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--bone-dim);
+  font: 500 11px/1 var(--f-tactical);
+  letter-spacing: .2em;
+  cursor: pointer;
+}
+.ps-settings-close:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+.ps-settings-body {
+  display: grid;
+  gap: 18px;
+}
 
 /* ── Victory shell (live) — backdrop + mount for RoundSummary.ts ── */
 #roundSummary {

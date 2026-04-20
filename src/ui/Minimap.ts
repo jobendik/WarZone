@@ -4,9 +4,79 @@ import { dom } from './DOMElements';
 import { canSee } from '@/ai/Perception';
 import { zone as brZone } from '@/br/ZoneSystem';
 import { isUAVActive } from '@/combat/Streaks';
+import { getDomState } from '@/combat/Domination';
+import { getHardpointState } from '@/combat/Hardpoint';
+import { getKothState } from '@/combat/KingOfTheHill';
+import { getSdState } from '@/combat/Searchanddestroy';
 
 let _spotFrame = 0;
 const _spottedCache = new Set<string>();
+let _lastObjectivesMarkup = '';
+
+function updateObjectiveRail(): void {
+  const rail = dom.mmObjectives;
+  if (!rail) return;
+
+  let markup = '';
+
+  if (gameState.mode === 'domination') {
+    const state = getDomState();
+    if (state) {
+      markup = state.zones.map((zone) => {
+        const cls = zone.contested ? 'neutral' : zone.owner === 'red' ? 'hostile' : zone.owner === 'blue' ? '' : 'neutral';
+        const status = zone.contested ? 'CT' : zone.owner === 'blue' ? 'B' : zone.owner === 'red' ? 'R' : 'N';
+        return `<div class="mm-obj ${cls}">${zone.id} ${status}</div>`;
+      }).join('');
+    }
+  } else if (gameState.mode === 'hardpoint') {
+    const state = getHardpointState();
+    if (state) {
+      const active = state.positions[state.activeIndex];
+      const ownerClass = state.contested ? 'neutral' : state.holder === 'red' ? 'hostile' : state.holder === 'blue' ? '' : 'neutral';
+      const remaining = Math.max(0, Math.ceil(state.rotateInterval - state.timeOnPoint));
+      markup = [
+        '<div class="mm-obj neutral">HILL</div>',
+        `<div class="mm-obj ${ownerClass}">${active.name}</div>`,
+        `<div class="mm-obj neutral">${remaining}s</div>`,
+      ].join('');
+    }
+  } else if (gameState.mode === 'koth') {
+    const state = getKothState();
+    if (state) {
+      const statusClass = state.contested ? 'neutral' : state.holder === 'red' ? 'hostile' : state.holder === 'blue' ? '' : 'neutral';
+      const progress = `${Math.floor(state.holdBlue)}-${Math.floor(state.holdRed)}`;
+      const status = state.contested ? 'CONTEST' : state.holder === 'blue' ? 'BLUE HOLD' : state.holder === 'red' ? 'RED HOLD' : 'NEUTRAL';
+      markup = [
+        '<div class="mm-obj neutral">HILL</div>',
+        `<div class="mm-obj ${statusClass}">${status}</div>`,
+        `<div class="mm-obj neutral">${progress}</div>`,
+      ].join('');
+    }
+  } else if (gameState.mode === 'sd') {
+    const state = getSdState();
+    if (state) {
+      const statusClass = state.roundPhase === 'planted' ? 'hostile' : 'neutral';
+      const status = state.roundPhase === 'planted'
+        ? 'BOMB LIVE'
+        : state.roundPhase === 'prep'
+          ? 'PREP'
+          : state.attackerTeam === 'blue'
+            ? 'BLUE ATK'
+            : 'RED ATK';
+      markup = [
+        `<div class="mm-obj neutral">R${state.round}</div>`,
+        `<div class="mm-obj ${statusClass}">${status}</div>`,
+        '<div class="mm-obj neutral">SITE A</div>',
+      ].join('');
+    }
+  }
+
+  if (markup !== _lastObjectivesMarkup) {
+    rail.innerHTML = markup;
+    rail.style.display = markup ? 'flex' : 'none';
+    _lastObjectivesMarkup = markup;
+  }
+}
 
 export function drawMinimap(): void {
   const canvas = dom.mmCanvas;
@@ -215,4 +285,6 @@ export function drawMinimap(): void {
     const pz = Math.round(player.position.z);
     dom.mmCoords.textContent = `${px >= 0 ? '+' : ''}${px}, ${pz >= 0 ? '+' : ''}${pz}`;
   }
+
+  updateObjectiveRail();
 }

@@ -19,7 +19,7 @@ import {
 (THREE.Mesh.prototype as any).raycast = acceleratedRaycast;
 
 const arenaMeshes: THREE.Object3D[] = [];
-const ARENA_MODEL_URL = `${import.meta.env.BASE_URL}models/arena.glb`;
+const ARENA_MODEL_URL = `${import.meta.env.BASE_URL}models/tdm_map.glb`;
 const arenaLoader = new GLTFLoader();
 
 /**
@@ -53,20 +53,30 @@ export async function buildArena(): Promise<void> {
   // Register every mesh (including SkinnedMesh) in the arena model for:
   //   - shadow casting / receiving
   //   - AI line-of-sight raycasts via gameState.wallMeshes (Perception.isOccluded)
-  // Checking `.geometry` is more robust than `isMesh`, which can be false on
-  // some exotic glTF node setups (LOD groups, skinned meshes from certain
-  // exporters, etc.) — we still skip things without a buffer geometry.
+  // Only real triangular THREE.Mesh objects count — Line/LineSegments/Points
+  // don't occlude rays reliably (threshold-based, no triangle tests), and if
+  // they leak into `wallMeshes` the raycast treats them as misses, letting
+  // bots see/shoot through walls that happen to share a parent with decorative
+  // line geometry.
   let meshCount = 0;
   let skippedNoGeom = 0;
+  let skippedNonTri = 0;
   let bvhBuiltCount = 0;
   arenaRenderModel.updateMatrixWorld(true);
   arenaRenderModel.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
-    const hasGeom =
-      !!(mesh as any).geometry &&
-      typeof (mesh as any).raycast === 'function';
+    const isRealMesh = (mesh as any).isMesh === true;
+    const hasGeom = !!(mesh as any).geometry;
+    if (!isRealMesh) {
+      // LineSegments / Points / decorative primitives — skip them entirely
+      // so they don't pollute LOS/hitscan results.
+      if ((obj as any).isLine || (obj as any).isLineSegments || (obj as any).isPoints) {
+        skippedNonTri++;
+      }
+      return;
+    }
     if (!hasGeom) {
-      if (obj.type?.includes('Mesh')) skippedNoGeom++;
+      skippedNoGeom++;
       return;
     }
 
@@ -96,7 +106,8 @@ export async function buildArena(): Promise<void> {
   console.info(
     `[Arena] Using baked arena model from ${ARENA_MODEL_URL} — ` +
     `${meshCount} meshes registered for occlusion raycasts ` +
-    `(BVH built on ${bvhBuiltCount}, skipped ${skippedNoGeom} mesh-like nodes with no geometry)`
+    `(BVH built on ${bvhBuiltCount}, skipped ${skippedNoGeom} mesh-like nodes with no geometry, ` +
+    `${skippedNonTri} non-triangular primitives)`
   );
 }
 

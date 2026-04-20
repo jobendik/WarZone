@@ -20,7 +20,6 @@
 
   <!-- ═══════════════════════════════════════════════════════════════
        LOADING SCREEN — preview .ld-* layout
-       main.ts drives #lsFill / #lsText (preserved IDs)
        ═══════════════════════════════════════════════════════════════ -->
   <div id="loadingScreen" class="on">
     <div class="ld-shell">
@@ -75,14 +74,14 @@
 
   <!-- ═══════════════════════════════════════════════════════════════
        HUD FRAME — the real APEX PROTOCOL in-match UI
-       CSS selectors: .hud-frame > .hud-minimap / .hud-match / .hud-compass /
-                      .hud-killfeed / .hud-vitals / .hud-dock / .hud-ammo /
-                      .hud-contract
+       (.hud-frame + preview selectors: .hud-minimap, .hud-match,
+        .hud-compass, .hud-killfeed, .hud-vitals, .hud-dock, .hud-ammo,
+        .hud-announce, .hud-contract)
        ═══════════════════════════════════════════════════════════════ -->
   <div class="hud-frame">
 
     <!-- TOP-LEFT: Minimap -->
-    <div class="hud-minimap">
+    <div class="hud-minimap" id="minimap">
       <div class="mm-head">
         <span class="mm-head-lbl">// TACTICAL</span>
         <span class="mm-head-coords" id="mmCoords">00, 00</span>
@@ -92,7 +91,7 @@
         <canvas id="mmCanvas" width="300" height="300"></canvas>
       </div>
       <div class="mm-objectives" id="mmObjectives">
-        <!-- Populated by mode-specific code (domination, hardpoint, etc.) -->
+        <!-- Populated by mode-specific code -->
       </div>
     </div>
 
@@ -112,8 +111,8 @@
       </div>
     </div>
 
-    <!-- TOP-CENTER: Compass strip (below match slate) -->
-    <div class="hud-compass">
+    <!-- TOP-CENTER: Compass strip -->
+    <div class="hud-compass" id="compass">
       <div class="hud-compass-strip" id="compassStrip"></div>
       <div class="hud-compass-needle"></div>
     </div>
@@ -121,7 +120,7 @@
     <!-- TOP-RIGHT: Kill feed -->
     <div class="hud-killfeed" id="killfeed"></div>
 
-    <!-- CENTER: Announcer (matches preview .hud-announce / .an-* markup) -->
+    <!-- CENTER: Announcer -->
     <div id="announcer" class="hud-announce" style="display:none">
       <div class="an-kicker" id="ancKicker"></div>
       <div class="an-text"   id="ancText"></div>
@@ -131,7 +130,7 @@
     <!-- LEFT: Medal ticker -->
     <div id="medalTicker"></div>
 
-    <!-- RIGHT: Contract tracker (compact) -->
+    <!-- RIGHT: Contract tracker -->
     <div class="hud-contract" id="contractHud" style="display:none">
       <div class="hc-head">
         <span class="hc-head-tag">// CONTRACT</span>
@@ -170,7 +169,7 @@
           <div class="hv-fu-name" id="hvFuName">—</div>
           <div class="hv-fu-status" id="hvFuStatus">—</div>
         </div>
-        <div class="hv-fu-rail" id="hvFuRail"></div>
+        <div class="hv-fu-rail" id="hvFuRail"><div class="hv-fu-fill" id="hvFuFill"></div></div>
       </div>
     </div>
 
@@ -207,17 +206,16 @@
 
   <!-- ═══════════════════════════════════════════════════════════════
        RUNTIME OVERLAYS (damage, death, crosshair, scope, etc.)
-       These are driven by live game systems, not the preview.
        ═══════════════════════════════════════════════════════════════ -->
   <div id="dmg"></div>
   <div id="hlf"></div>
   <div id="scopeOverlay"></div>
 
   <div id="xh">
-    <div class="xh-line xh-top"></div>
-    <div class="xh-line xh-bot"></div>
-    <div class="xh-line xh-left"></div>
-    <div class="xh-line xh-right"></div>
+    <div class="xh-arm xh-top"></div>
+    <div class="xh-arm xh-bot"></div>
+    <div class="xh-arm xh-left"></div>
+    <div class="xh-arm xh-right"></div>
     <div class="xh-dot"></div>
     <div class="xh-hit" id="xhHit"></div>
     <div class="xh-kill" id="xhKill"></div>
@@ -275,7 +273,7 @@
     </div>
   </div>
 
-  <!-- Reload bar (legacy, still referenced by some code paths) -->
+  <!-- Reload bar (legacy) -->
   <div id="reloadBar"><div id="reloadFill"></div></div>
   <div id="reloadText">RELOADING</div>
 
@@ -289,61 +287,31 @@
     <div id="tbBody"></div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       LEGACY FALLBACKS (hidden, kept so startMatchFromMenu's DOM
-       queries don't throw).  MainMenu.ts, PauseMenu.ts, Settings.ts
-       drive the real UI.
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="mainMenu" style="display:none">
-    <select id="modeSelect">
-      <option value="tdm">Team Deathmatch</option>
-      <option value="ffa">Free For All</option>
-      <option value="ctf">Capture The Flag</option>
-      <option value="elimination">Elimination</option>
-      <option value="domination">Domination</option>
-      <option value="hardpoint">Hardpoint</option>
-      <option value="sd">Search &amp; Destroy</option>
-      <option value="br">Battle Royale</option>
-    </select>
-    <select id="classSelect">
-      <option value="rifleman">Rifleman</option>
-      <option value="assault">Assault</option>
-      <option value="sniper">Sniper</option>
-      <option value="flanker">Flanker</option>
-    </select>
-    <button id="startBtn">DEPLOY</button>
+  <!-- Minimal hidden control stubs used only as data fallbacks by Menus.ts. -->
+  <div id="__legacyDomStubs" style="position:absolute;width:0;height:0;overflow:hidden;visibility:hidden;pointer-events:none" aria-hidden="true">
+    <div id="mainMenu">
+      <select id="modeSelect">
+        <option value="tdm">Team Deathmatch</option>
+        <option value="ffa">Free For All</option>
+        <option value="ctf">Capture The Flag</option>
+        <option value="elimination">Elimination</option>
+        <option value="domination">Domination</option>
+        <option value="hardpoint">Hardpoint</option>
+        <option value="sd">Search &amp; Destroy</option>
+        <option value="br">Battle Royale</option>
+      </select>
+      <select id="classSelect">
+        <option value="rifleman">Rifleman</option>
+        <option value="assault">Assault</option>
+        <option value="sniper">Sniper</option>
+        <option value="flanker">Flanker</option>
+      </select>
+      <button id="startBtn">DEPLOY</button>
+    </div>
+
   </div>
 
-  <div id="pauseMenu" style="display:none">
-    <button id="pauseResume"></button>
-    <button id="pauseSettings"></button>
-    <button id="pauseRestart"></button>
-    <button id="pauseQuit"></button>
-  </div>
-
-  <div id="settingsMenu" style="display:none">
-    <input type="range" id="setSensitivity" min="0.0005" max="0.006" step="0.0001" value="0.0022">
-    <input type="range" id="setFOV" min="60" max="110" step="1" value="78">
-    <input type="range" id="setMasterVol" min="0" max="1" step="0.05" value="1">
-    <input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="1">
-    <input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="0.5">
-    <input type="range" id="setHeadBob" min="0" max="1" step="0.05" value="1">
-    <input type="color" id="setCrosshairColor" value="#f0faff">
-    <input type="range" id="setCrosshairSize" min="0.5" max="2" step="0.1" value="1">
-    <input type="checkbox" id="setCrosshairDot" checked>
-    <input type="range" id="setBotDifficulty" min="0" max="1" step="0.1" value="0.5">
-    <select id="setColorblind">
-      <option value="off">Off</option>
-      <option value="deuteranopia">Deuteranopia</option>
-      <option value="protanopia">Protanopia</option>
-      <option value="tritanopia">Tritanopia</option>
-    </select>
-    <input type="checkbox" id="setShowFPS">
-    <input type="checkbox" id="setShowSubtitles" checked>
-    <button id="settingsBack"></button>
-  </div>
-
-  <!-- Round summary — built programmatically by RoundSummary.ts into .vc-* markup -->
+  <!-- RoundSummary.ts writes its .vc-* markup here -->
   <div id="roundSummary"></div>
 
   <script type="module" src="/src/main.ts"></script>

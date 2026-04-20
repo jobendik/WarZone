@@ -1,7 +1,69 @@
-/** Arena and game constants */
-export const ARENA_HALF = 58;
-export const ARENA_MARGIN = ARENA_HALF - 1.5;
+/** Arena and game constants.
+ *
+ * ARENA_HALF / ARENA_MARGIN were originally tuned for a symmetric 116x116
+ * procedural arena centred at the origin.  The shipped tdm_map.glb is much
+ * larger and off-centre, so these are now `let`s that are updated at runtime
+ * by `configureArenaBounds()` after the navmesh loads.  Downstream code
+ * imports them and sees the live binding.
+ */
+export let ARENA_HALF = 58;
+export let ARENA_MARGIN = ARENA_HALF - 1.5;
 export const RESPAWN_TIME = 3;
+
+/** Axis-aligned walkable bounds of the arena (derived from the navmesh). */
+export const ARENA_BOUNDS = {
+  minX: -ARENA_HALF,
+  maxX: ARENA_HALF,
+  minZ: -ARENA_HALF,
+  maxZ: ARENA_HALF,
+  centerX: 0,
+  centerZ: 0,
+};
+
+/**
+ * Reconfigure arena bounds from navmesh geometry and rebuild per-team spawn
+ * arrays so the default (-40,-40)/(+40,+40) corners don't fall outside the
+ * walkable area on an off-centre map.
+ */
+export function configureArenaBounds(bounds: {
+  minX: number; maxX: number; minZ: number; maxZ: number;
+}): void {
+  ARENA_BOUNDS.minX = bounds.minX;
+  ARENA_BOUNDS.maxX = bounds.maxX;
+  ARENA_BOUNDS.minZ = bounds.minZ;
+  ARENA_BOUNDS.maxZ = bounds.maxZ;
+  ARENA_BOUNDS.centerX = (bounds.minX + bounds.maxX) * 0.5;
+  ARENA_BOUNDS.centerZ = (bounds.minZ + bounds.maxZ) * 0.5;
+
+  // Keep the symmetric `|x| > ARENA_MARGIN` safety clamps working for the
+  // new bounds by widening ARENA_HALF to the largest absolute extent.
+  const ext = Math.max(
+    Math.abs(bounds.minX), Math.abs(bounds.maxX),
+    Math.abs(bounds.minZ), Math.abs(bounds.maxZ),
+  );
+  ARENA_HALF = Math.max(58, Math.ceil(ext + 4));
+  ARENA_MARGIN = ARENA_HALF - 1.5;
+
+  // Rebuild team spawn corners in place so existing `import { BLUE_SPAWNS }`
+  // consumers automatically see the new positions.  resolveArenaSpawn()
+  // later projects each point onto the navmesh, so approximate corners are
+  // fine — exact geometry is not required here.
+  const inset = 6;
+  const x0 = bounds.minX + inset;
+  const x1 = bounds.maxX - inset;
+  const z0 = bounds.minZ + inset;
+  const z1 = bounds.maxZ - inset;
+  const jitter = 4;
+
+  BLUE_SPAWNS.length = 0;
+  RED_SPAWNS.length = 0;
+  for (let i = 0; i < 6; i++) {
+    const dx = (i % 3) * jitter;
+    const dz = Math.floor(i / 3) * jitter;
+    BLUE_SPAWNS.push([x0 + dx, 0, z0 + dz]);
+    RED_SPAWNS.push([x1 - dx, 0, z1 - dz]);
+  }
+}
 
 /** Team identifiers */
 export const TEAM_BLUE = 0 as const;

@@ -1,5 +1,6 @@
 import { gameState } from '@/core/GameState';
 import { TEAM_BLUE, TEAM_RED } from '@/config/constants';
+import { openSettingsOverlay, hideSettingsOverlay, isSettingsOverlayOpen } from '@/ui/Settings';
 
 /**
  * PauseMenu — APEX PROTOCOL left drawer pause UI.
@@ -107,7 +108,7 @@ function ensureDrawer(): HTMLDivElement {
 function handleAction(action: string): void {
   switch (action) {
     case 'resume':   hidePauseMenu(); cbs.onResume?.();   break;
-    case 'settings': cbs.onSettings?.();                   break;
+    case 'settings': openSettingsOverlay(); cbs.onSettings?.(); break;
     case 'controls': cbs.onControls?.();                   break;
     case 'loadout':  cbs.onLoadout?.();                    break;
     case 'restart':  hidePauseMenu(); cbs.onRestart?.();  break;
@@ -136,7 +137,16 @@ export function initPauseMenu(callbacks: PauseMenuCallbacks = {}): void {
   if (keyListener) return;
   keyListener = (e: KeyboardEvent) => {
     if (!open) return;
-    if (e.code === 'Escape')   { e.preventDefault(); handleAction('resume');   return; }
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      if (isSettingsOverlayOpen()) {
+        hideSettingsOverlay();
+      } else {
+        handleAction('resume');
+      }
+      return;
+    }
+    if (isSettingsOverlayOpen()) return;
     if (e.code === 'Digit1')   { e.preventDefault(); handleAction('settings'); return; }
     if (e.code === 'Digit2')   { e.preventDefault(); handleAction('controls'); return; }
     if (e.code === 'Digit3')   { e.preventDefault(); handleAction('loadout');  return; }
@@ -156,6 +166,7 @@ export function showPauseMenu(): void {
 
 export function hidePauseMenu(): void {
   if (drawerEl) drawerEl.classList.remove('on');
+  hideSettingsOverlay();
   open = false;
 }
 // Alias — a few callers use the misspelled name.

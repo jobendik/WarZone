@@ -1,0 +1,5 @@
+ANIMATIONS
+
+equip animation 02.20-02.47
+shooting animation 02.0.00-0.25
+reload animation 00.25-01.73

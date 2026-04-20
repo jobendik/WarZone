@@ -21,13 +21,23 @@ import { isKillcamActive, updateKillcam, isPotgActive, updatePotgReplay } from '
 
 const NAV_PLAYER_SAMPLES: readonly [number, number][] = [
   [0, 0],
-  [FP.playerRadius * 0.65, 0],
-  [-FP.playerRadius * 0.65, 0],
-  [0, FP.playerRadius * 0.65],
-  [0, -FP.playerRadius * 0.65],
+  [FP.playerRadius * 0.5, 0],
+  [-FP.playerRadius * 0.5, 0],
+  [0, FP.playerRadius * 0.5],
+  [0, -FP.playerRadius * 0.5],
 ];
 
 const NAV_FLOOR_SAMPLE_Y = 2.0;
+
+/**
+ * Vertical tolerance used when testing whether a 2D position sits on the
+ * navmesh.  Needs to be large enough to cover ramps (the player's `pPosY`
+ * lags behind the surface being stepped onto during a climb), small step-ups
+ * onto crates, and elevated platforms the player is already standing on.
+ * Too tight → blocked on ramps; too loose → lets the player phase through
+ * walls to walkable surfaces on the other side.
+ */
+const NAV_COLLIDE_Y_EPSILON = 2.2;
 
 const navPoint = new YUKA.Vector3();
 const navProjectedPoint = new YUKA.Vector3();
@@ -69,9 +79,13 @@ function collidesPlayer(x: number, z: number): boolean {
   if (Math.abs(x) > margin || Math.abs(z) > margin) return true;
 
   if (gameState.navMeshManager.navMesh) {
+    // Generous vertical tolerance so the player can walk up ramps and step
+    // onto small crates/platforms — YUKA's getRegionForPoint would otherwise
+    // reject the step because `pPosY` hasn't climbed yet when the horizontal
+    // collision test runs.
     for (const [ox, oz] of NAV_PLAYER_SAMPLES) {
       navPoint.set(x + ox, gameState.pPosY, z + oz);
-      if (!gameState.navMeshManager.getRegionForPoint(navPoint, FP.playerRadius * 0.45)) {
+      if (!gameState.navMeshManager.getRegionForPoint(navPoint, NAV_COLLIDE_Y_EPSILON)) {
         return true;
       }
     }

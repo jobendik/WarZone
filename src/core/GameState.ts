@@ -284,4 +284,5 @@ export const gameState = {
   _finisherLockMovement: false,
   _tutorialGrenadeThrown: false,
   _introActive: false,
+  _pauseOnIntroEnd: false,
 };

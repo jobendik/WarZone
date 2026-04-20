@@ -96,12 +96,17 @@ const s: NavDebugState = {
 const _v = new THREE.Vector3();
 const _raycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
+const NAV_DEBUG_ENABLED = new URLSearchParams(globalThis.location?.search ?? '').has('navDebug');
 
 // ─────────────────────────────────────────────────────────────────────
 //  PUBLIC API
 // ─────────────────────────────────────────────────────────────────────
 
 export function initNavDebug(): void {
+    if (!NAV_DEBUG_ENABLED) {
+        document.getElementById('navDebugPanel')?.remove();
+        return;
+    }
     if (s.enabled) return;
     s.enabled = true;
 
@@ -118,7 +123,7 @@ export function initNavDebug(): void {
 
 /** Call this every frame from GameLoop after entities have moved. */
 export function updateNavDebug(): void {
-    if (!s.enabled) return;
+    if (!NAV_DEBUG_ENABLED || !s.enabled) return;
     if (s.showBotOverlays) updateBotOverlays();
 }
 

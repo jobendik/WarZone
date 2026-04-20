@@ -38,7 +38,7 @@ import { initDynamicWeather } from '@/world/DynamicWeather';
 import { initPingSystem } from '@/ui/CommWheel';
 import { initEmotes } from '@/ui/Emotes';
 import { initMainMenu, showMainMenu } from '@/ui/MainMenu';
-import { startMatchFromMenu } from '@/ui/Menus';
+import { startMatchFromMenu, syncLockHintVisibility } from '@/ui/Menus';
 import { initDomination } from '@/combat/Domination';
 import { initHardpoint } from '@/combat/Hardpoint';
 import { initKoth } from '@/combat/KingOfTheHill';
@@ -52,7 +52,7 @@ import {
   attachCombatProjectileWarmupProxies,
   detachCombatProjectileWarmupProxies,
 } from '@/combat/Hitscan';
-import { TEAM_BLUE, TEAM_RED, TEAM_COLORS } from '@/config/constants';
+import { TEAM_BLUE, TEAM_RED, TEAM_COLORS, configureArenaBounds, ARENA_BOUNDS } from '@/config/constants';
 import { buildSoldierMesh } from '@/rendering/SoldierMesh';
 import { makeNameTag } from '@/rendering/NameTag';
 import { createHPBarGroup } from '@/rendering/HPBar';
@@ -180,6 +180,55 @@ function detachAgentWarmupProxies(): void {
   _agentWarmupGroup = null;
 }
 
+/**
+ * Walk every region polygon in the loaded navmesh to compute the walkable
+ * AABB, then push those bounds into the shared constants module so spawn
+ * positions, cover generation, and boundary clamps align with the actual
+ * map geometry (tdm_map.glb is asymmetric and much larger than the legacy
+ * 116x116 arena).
+ */
+function deriveArenaBoundsFromNavMesh(): void {
+  const nm = gameState.navMeshManager;
+  if (!nm.navMesh) return;
+
+  const regions: any[] = nm.mainComponent.size > 0
+    ? Array.from(nm.mainComponent)
+    : nm.navMesh.regions;
+
+  let minX = Infinity, maxX = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+
+  for (const region of regions) {
+    const startEdge: any = region?.edge;
+    if (!startEdge) continue;
+    let e = startEdge;
+    let guard = 0;
+    do {
+      const v = e?.vertex;
+      if (v) {
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+        if (v.z < minZ) minZ = v.z;
+        if (v.z > maxZ) maxZ = v.z;
+      }
+      e = e?.next;
+      if (++guard > 512) break;
+    } while (e && e !== startEdge);
+  }
+
+  if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minZ) || !isFinite(maxZ)) {
+    console.warn('[Arena] Could not derive bounds from navmesh — keeping defaults.');
+    return;
+  }
+
+  configureArenaBounds({ minX, maxX, minZ, maxZ });
+  console.info(
+    `[Arena] Bounds from navmesh: X=[${minX.toFixed(1)},${maxX.toFixed(1)}] ` +
+    `Z=[${minZ.toFixed(1)},${maxZ.toFixed(1)}] ` +
+    `center=(${ARENA_BOUNDS.centerX.toFixed(1)},${ARENA_BOUNDS.centerZ.toFixed(1)})`
+  );
+}
+
 async function loadMatchAssets(): Promise<void> {
   if (matchAssetsLoaded) return;
   if (matchAssetsLoading) return matchAssetsLoading;
@@ -196,7 +245,7 @@ async function loadMatchAssets(): Promise<void> {
     const forceRuntime = new URLSearchParams(location.search).has('runtimeNav');
     let navLoaded = false;
     if (!forceRuntime) {
-      const bakedNavMeshUrl = `${import.meta.env.BASE_URL}models/arena_navmesh.gltf`;
+      const bakedNavMeshUrl = `${import.meta.env.BASE_URL}models/tdm_map_navmesh.glb`;
       try {
         await gameState.navMeshManager.load(bakedNavMeshUrl);
         console.info(`[NavMesh] Loaded baked navmesh: ${gameState.navMeshManager.navMesh?.regions.length} regions`);
@@ -216,6 +265,7 @@ async function loadMatchAssets(): Promise<void> {
       }
     }
     gameState.pathPlanner = new AsyncPathPlanner(gameState.navMeshManager);
+    deriveArenaBoundsFromNavMesh();
     buildCoverPoints();
 
     setLoadProgress(35, 'Spawning agents…');
@@ -307,7 +357,11 @@ async function init(): Promise<void> {
 
   // APEX: pause drawer + summary shell — wire callbacks
   initPauseMenu({
-    onResume:   () => { gameState.paused = false; document.body.requestPointerLock?.(); },
+    onResume:   () => {
+      gameState.paused = false;
+      gameState.renderer?.domElement?.requestPointerLock();
+      setTimeout(syncLockHintVisibility, 80);
+    },
     onSettings: () => { /* Settings.ts drives its own panel */ },
     onRestart:  () => { gameState.paused = false; void startMatchFromMenu(gameState.mode as GameMode); },
     onQuit:     () => {
@@ -426,21 +480,6 @@ async function init(): Promise<void> {
     showMainMenu();
   }
 
-  // APEX: pause keybind — ESC toggles the drawer while in-match.
-  window.addEventListener('keydown', (e) => {
-    if (e.code !== 'Escape') return;
-    if (gameState.mainMenuOpen) return;   // main menu handles its own ESC
-    if (!matchAssetsLoaded) return;
-    if (isPauseMenuOpen()) {
-      hidePauseMenu();
-      gameState.paused = false;
-      document.body.requestPointerLock?.();
-    } else {
-      gameState.paused = true;
-      showPauseMenu();
-    }
-    e.preventDefault();
-  }, true);
 }
 
 init().catch((err) => console.error('[main] init failed:', err));

@@ -1,0 +1,13 @@
+- hook up music, sfx, ect. to the settings. Now only the Master volume works
+
+- Add the dual_mac10_smg.glb to the last remaining weapon that has a stub.
+  Remember that it is a dual weapon so it must fire from both the barrels.
+
+- Add an actual weather shader that changes with the weather script. 
+  It should not be too GPU intensive
+
+- Optimize the game. When the action begins we have less than 1 FPS!
+
+- The wheel is attached to the Q button, and this triggers the pause menu too.
+  This is a bug.
+

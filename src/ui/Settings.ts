@@ -114,7 +114,7 @@ export function applySettings(): void {
   const xh = document.getElementById('xh');
   if (xh) {
     xh.style.setProperty('--xh-color', current.crosshairColor);
-    xh.style.transform = `scale(${current.crosshairSize})`;
+    xh.style.setProperty('--xh-size', String(current.crosshairSize));
 
     const dot = xh.querySelector('.xh-dot') as HTMLElement | null;
     if (dot) dot.style.display = current.crosshairDot ? '' : 'none';
@@ -227,12 +227,16 @@ export function syncSettingsPanel(root: ParentNode): void {
 export function bindSettingsPanel(root: ParentNode): void {
   syncSettingsPanel(root);
 
+  const assignSetting = <K extends SettingKey>(key: K, value: GameSettings[K]) => {
+    current = { ...current, [key]: value };
+  };
+
   for (const key of SETTING_KEYS) {
     const control = qControl(root, key);
     if (!control) continue;
 
     const commit = () => {
-      current[key] = parseControlValue(key, control);
+      assignSetting(key, parseControlValue(key, control));
       const valueEl = qValue(root, key);
       if (valueEl) valueEl.textContent = formatValue(key, current[key]);
       applySettings();
@@ -252,4 +256,77 @@ export function bindSettingsPanel(root: ParentNode): void {
 
 export function initSettings(): void {
   loadSettings();
+}
+
+let settingsOverlayEl: HTMLDivElement | null = null;
+
+function renderSettingsOverlay(): string {
+  return `
+    <div class="ps-settings-shell">
+      <div class="ps-settings-head">
+        <div>
+          <div class="ps-settings-kicker">// TACTICAL CONFIG</div>
+          <div class="ps-settings-title">Settings</div>
+        </div>
+        <button class="ps-settings-close" type="button" data-close-settings>BACK</button>
+      </div>
+      <div class="ps-settings-body mm-settings">
+        <div class="mm-setting-group">
+          <div class="mm-section-head">AUDIO</div>
+          <div class="mm-setting-row"><label>Master Volume</label><input type="range" min="0" max="100" step="5" data-setting="masterVol"/><span data-setting-value="masterVol">100%</span></div>
+          <div class="mm-setting-row"><label>Music</label><input type="range" min="0" max="100" step="5" data-setting="musicVol"/><span data-setting-value="musicVol">50%</span></div>
+          <div class="mm-setting-row"><label>SFX</label><input type="range" min="0" max="100" step="5" data-setting="sfxVol"/><span data-setting-value="sfxVol">100%</span></div>
+        </div>
+
+        <div class="mm-setting-group">
+          <div class="mm-section-head">VISUALS</div>
+          <div class="mm-setting-row"><label>FOV</label><input type="range" min="60" max="110" step="1" data-setting="fov"/><span data-setting-value="fov">78</span></div>
+          <div class="mm-setting-row"><label>Crosshair Color</label><input type="color" data-setting="crosshairColor"/><span data-setting-value="crosshairColor">#f0faff</span></div>
+          <div class="mm-setting-row"><label>Crosshair Size</label><input type="range" min="0.5" max="2" step="0.1" data-setting="crosshairSize"/><span data-setting-value="crosshairSize">1.0</span></div>
+          <div class="mm-setting-row"><label>Crosshair Dot</label><label class="mm-checkbox"><input type="checkbox" data-setting="crosshairDot"/><span>Enabled</span></label><span data-setting-value="crosshairDot">ON</span></div>
+          <div class="mm-setting-row"><label>Colorblind Mode</label><select data-setting="colorblindMode"><option value="off">Off</option><option value="deuteranopia">Deuteranopia</option><option value="protanopia">Protanopia</option><option value="tritanopia">Tritanopia</option></select><span data-setting-value="colorblindMode">off</span></div>
+        </div>
+
+        <div class="mm-setting-group">
+          <div class="mm-section-head">CONTROLS & GAMEPLAY</div>
+          <div class="mm-setting-row"><label>Mouse Sensitivity</label><input type="range" min="0.0005" max="0.006" step="0.0001" data-setting="sensitivity"/><span data-setting-value="sensitivity">0.0022</span></div>
+          <div class="mm-setting-row"><label>Head Bob</label><input type="range" min="0" max="100" step="5" data-setting="headBobScale"/><span data-setting-value="headBobScale">100%</span></div>
+          <div class="mm-setting-row"><label>Bot Difficulty</label><input type="range" min="0" max="100" step="10" data-setting="botDifficulty"/><span data-setting-value="botDifficulty">50%</span></div>
+          <div class="mm-setting-row"><label>Show FPS</label><label class="mm-checkbox"><input type="checkbox" data-setting="showFPS"/><span>Enabled</span></label><span data-setting-value="showFPS">OFF</span></div>
+          <div class="mm-setting-row"><label>Subtitles</label><label class="mm-checkbox"><input type="checkbox" data-setting="showSubtitles"/><span>Enabled</span></label><span data-setting-value="showSubtitles">ON</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function ensureSettingsOverlay(): HTMLDivElement {
+  if (settingsOverlayEl?.isConnected) return settingsOverlayEl;
+
+  settingsOverlayEl = document.createElement('div');
+  settingsOverlayEl.id = 'pauseSettingsOverlay';
+  settingsOverlayEl.innerHTML = renderSettingsOverlay();
+  settingsOverlayEl.addEventListener('click', (event) => {
+    if (event.target === settingsOverlayEl) hideSettingsOverlay();
+  });
+
+  settingsOverlayEl.querySelector('[data-close-settings]')?.addEventListener('click', () => hideSettingsOverlay());
+
+  document.body.appendChild(settingsOverlayEl);
+  bindSettingsPanel(settingsOverlayEl);
+  return settingsOverlayEl;
+}
+
+export function openSettingsOverlay(): void {
+  const overlay = ensureSettingsOverlay();
+  syncSettingsPanel(overlay);
+  overlay.classList.add('on');
+}
+
+export function hideSettingsOverlay(): void {
+  settingsOverlayEl?.classList.remove('on');
+}
+
+export function isSettingsOverlayOpen(): boolean {
+  return settingsOverlayEl?.classList.contains('on') ?? false;
 }

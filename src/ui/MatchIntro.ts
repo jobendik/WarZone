@@ -9,7 +9,7 @@
  *   5. done                 — Hand control to the player
  *
  * Skipping:
- *   SPACE or ESC → end the intro immediately and start gameplay.
+ *   SPACE → end the intro immediately and start gameplay.
  *
  * Integration:
  *   playMatchIntro(opts)  → Promise that resolves when intro is done
@@ -107,7 +107,7 @@ function createOverlay(opts: MatchIntroOptions): HTMLDivElement {
       </div>
 
     </div>
-    <div class="mi-skip-hint">[SPACE] SKIP · [ESC] CUT TO GAMEPLAY</div>
+    <div class="mi-skip-hint">[SPACE] SKIP</div>
   `;
 
   if (!document.getElementById('matchIntroStyle')) {
@@ -370,9 +370,9 @@ export function playMatchIntro(opts: MatchIntroOptions): Promise<void> {
       try { (s as any).playObjective?.() ?? (s as any).playAlert?.(); } catch { /* */ }
     }).catch(() => { /* */ });
 
-    // Skip listener — SPACE or ESC ends the intro immediately.
+    // Skip listener — SPACE ends the intro immediately.
     const keyListener = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'Escape') {
+      if (e.code === 'Space') {
         introState.skipRequested = true;
         e.preventDefault();
       }

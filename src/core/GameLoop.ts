@@ -14,6 +14,7 @@
 
 import * as THREE from 'three';
 import { gameState } from './GameState';
+import { TEAM_BLUE, TEAM_RED } from '@/config/constants';
 import { Audio } from '@/audio/AudioManager';
 import { updateHeartbeat, updateSubtitles } from '@/audio/SoundHooks';
 import { updatePlayer, keepInside } from '@/entities/Player';
@@ -25,9 +26,9 @@ import { updateRespawns } from '@/combat/Combat';
 import { updateObjectives } from '@/combat/Objectives';
 import { updateVisuals } from '@/rendering/Visuals';
 import { updateAgentAnimations } from '@/rendering/AgentAnimations';
-import { updateHUD, updateCrosshair, updateCookTimer } from '@/ui/HUD';
+import { updateHUD, updateCrosshair, updateCookTimer, updateMatchInfo } from '@/ui/HUD';
 import { drawMinimap } from '@/ui/Minimap';
-import { updateTabboard, updateScoreboard } from '@/ui/Scoreboard';
+import { updateTabboard, updateScoreboard, showScoreboard, hideScoreboard } from '@/ui/Scoreboard';
 import { updateViewmodel, renderViewmodel } from '@/rendering/WeaponViewmodel';
 import { updateCompass } from '@/ui/Compass';
 import { updateDamageArcs } from '@/ui/DamageArcs';
@@ -35,6 +36,7 @@ import { updateFloatingDamage } from '@/ui/FloatingDamage';
 import { updateAnnouncer } from '@/ui/Announcer';
 import { updateMedalTicker } from '@/ui/Medals';
 import { updatePings } from '@/ui/PingSystem';
+import { syncLockHintVisibility } from '@/ui/Menus';
 import { updateReloadRing } from '@/ui/ReloadRing';
 import { updateStanceIndicator } from '@/ui/StanceIndicator';
 import { updateWaypoints } from '@/ui/Waypoints';
@@ -57,16 +59,17 @@ import { pollFinisherInput, updateFinisher, updateFinisherPrompt } from '@/comba
 import { updateDynamicWeather } from '@/world/DynamicWeather';
 import { updateContractHud } from '@/ui/ContractSystem';
 import { updateFieldUpgrade } from '@/combat/FieldUpgradeController';
-import { updateDomination } from '@/combat/Domination';
-import { updateHardpoint } from '@/combat/Hardpoint';
-import { updateKoth } from '@/combat/KingOfTheHill';
-import { updateSd } from '@/combat/Searchanddestroy';
+import { getDomState, updateDomination } from '@/combat/Domination';
+import { getHardpointState, updateHardpoint } from '@/combat/Hardpoint';
+import { getKothState, updateKoth } from '@/combat/KingOfTheHill';
+import { getSdState, updateSd } from '@/combat/Searchanddestroy';
 import { updateSprays } from '@/ui/Emotes';
 import { updatePingSystem } from '@/ui/CommWheel';
 import { updateOverlay as updateADSOverlay } from '@/combat/EnhancedADS';
 import { isInTrainingRange, updateTrainingRange } from '@/combat/TrainingRange';
 import { updateNavDebug } from '@/core/NavDebug';
 import { perf } from '@/core/PerfProfiler';
+import { getModeLabel } from '@/core/GameModes';
 
 let _hudThrottle = 0;
 let _minimapThrottle = 0;
@@ -75,6 +78,49 @@ let _minimapThrottle = 0;
 let _fpsFrames = 0;
 let _fpsLastTime = 0;
 let _fpsDisplay = 0;
+
+function getHudScores(): { blue: number; red: number } {
+  if (gameState.mode === 'domination') {
+    const state = getDomState();
+    if (state) return { blue: state.scoreBlue, red: state.scoreRed };
+  } else if (gameState.mode === 'hardpoint') {
+    const state = getHardpointState();
+    if (state) return { blue: Math.floor(state.scoreBlue), red: Math.floor(state.scoreRed) };
+  } else if (gameState.mode === 'koth') {
+    const state = getKothState();
+    if (state) return { blue: Math.floor(state.holdBlue), red: Math.floor(state.holdRed) };
+  } else if (gameState.mode === 'sd') {
+    const state = getSdState();
+    if (state) return { blue: state.roundBlue, red: state.roundRed };
+  }
+
+  return {
+    blue: gameState.teamScores[TEAM_BLUE] ?? 0,
+    red: gameState.teamScores[TEAM_RED] ?? 0,
+  };
+}
+
+function updateHudMatchSlate(): void {
+  const scores = getHudScores();
+  updateMatchInfo(
+    getModeLabel(gameState.mode),
+    gameState.matchTimeRemaining,
+    scores.blue,
+    scores.red,
+  );
+}
+
+function syncScoreboardVisibility(): void {
+  const shouldShow = !!gameState.keys.tab
+    && !gameState.paused
+    && !gameState.mainMenuOpen
+    && !gameState.roundOver
+    && !gameState._introActive;
+
+  if (shouldShow) showScoreboard();
+  else hideScoreboard();
+  syncLockHintVisibility();
+}
 
 // ── Warmup countdown — DISABLED ────────────────────────────────
 // The old 3-2-1-FIGHT countdown has been removed. Matches begin the
@@ -239,6 +285,7 @@ export function animate(): void {
   }
 
   updateHUD();
+  updateHudMatchSlate();
   updateCrosshair();
   updateCookTimer();
 
@@ -250,6 +297,7 @@ export function animate(): void {
     updateScoreboard();
     updateTabboard();
   }
+  syncScoreboardVisibility();
 
   updateCompass();
   updateReloadRing();

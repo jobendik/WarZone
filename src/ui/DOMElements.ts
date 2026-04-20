@@ -57,15 +57,15 @@ export const dom = {
   get lockHint() { return getEl<HTMLDivElement>('lockHint'); },
 
   // Match info
-  get miMode() { return maybeEl<HTMLDivElement>('miMode'); },
-  get miTime() { return maybeEl<HTMLDivElement>('miTime'); },
-  get miScoreBlue() { return maybeEl<HTMLDivElement>('miScoreBlue'); },
-  get miScoreRed() { return maybeEl<HTMLDivElement>('miScoreRed'); },
+  get miMode() { return maybeEl<HTMLDivElement>('hmMode') ?? maybeEl<HTMLDivElement>('miMode'); },
+  get miTime() { return maybeEl<HTMLDivElement>('hmTimer') ?? maybeEl<HTMLDivElement>('miTime'); },
+  get miScoreBlue() { return maybeEl<HTMLDivElement>('hmScoreBlue') ?? maybeEl<HTMLDivElement>('miScoreBlue'); },
+  get miScoreRed() { return maybeEl<HTMLDivElement>('hmScoreRed') ?? maybeEl<HTMLDivElement>('miScoreRed'); },
 
   // Legacy fallbacks — resolve to new match-info panel if old elements aren't present
-  get sbBlue() { return maybeEl<HTMLDivElement>('sbBlue') ?? getEl<HTMLDivElement>('miScoreBlue'); },
-  get sbRed() { return maybeEl<HTMLDivElement>('sbRed') ?? getEl<HTMLDivElement>('miScoreRed'); },
-  get sbMid() { return maybeEl<HTMLDivElement>('sbMid') ?? getEl<HTMLDivElement>('miTime'); },
+  get sbBlue() { return maybeEl<HTMLDivElement>('sbBlue') ?? getEl<HTMLDivElement>('hmScoreBlue'); },
+  get sbRed() { return maybeEl<HTMLDivElement>('sbRed') ?? getEl<HTMLDivElement>('hmScoreRed'); },
+  get sbMid() { return maybeEl<HTMLDivElement>('sbMid') ?? getEl<HTMLDivElement>('hmTimer'); },
 
   // Compass
   get compassStrip() { return maybeEl<HTMLDivElement>('compassStrip'); },
@@ -82,17 +82,18 @@ export const dom = {
   // Minimap
   get mmCanvas() { return getEl<HTMLCanvasElement>('mmCanvas'); },
   get mmCoords() { return maybeEl<HTMLDivElement>('mmCoords'); },
+  get mmObjectives() { return maybeEl<HTMLDivElement>('mmObjectives'); },
 
   // Menus
-  get mainMenu() { return getEl<HTMLDivElement>('mainMenu'); },
+  get mainMenu() { return maybeEl<HTMLDivElement>('mainMenuRoot') ?? getEl<HTMLDivElement>('mainMenu'); },
   get modeSelect() { return getEl<HTMLSelectElement>('modeSelect'); },
   get classSelect() { return getEl<HTMLSelectElement>('classSelect'); },
   get startBtn() { return getEl<HTMLButtonElement>('startBtn'); },
-  get pauseMenu() { return getEl<HTMLDivElement>('pauseMenu'); },
-  get pauseResume() { return getEl<HTMLButtonElement>('pauseResume'); },
-  get pauseSettings() { return getEl<HTMLButtonElement>('pauseSettings'); },
-  get pauseRestart() { return getEl<HTMLButtonElement>('pauseRestart'); },
-  get pauseQuit() { return getEl<HTMLButtonElement>('pauseQuit'); },
+  get pauseMenu() { return maybeEl<HTMLDivElement>('pauseDrawer') ?? getEl<HTMLDivElement>('pauseMenu'); },
+  get pauseResume() { return maybeEl<HTMLButtonElement>('pauseResume') ?? (document.querySelector('#pauseDrawer [data-action="resume"]') as HTMLButtonElement | null) ?? getEl<HTMLButtonElement>('pauseResume'); },
+  get pauseSettings() { return maybeEl<HTMLButtonElement>('pauseSettings') ?? (document.querySelector('#pauseDrawer [data-action="settings"]') as HTMLButtonElement | null) ?? getEl<HTMLButtonElement>('pauseSettings'); },
+  get pauseRestart() { return maybeEl<HTMLButtonElement>('pauseRestart') ?? (document.querySelector('#pauseDrawer [data-action="restart"]') as HTMLButtonElement | null) ?? getEl<HTMLButtonElement>('pauseRestart'); },
+  get pauseQuit() { return maybeEl<HTMLButtonElement>('pauseQuit') ?? (document.querySelector('#pauseDrawer [data-action="quit"]') as HTMLButtonElement | null) ?? getEl<HTMLButtonElement>('pauseQuit'); },
 
   // Settings
   get settingsMenu() { return getEl<HTMLDivElement>('settingsMenu'); },
