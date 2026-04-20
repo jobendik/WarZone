@@ -22,7 +22,7 @@ import { updateScoreboard } from '@/ui/Scoreboard';
 import { initPostProcess } from '@/rendering/PostProcess';
 import { initScreenFX } from '@/rendering/ScreenFX';
 import { setPostFX } from '@/rendering/PostProcess.Bridge';
-import { initFloatingDamagePool, attachFloatingDamageWarmupProxy, detachFloatingDamageWarmupProxy } from '@/ui/FloatingDamage';
+import { initFloatingDamagePool } from '@/ui/FloatingDamage';
 
 // MORESCRIPTS — new system imports
 import { initPlayerProfile } from '@/core/PlayerProfile';
@@ -257,7 +257,6 @@ async function loadMatchAssets(): Promise<void> {
     try {
       attachCombatFXWarmupProxies();
       attachCombatProjectileWarmupProxies();
-      attachFloatingDamageWarmupProxy();
       attachAgentWarmupProxies();
       await precompileSceneViews();
       await precompileViewmodelScene();
@@ -267,7 +266,6 @@ async function loadMatchAssets(): Promise<void> {
     } finally {
       detachCombatFXWarmupProxies();
       detachCombatProjectileWarmupProxies();
-      detachFloatingDamageWarmupProxy();
       detachAgentWarmupProxies();
     }
 
