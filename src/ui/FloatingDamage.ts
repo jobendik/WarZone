@@ -1,235 +1,234 @@
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
+import type { TDMAgent } from '@/entities/TDMAgent';
 
-interface FloatingNumber {
-  sprite: THREE.Sprite;
-  vel: THREE.Vector3;
-  life: number;
-  maxLife: number;
-  isCrit: boolean;
-  isKill: boolean;
-}
+/**
+ * FloatingDamage — in-world damage numbers.
+ *
+ * APEX PROTOCOL spec §10 item 8:
+ *   "When you hit the same target multiple times in <1s, numbers
+ *    stack vertically on the target instead of scattering. More
+ *    readable in combat."
+ *
+ * How it works:
+ *   - Each spawned number records its target agent and spawn time.
+ *   - When spawning a new number, we look for *active* numbers on the
+ *     same target that are still fresh (spawned within 1.0s). If any
+ *     exist, the new number anchors directly above the highest of
+ *     them (rather than getting a random scatter offset).
+ *   - During update, stacked siblings lerp toward their stack position
+ *     so they visually form a neat vertical column instead of jitter.
+ *
+ * The pool is size-capped at 40 active numbers. Reuses DOM nodes.
+ *
+ * Public API preserved:
+ *   initFloatingDamagePool()
+ *   spawnDamageNumber(worldPos, amount, isHeadshot?, target?)
+ *   updateFloatingDamage(dt)
+ *   clearFloatingDamage()
+ *   attachFloatingDamageWarmupProxy(), detachFloatingDamageWarmupProxy()
+ */
 
-const active: FloatingNumber[] = [];
 const POOL_SIZE = 40;
-const pool: THREE.Sprite[] = [];
-let poolInited = false;
-let warmupSprite: THREE.Sprite | null = null;
+const LIFETIME = 1.1;          // seconds
+const RISE_SPEED = 0.9;        // world-units per second (upward float)
+const STACK_GAP_PX = 24;       // vertical spacing between stacked numbers
+const STACK_WINDOW = 1.0;      // seconds — "recent" threshold for stacking
+const STACK_LERP_RATE = 18;    // how quickly a number slides into its stack slot
 
-const blankDamageTexture = new THREE.DataTexture(
-  new Uint8Array([255, 255, 255, 0]),
-  1,
-  1,
-  THREE.RGBAFormat,
-);
-blankDamageTexture.needsUpdate = true;
-
-function createDamageSprite(): THREE.Sprite {
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    transparent: true,
-    depthTest: true,
-    depthWrite: false,
-    map: blankDamageTexture,
-  }));
-  sprite.renderOrder = 30;
-  sprite.visible = false;
-  return sprite;
+interface DamageNumber {
+  el: HTMLDivElement;
+  active: boolean;
+  worldPos: THREE.Vector3;
+  baseWorldPos: THREE.Vector3;
+  target: TDMAgent | null;
+  stackIndex: number;         // 0 = bottom of stack, 1+ stacked above
+  spawnTime: number;
+  amount: number;
+  isHeadshot: boolean;
+  // Screen-space offset animated toward stack position
+  currentYOffsetPx: number;
+  targetYOffsetPx: number;
 }
+
+const pool: DamageNumber[] = [];
+let container: HTMLDivElement | null = null;
+
+/**
+ * Warm-up proxy: allows other systems (e.g. muzzle-flash pre-warm) to
+ * call initFloatingDamagePool before the first shot.  Some legacy
+ * callers use these symbols; keep them exported as no-op-safe.
+ */
+let warmupProxy: (() => void) | null = null;
+export function attachFloatingDamageWarmupProxy(fn: () => void): void { warmupProxy = fn; }
+export function detachFloatingDamageWarmupProxy(): void { warmupProxy = null; }
 
 export function initFloatingDamagePool(): void {
-  if (poolInited) return;
-  poolInited = true;
+  if (pool.length > 0) return;
+
+  container = document.createElement('div');
+  container.id = 'floatingDamageContainer';
+  container.style.cssText = `
+    position: fixed; inset: 0; pointer-events: none; z-index: 30;
+    overflow: hidden;
+  `;
+  document.body.appendChild(container);
+
   for (let i = 0; i < POOL_SIZE; i++) {
-    pool.push(createDamageSprite());
-  }
-}
+    const el = document.createElement('div');
+    el.className = 'floating-damage';
+    el.style.display = 'none';
+    container.appendChild(el);
 
-export function attachFloatingDamageWarmupProxy(): void {
-  if (warmupSprite || !gameState.scene || !gameState.camera) return;
-  initFloatingDamagePool();
-  warmupSprite = createDamageSprite();
-  warmupSprite.visible = true;
-  warmupSprite.position.copy(gameState.camera.position);
-  warmupSprite.position.z -= 2;
-  warmupSprite.position.y += 1.2;
-  warmupSprite.scale.set(1.2, 0.6, 1);
-  gameState.scene.add(warmupSprite);
-}
-
-export function detachFloatingDamageWarmupProxy(): void {
-  if (!warmupSprite) return;
-  gameState.scene.remove(warmupSprite);
-  const material = warmupSprite.material as THREE.SpriteMaterial;
-  if (material.map && material.map !== blankDamageTexture) material.map.dispose();
-  material.dispose();
-  warmupSprite = null;
-}
-
-function makeTextTexture(text: string, color: string, size: number, glow: string): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d')!;
-
-  ctx.font = `900 ${size}px Orbitron, system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  // Glow pass
-  ctx.shadowColor = glow;
-  ctx.shadowBlur = 24;
-  ctx.fillStyle = color;
-  ctx.fillText(text, 128, 64);
-
-  // Sharp core pass
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-  ctx.lineWidth = 4;
-  ctx.strokeText(text, 128, 64);
-  ctx.fillStyle = color;
-  ctx.fillText(text, 128, 64);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  tex.generateMipmaps = false;
-  tex.needsUpdate = true;
-  return tex;
-}
-
-function acquireSprite(): THREE.Sprite {
-  if (!poolInited) initFloatingDamagePool();
-  const s = pool.pop();
-  if (s) { s.visible = true; return s; }
-  return createDamageSprite();
-}
-
-function releaseSprite(s: THREE.Sprite): void {
-  s.visible = false;
-  const mat = s.material as THREE.SpriteMaterial;
-  if (mat.map && mat.map !== blankDamageTexture) mat.map.dispose();
-  mat.map = blankDamageTexture;
-  mat.opacity = 1;
-  pool.push(s);
-  gameState.scene.remove(s);
-}
-
-export interface DamagePopupOpts {
-  amount: number;
-  isHeadshot?: boolean;
-  isKill?: boolean;
-  isArmor?: boolean;
-  isFalloff?: boolean;
-}
-
-export function spawnDamageNumber(worldPos: THREE.Vector3, opts: DamagePopupOpts): void {
-  if (active.length >= POOL_SIZE) {
-    // Recycle oldest
-    const oldest = active.shift();
-    if (oldest) releaseSprite(oldest.sprite);
+    pool.push({
+      el,
+      active: false,
+      worldPos: new THREE.Vector3(),
+      baseWorldPos: new THREE.Vector3(),
+      target: null,
+      stackIndex: 0,
+      spawnTime: 0,
+      amount: 0,
+      isHeadshot: false,
+      currentYOffsetPx: 0,
+      targetYOffsetPx: 0,
+    });
   }
 
-  let text: string;
-  let color: string;
-  let glow: string;
-  let fontSize: number;
-  let scaleBase: number;
-
-  if (opts.isKill) {
-    text = 'ELIMINATED';
-    color = '#ffffff';
-    glow = '#ff3355';
-    fontSize = 36;
-    scaleBase = 2.2;
-  } else if (opts.isHeadshot) {
-    text = `${Math.round(opts.amount)}`;
-    color = '#ffdc3b';
-    glow = '#ff8800';
-    fontSize = 52;
-    scaleBase = 1.7;
-  } else if (opts.isArmor) {
-    text = `${Math.round(opts.amount)}`;
-    color = '#7dd3ff';
-    glow = '#1e6bff';
-    fontSize = 42;
-    scaleBase = 1.3;
-  } else if (opts.isFalloff) {
-    text = `${Math.round(opts.amount)}`;
-    color = '#aaaaaa';
-    glow = '#666666';
-    fontSize = 36;
-    scaleBase = 1.0;
-  } else {
-    text = `${Math.round(opts.amount)}`;
-    color = '#fff3d6';
-    glow = '#ff6600';
-    fontSize = 44;
-    scaleBase = 1.35;
-  }
-
-  const sprite = acquireSprite();
-  const mat = sprite.material as THREE.SpriteMaterial;
-  if (mat.map && mat.map !== blankDamageTexture) mat.map.dispose();
-  mat.map = makeTextTexture(text, color, fontSize, glow);
-  mat.opacity = 1;
-
-  sprite.position.set(
-    worldPos.x + (Math.random() - 0.5) * 0.5,
-    worldPos.y + 1.6 + Math.random() * 0.2,
-    worldPos.z + (Math.random() - 0.5) * 0.5,
-  );
-  sprite.scale.set(scaleBase, scaleBase * 0.5, 1);
-  gameState.scene.add(sprite);
-
-  const life = opts.isKill ? 1.8 : 0.9;
-  active.push({
-    sprite,
-    vel: new THREE.Vector3(
-      (Math.random() - 0.5) * 1.5,
-      2.8 + Math.random() * 0.8,
-      (Math.random() - 0.5) * 1.5,
-    ),
-    life,
-    maxLife: life,
-    isCrit: !!opts.isHeadshot,
-    isKill: !!opts.isKill,
-  });
+  // Ping the warmup proxy if one was registered
+  warmupProxy?.();
 }
 
+/**
+ * Spawn a damage number at a world position.
+ *
+ * @param worldPos   where the hit landed (slightly above the target's chest)
+ * @param amount     damage amount
+ * @param isHeadshot whether it was a headshot (renders hazard-red, +weight)
+ * @param target     the agent that took the hit — enables stacking
+ */
+export function spawnDamageNumber(
+  worldPos: THREE.Vector3,
+  amount: number,
+  isHeadshot: boolean = false,
+  target: TDMAgent | null = null,
+): void {
+  if (pool.length === 0) initFloatingDamagePool();
+
+  // Find a free slot (prefer inactive; steal oldest active if full).
+  let slot = pool.find(p => !p.active);
+  if (!slot) {
+    slot = pool.reduce((oldest, p) =>
+      p.spawnTime < oldest.spawnTime ? p : oldest, pool[0]);
+  }
+
+  // ── STACKING (spec §10 item 8) ──
+  // Count how many active numbers on this target are still "recent".
+  const now = gameState.worldElapsed;
+  let stackIndex = 0;
+  if (target) {
+    for (const p of pool) {
+      if (p.active && p !== slot && p.target === target && now - p.spawnTime < STACK_WINDOW) {
+        stackIndex++;
+      }
+    }
+  }
+
+  // Prime the slot
+  slot.active = true;
+  slot.worldPos.copy(worldPos);
+  slot.baseWorldPos.copy(worldPos);
+  slot.target = target;
+  slot.stackIndex = stackIndex;
+  slot.spawnTime = now;
+  slot.amount = amount;
+  slot.isHeadshot = isHeadshot;
+  slot.currentYOffsetPx = stackIndex * STACK_GAP_PX;
+  slot.targetYOffsetPx = stackIndex * STACK_GAP_PX;
+
+  // Render the text + class state
+  slot.el.textContent = isHeadshot ? `-${Math.round(amount)}` : String(Math.round(amount));
+  slot.el.className = 'floating-damage' + (isHeadshot ? ' headshot' : '');
+  if (stackIndex > 0) slot.el.classList.add('stacked');
+  slot.el.style.display = 'block';
+  slot.el.style.opacity = '1';
+}
+
+/**
+ * Update every active floating damage number.
+ * - Advances lifetime → fades out.
+ * - Lifts in world space.
+ * - Projects to screen, applies stack offset.
+ */
 export function updateFloatingDamage(dt: number): void {
-  for (let i = active.length - 1; i >= 0; i--) {
-    const n = active[i];
-    n.life -= dt;
+  if (pool.length === 0) return;
+  const camera = gameState.camera;
+  if (!camera) return;
 
-    if (n.life <= 0) {
-      releaseSprite(n.sprite);
-      active.splice(i, 1);
+  const screenW = window.innerWidth;
+  const screenH = window.innerHeight;
+  const tempVec = new THREE.Vector3();
+  const now = gameState.worldElapsed;
+
+  for (const p of pool) {
+    if (!p.active) continue;
+    const age = now - p.spawnTime;
+
+    if (age >= LIFETIME) {
+      p.active = false;
+      p.target = null;
+      p.el.style.display = 'none';
       continue;
     }
 
-    const t = n.life / n.maxLife;
-    const risen = 1 - t;
+    // World-space drift: upward only, no horizontal scatter (stacking
+    // replaces that). Early-life numbers rise faster, settling near end.
+    const riseEase = 1 - Math.pow(1 - age / LIFETIME, 2);
+    p.worldPos.y = p.baseWorldPos.y + riseEase * RISE_SPEED;
 
-    // Upward float with slight gravity
-    n.vel.y -= 3.5 * dt;
-    n.sprite.position.x += n.vel.x * dt;
-    n.sprite.position.y += n.vel.y * dt;
-    n.sprite.position.z += n.vel.z * dt;
+    // Project to screen
+    tempVec.copy(p.worldPos).project(camera);
 
-    // Pop-in scale curve (overshoot at start, settle, fade shrink)
-    const pop = risen < 0.15
-      ? 1 + (1 - risen / 0.15) * 0.4          // overshoot briefly
-      : t < 0.25 ? t / 0.25 : 1;              // shrink at end
+    // If behind the camera, hide
+    if (tempVec.z > 1) {
+      p.el.style.display = 'none';
+      continue;
+    } else {
+      p.el.style.display = 'block';
+    }
 
-    const baseScale = n.isKill ? 2.2 : (n.isCrit ? 1.7 : 1.35);
-    n.sprite.scale.set(baseScale * pop, baseScale * 0.5 * pop, 1);
+    const screenX = (tempVec.x * 0.5 + 0.5) * screenW;
+    const screenY = (-tempVec.y * 0.5 + 0.5) * screenH;
 
-    // Fade out in final third
-    (n.sprite.material as THREE.SpriteMaterial).opacity = t < 0.3 ? t / 0.3 : 1;
+    // Lerp current screen-space Y-offset toward target so stacked
+    // numbers slide into place over ~100ms instead of popping.
+    const lerp = Math.min(1, dt * STACK_LERP_RATE);
+    p.currentYOffsetPx += (p.targetYOffsetPx - p.currentYOffsetPx) * lerp;
+
+    const finalX = screenX;
+    const finalY = screenY - p.currentYOffsetPx;
+
+    // Fade out in the last 30% of life
+    const fadeStart = LIFETIME * 0.7;
+    const alpha = age < fadeStart ? 1 : 1 - (age - fadeStart) / (LIFETIME - fadeStart);
+
+    // Scale pop on spawn — larger for headshots
+    const spawnScaleAge = Math.min(1, age / 0.12);
+    const spawnScale = p.isHeadshot
+      ? 0.6 + spawnScaleAge * 0.65
+      : 0.7 + spawnScaleAge * 0.45;
+
+    p.el.style.transform =
+      `translate3d(${finalX.toFixed(1)}px, ${finalY.toFixed(1)}px, 0) ` +
+      `translate(-50%, -50%) scale(${spawnScale.toFixed(3)})`;
+    p.el.style.opacity = alpha.toFixed(3);
   }
 }
 
 export function clearFloatingDamage(): void {
-  for (const n of active) releaseSprite(n.sprite);
-  active.length = 0;
+  for (const p of pool) {
+    p.active = false;
+    p.target = null;
+    p.el.style.display = 'none';
+  }
 }
