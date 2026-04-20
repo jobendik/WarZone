@@ -1529,6 +1529,19 @@ body:not(.in-match) .hud-frame { display: none; }
 body.mainmenu-open #matchInfo,
 body.intro-active #matchInfo { display: none; }
 
+/* Match has ended — RoundSummary is foreground UI. Hide every in-world
+   HUD element so nothing bleeds through the victory/defeat shell. */
+body.round-over .hud-frame,
+body.round-over #matchInfo,
+body.round-over #killfeed,
+body.round-over #botVoiceRadio,
+body.round-over #xh,
+body.round-over #lockHint,
+body.round-over #fpsCounter,
+body.round-over #pingWheel,
+body.round-over #deathOverlay,
+body.round-over #dmgVignette { display: none !important; }
+
 /* Three.js canvas sits behind everything */
 #cw {
   position: fixed; inset: 0; z-index: 0;
@@ -2534,4 +2547,4 @@ body.killcam-active #cw { filter: hue-rotate(8deg) saturate(1.4) contrast(1.15);
   background: var(--void);
 }
 #roundSummary.on { display: block; animation: sceneIn .5s var(--ease-out-expo); }
-#roundSummary .arena-bg { z-index: 0; }
+#roundSummary .arena-bg { z-index: 0; position: fixed; }

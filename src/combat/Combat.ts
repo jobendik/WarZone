@@ -47,6 +47,8 @@ import { movement } from '@/movement/MovementController';
 import { applyRandomWeather } from '@/world/Lights';
 import { shakeOnHit, shakeOnDeath, clearAllShake } from '@/movement/CameraShake';
 import { resetAnnouncerState } from '@/audio/AnnouncerVoices';
+import { Audio } from '@/audio/AudioManager';
+import { stopDynamicMusic } from '@/audio/DynamicMusic';
 
 // MORESCRIPTS — progression + new systems
 import { awardAccountXP, awardWeaponXP, profileMutate } from '@/core/PlayerProfile';
@@ -484,7 +486,7 @@ function killAgent(ag: TDMAgent, attacker: TDMAgent | null): void {
   if (gameState.overtime && (gameState.mode === 'tdm' || gameState.mode === 'ctf')) {
     const winner = gameState.teamScores[TEAM_BLUE] > gameState.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED;
     if (gameState.teamScores[TEAM_BLUE] !== gameState.teamScores[TEAM_RED]) {
-      setTimeout(() => showRoundSummary(winner), 800);
+      finalizeMatch(winner);
       return;
     }
   }
@@ -568,6 +570,57 @@ function getCurrentLeadScore(): number {
   return Math.max(gameState.teamScores[TEAM_BLUE], gameState.teamScores[TEAM_RED]);
 }
 
+/**
+ * Finalise the match: freeze the simulation, swap combat music for
+ * victory/defeat music, play the announcer voice line, and show the
+ * post-match summary. All code paths that previously called
+ * `showRoundSummary(winner)` should go through this helper so the
+ * game always truly "ends" instead of continuing to play behind the
+ * summary screen.
+ */
+function finalizeMatch(winnerTeam: number): void {
+  if (gameState.roundOver) return;
+  gameState.roundOver = true;
+  gameState.paused = true;
+  gameState.isADS = false;
+  gameState.mouseHeld = false;
+  document.body.classList.add('round-over');
+
+  // Stop combat-era audio
+  stopDynamicMusic();
+  Audio.stopEnvironmentAmbience();
+  Audio.stopAmbientMusic();
+  // In case previous match's victory/defeat music is still looping
+  Audio.stopLoop('music_victory');
+  Audio.stopLoop('music_defeat');
+
+  // Determine whether the local player won. For FFA, `winnerTeam` isn't
+  // meaningful — compare player kills to the top bot.
+  let isVictory: boolean;
+  if (gameState.mode === 'ffa') {
+    let topBot = 0;
+    for (const ag of gameState.agents) {
+      if (ag === gameState.player) continue;
+      if (ag.kills > topBot) topBot = ag.kills;
+    }
+    isVictory = gameState.pKills >= topBot;
+  } else {
+    const playerTeam = (gameState.player?.team as number) ?? TEAM_BLUE;
+    isVictory = winnerTeam === playerTeam;
+  }
+
+  // Announcer voice callout
+  Audio.play(isVictory ? 'victory' : 'defeat');
+  // Victory / defeat music loop (falls back silently if the sample
+  // isn't loaded — synth music stubs return 0 duration)
+  Audio.loop(isVictory ? 'music_victory' : 'music_defeat');
+
+  // Release pointer lock so the summary buttons are interactive
+  document.exitPointerLock?.();
+
+  setTimeout(() => showRoundSummary(winnerTeam), 800);
+}
+
 function checkEliminationEnd(): void {
   if (gameState.mode !== 'elimination' || gameState.roundOver) return;
 
@@ -592,7 +645,7 @@ function checkEliminationEnd(): void {
     updateScoreboard();
 
     if (gameState.teamScores[winner] >= gameState.scoreLimit) {
-      setTimeout(() => showRoundSummary(winner), 800);
+      finalizeMatch(winner);
     } else {
       addKillfeedEntry(
         'ROUND',
@@ -660,17 +713,10 @@ function checkGameEnd(): void {
   if (leadScore >= gameState.scoreLimit) {
     // In overtime, any score ends the match immediately
     if (gameState.mode === 'ffa') {
-      const all = [
-        { name: 'Player', kills: gameState.pKills, isPlayer: true },
-        ...gameState.agents
-          .filter(a => a !== gameState.player)
-          .map(a => ({ name: a.name, kills: a.kills, isPlayer: false })),
-      ];
-      all.sort((a, b) => b.kills - a.kills);
-      setTimeout(() => showRoundSummary(TEAM_BLUE), 800);
+      finalizeMatch(TEAM_BLUE);
     } else {
       const winner = gameState.teamScores[TEAM_BLUE] >= gameState.scoreLimit ? TEAM_BLUE : TEAM_RED;
-      setTimeout(() => showRoundSummary(winner), 800);
+      finalizeMatch(winner);
     }
   }
 }
@@ -717,6 +763,11 @@ export function resetMatch(mode = gameState.mode): void {
   clearFootstepTimers();
   clearAllShake();
   resetAnnouncerState();
+
+  // Tear down any victory/defeat audio from the previous match.
+  Audio.stopLoop('music_victory');
+  Audio.stopLoop('music_defeat');
+  document.body.classList.remove('round-over');
 
   if (gameState.pDead) {
     gameState.pDead = false;
@@ -793,13 +844,15 @@ export function updateRespawns(dt = 0.016): void {
         return;
       }
     }
-    gameState.roundOver = true;
+    // finalizeMatch sets roundOver itself; clear our early flip so
+    // the guard inside the helper doesn't reject the call.
+    gameState.roundOver = false;
     if (gameState.mode === 'ffa') {
-      showRoundSummary(TEAM_BLUE);
-    } else if (gameState.mode === 'elimination') {
-      showRoundSummary(gameState.teamScores[TEAM_BLUE] >= gameState.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED);
+      finalizeMatch(TEAM_BLUE);
     } else {
-      showRoundSummary(gameState.teamScores[TEAM_BLUE] >= gameState.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED);
+      finalizeMatch(
+        gameState.teamScores[TEAM_BLUE] >= gameState.teamScores[TEAM_RED] ? TEAM_BLUE : TEAM_RED,
+      );
     }
     return;
   }

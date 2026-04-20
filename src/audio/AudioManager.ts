@@ -63,6 +63,7 @@ class AudioMgr {
   sfxVolume = 1.0;
   voiceVolume = 1.0;
   musicVolume = 0.5;
+  uiVolume = 0.8;
 
   init(): void {
     if (this.initialized) return;
@@ -127,6 +128,14 @@ class AudioMgr {
   setMusic(v: number): void {
     this.musicVolume = Math.max(0, Math.min(1, v));
     if (this.busMusic) this.busMusic.gain.value = this.musicVolume;
+  }
+  setVoice(v: number): void {
+    this.voiceVolume = Math.max(0, Math.min(1, v));
+    if (this.busVoice) this.busVoice.gain.value = this.voiceVolume;
+  }
+  setUi(v: number): void {
+    this.uiVolume = Math.max(0, Math.min(1, v));
+    if (this.busUi) this.busUi.gain.value = this.uiVolume;
   }
 
   // ── Sample loading ──
@@ -200,11 +209,15 @@ class AudioMgr {
     callGain.gain.value = (opts.volume ?? 1) * def.volume;
 
     let dest: AudioNode = bus;
+    let panner: PannerNode | null = null;
 
     // 3D positional
     if (opts.pos) {
-      const panner = this.ctx.createPanner();
-      panner.panningModel = 'HRTF';
+      // PERF: HRTF panning is roughly 4× more expensive than equalpower
+      // and the difference is inaudible for combat sounds at high rates.
+      // Switch to 'equalpower' which uses a cheap stereo pan algorithm.
+      panner = this.ctx.createPanner();
+      panner.panningModel = 'equalpower';
       panner.distanceModel = 'inverse';
       panner.refDistance = 4;
       panner.maxDistance = 80;
@@ -232,6 +245,16 @@ class AudioMgr {
       const pitch = opts.pitch ?? (1 + (opts.pitchJitter ?? 0) * (Math.random() - 0.5) * 2);
       src.playbackRate.value = pitch;
       src.connect(dest);
+      // PERF: disconnect all nodes as soon as playback completes,
+      // otherwise Web Audio holds onto them until context GC — at
+      // 100+ shots/sec the node graph was growing without bound and
+      // eventually hitting the context node limit, producing audio
+      // stalls + main-thread hitches.
+      src.onended = () => {
+        try { src.disconnect(); } catch { /* already detached */ }
+        try { callGain.disconnect(); } catch { /* noop */ }
+        if (panner) { try { panner.disconnect(); } catch { /* noop */ } }
+      };
       src.start();
     } else {
       // Fall back to synth
@@ -246,13 +269,19 @@ class AudioMgr {
     const buf = this.samples.get(id);
     if (!buf) return; // Loops require real samples; synth loops are too expensive
 
+    const def = SOUNDS[id];
+    const bus =
+      def?.category === 'music' ? this.busMusic :
+      def?.category === 'voice' ? this.busVoice :
+      def?.category === 'ui' ? this.busUi : this.busSfx;
+
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     src.loop = true;
     const g = this.ctx.createGain();
-    g.gain.value = volume;
+    g.gain.value = volume * (def?.volume ?? 1);
     src.connect(g);
-    g.connect(this.busSfx);
+    g.connect(bus);
     src.start();
     this.playingLoops.set(id, src);
   }

@@ -21,10 +21,10 @@ export function buildSoldierMesh(color: number, botClass: BotClass, team: TeamId
   // Body gets subtle team rim glow for at-a-glance identification
   mat.emissiveIntensity = isEnemy ? 0.3 : 0.1;
 
-  // Legs with knee pads
+  // Legs with knee pads.
+  // PERF: castShadow deliberately off — see AgentAnimations.prepRenderable.
   const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.7, 6), darkMat);
   legL.position.set(-0.15, 0.35, 0);
-  legL.castShadow = true;
   g.add(legL);
   const legR = legL.clone();
   legR.position.x = 0.15;
@@ -41,7 +41,6 @@ export function buildSoldierMesh(color: number, botClass: BotClass, team: TeamId
   // Torso
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.3), mat);
   torso.position.y = 0.98;
-  torso.castShadow = true;
   g.add(torso);
 
   // Belt / waist accent
@@ -60,7 +59,6 @@ export function buildSoldierMesh(color: number, botClass: BotClass, team: TeamId
   // Head
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), darkMat);
   head.position.y = 1.42;
-  head.castShadow = true;
   g.add(head);
 
   // Visor — glowing eye slit

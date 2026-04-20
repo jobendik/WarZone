@@ -154,9 +154,11 @@ function closeWheel(commit: boolean): void {
 
   hoveredType = null;
 
-  // Re-lock pointer if we're still in a match
+  // Re-lock pointer if we're still in a match. Target the renderer's
+  // canvas (NOT document.body) so onPointerLockChange recognises the
+  // lock and doesn't leave the CLICK-TO-DEPLOY banner on screen.
   if (isCommWheelInteractive()) {
-    document.body.requestPointerLock?.();
+    gameState.renderer?.domElement?.requestPointerLock?.();
   }
 }
 
@@ -329,32 +331,40 @@ export function initPingSystem(): void {
   // Mouse tracking for slice hover (active only while wheel is open)
   document.addEventListener('mousemove', onMouseMove);
 
-  // Q to open/hold comm wheel
+  // Z to open/hold the comm wheel. Q is reserved for lean-left.
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyQ' && !wheelOpen && isCommWheelInteractive()) {
-      e.preventDefault();
-      openWheel();
-    }
-    // Double-tap Q within 350ms = quick "ENEMY" ping at crosshair
-    if (e.code === 'KeyQ' && !wheelOpen) {
+    if (e.code !== 'KeyZ') return;
+    if (!isCommWheelInteractive()) return;
+    if (e.repeat) return;
+
+    e.preventDefault();
+
+    if (!wheelOpen) {
+      // Double-tap Z within 350ms = quick "ENEMY" ping at crosshair
       const now = performance.now() / 1000;
       if (now - wheelOpenTime > 0 && now - wheelOpenTime < 0.35) {
         const targetPos = raycastCrosshair();
         if (targetPos) placePing(targetPos, 'enemy', 'self');
+        return;
       }
+      openWheel();
     }
   });
 
   document.addEventListener('keyup', (e) => {
-    if (e.code === 'KeyQ' && wheelOpen) {
+    if (e.code === 'KeyZ' && wheelOpen) {
       e.preventDefault();
       closeWheel(true);
+      return;
     }
-    // ESC cancels without committing
+    // ESC cancels the wheel without committing. We swallow the event so
+    // it doesn't also open the pause menu on the same keystroke.
     if (e.code === 'Escape' && wheelOpen) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
       closeWheel(false);
     }
-  });
+  }, true);
 
   // Click while wheel is open = commit
   document.addEventListener('mousedown', (e) => {

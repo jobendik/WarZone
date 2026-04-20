@@ -11,6 +11,8 @@ export interface GameSettings {
   masterVol: number;
   sfxVol: number;
   musicVol: number;
+  voiceVol: number;
+  uiVol: number;
   headBobScale: number;
   crosshairColor: string;
   crosshairSize: number;
@@ -27,6 +29,8 @@ const defaults: GameSettings = {
   masterVol: 0.7,
   sfxVol: 1,
   musicVol: 0.5,
+  voiceVol: 1,
+  uiVol: 0.8,
   headBobScale: 1,
   crosshairColor: '#f0faff',
   crosshairSize: 1,
@@ -48,6 +52,8 @@ const SETTING_KEYS: SettingKey[] = [
   'masterVol',
   'sfxVol',
   'musicVol',
+  'voiceVol',
+  'uiVol',
   'headBobScale',
   'crosshairColor',
   'crosshairSize',
@@ -94,6 +100,8 @@ export function applySettings(): void {
   Audio.setMaster(current.masterVol);
   Audio.setSfx(current.sfxVol);
   Audio.setMusic(current.musicVol);
+  Audio.setVoice(current.voiceVol);
+  Audio.setUi(current.uiVol);
 
   gameState.crosshairColor = current.crosshairColor;
   gameState.crosshairSize = current.crosshairSize;
@@ -134,6 +142,8 @@ function formatValue(key: SettingKey, value: GameSettings[SettingKey]): string {
     case 'masterVol':
     case 'sfxVol':
     case 'musicVol':
+    case 'voiceVol':
+    case 'uiVol':
     case 'headBobScale':
     case 'botDifficulty':
       return `${Math.round(Number(value) * 100)}%`;
@@ -162,6 +172,8 @@ function getUiValueForControl(key: SettingKey, value: GameSettings[SettingKey]):
     case 'masterVol':
     case 'sfxVol':
     case 'musicVol':
+    case 'voiceVol':
+    case 'uiVol':
     case 'headBobScale':
     case 'botDifficulty':
       return String(Math.round(Number(value) * 100));
@@ -182,6 +194,8 @@ function parseControlValue(key: SettingKey, control: ControlEl): GameSettings[Se
     case 'masterVol':
     case 'sfxVol':
     case 'musicVol':
+    case 'voiceVol':
+    case 'uiVol':
     case 'headBobScale':
     case 'botDifficulty':
       return (parseFloat(raw) / 100) as GameSettings[SettingKey];
@@ -276,6 +290,8 @@ function renderSettingsOverlay(): string {
           <div class="mm-setting-row"><label>Master Volume</label><input type="range" min="0" max="100" step="5" data-setting="masterVol"/><span data-setting-value="masterVol">100%</span></div>
           <div class="mm-setting-row"><label>Music</label><input type="range" min="0" max="100" step="5" data-setting="musicVol"/><span data-setting-value="musicVol">50%</span></div>
           <div class="mm-setting-row"><label>SFX</label><input type="range" min="0" max="100" step="5" data-setting="sfxVol"/><span data-setting-value="sfxVol">100%</span></div>
+          <div class="mm-setting-row"><label>Voice / Announcer</label><input type="range" min="0" max="100" step="5" data-setting="voiceVol"/><span data-setting-value="voiceVol">100%</span></div>
+          <div class="mm-setting-row"><label>UI</label><input type="range" min="0" max="100" step="5" data-setting="uiVol"/><span data-setting-value="uiVol">80%</span></div>
         </div>
 
         <div class="mm-setting-group">

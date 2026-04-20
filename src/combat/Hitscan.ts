@@ -363,15 +363,21 @@ export function shotgunBlast(
 ): void {
   const wep = WEAPONS.shotgun;
   const isPlayerShot = ownerType === 'player';
-  playShot('shotgun', isPlayerShot ? undefined : new THREE.Vector3(origin.x, origin.y, origin.z), isPlayerShot);
+  if (isPlayerShot) {
+    playShot('shotgun', undefined, true);
+  } else {
+    _hsShotPos.copy(origin);
+    playShot('shotgun', _hsShotPos, false);
+  }
 
   for (let i = 0; i < wep.pellets; i++) {
-    const spread = dir.clone();
-    spread.x += (Math.random() - 0.5) * wep.aimError;
-    spread.y += (Math.random() - 0.5) * wep.aimError * 0.6;
-    spread.z += (Math.random() - 0.5) * wep.aimError;
-    spread.normalize();
-    hitscanShot(origin, spread, ownerType, ownerTeam, 'shotgun', col, ownerAgent, false);
+    // PERF: reuse the module scratch instead of allocating per pellet.
+    _hsDir.copy(dir);
+    _hsDir.x += (Math.random() - 0.5) * wep.aimError;
+    _hsDir.y += (Math.random() - 0.5) * wep.aimError * 0.6;
+    _hsDir.z += (Math.random() - 0.5) * wep.aimError;
+    _hsDir.normalize();
+    hitscanShot(origin, _hsDir, ownerType, ownerTeam, 'shotgun', col, ownerAgent, false);
   }
 }
 
@@ -385,7 +391,12 @@ export function spawnRocket(
 ): void {
   const wep = WEAPONS.rocket_launcher;
   const isPlayerShot = ownerType === 'player';
-  playShot('rocket_launcher', isPlayerShot ? undefined : new THREE.Vector3(origin.x, origin.y, origin.z), isPlayerShot);
+  if (isPlayerShot) {
+    playShot('rocket_launcher', undefined, true);
+  } else {
+    _hsShotPos.copy(origin);
+    playShot('rocket_launcher', _hsShotPos, false);
+  }
   initProjectilePools();
   const entry = borrowProjectileEntry(_rocketPool);
   const mesh = entry?.mesh ?? new THREE.Mesh(_rocketGeo, _rocketMat.clone());
@@ -400,6 +411,9 @@ export function spawnRocket(
   trail.distance = 6;
   if (!entry) mesh.add(trail);
 
+  // dir IS cloned here intentionally — the bullet retains it across frames
+  // (integrated in updateProjectiles), so it can't share scratch state
+  // with the caller.
   gameState.bullets.push({
     mesh, pl: trail, dir: dir.clone(), ownerType, ownerTeam, ownerAgent,
     dmg: wep.damage, spd: wep.projectileSpeed, life: 4,

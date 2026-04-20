@@ -24,6 +24,7 @@
 
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
+import { Audio } from '@/audio/AudioManager';
 
 export type CalloutKind =
   // Spotting
@@ -413,7 +414,7 @@ export function triggerCallout(source: CalloutSource, kind: CalloutKind): boolea
 
       u.pitch = Math.max(0.3, Math.min(1.8, voice.pitch + pitchAdj));
       u.rate = Math.max(0.6, Math.min(1.6, voice.rate + rateAdj));
-      u.volume = voice.baseVol * volMul;
+      u.volume = voice.baseVol * volMul * Audio.voiceVolume * Audio.masterVolume;
       if (voicesCached[voice.voiceIdx]) u.voice = voicesCached[voice.voiceIdx];
 
       u.onstart = () => { currentUtterance = u; currentPriority = def.priority; };

@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
 import { getProfile } from '@/core/PlayerProfile';
+import { Audio } from '@/audio/AudioManager';
 
 // ─────────────────────────────────────────────────────────────────────
 //  EMOTE CATALOG
@@ -171,7 +172,7 @@ export function playEmote(emoteId: string, actor: any = gameState.player): boole
   if (def.kind === 'voice' && def.voiceLine) {
     try {
       const u = new SpeechSynthesisUtterance(def.voiceLine);
-      u.rate = 1; u.volume = 0.7;
+      u.rate = 1; u.volume = 0.7 * Audio.voiceVolume * Audio.masterVolume;
       window.speechSynthesis?.speak(u);
     } catch { /* */ }
   }

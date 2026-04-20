@@ -131,55 +131,6 @@ const bundles: Record<CharacterVariant, CharacterAssetBundle> = {
   },
 };
 
-const LOCOMOTION_KEYS = new Set<AgentAnimKey>([
-  'walkForward',
-  'walkBackward',
-  'walkLeft',
-  'walkRight',
-  'walkForwardLeft',
-  'walkForwardRight',
-  'walkBackwardLeft',
-  'walkBackwardRight',
-
-  'runForward',
-  'runBackward',
-  'runLeft',
-  'runRight',
-  'runForwardLeft',
-  'runForwardRight',
-  'runBackwardLeft',
-  'runBackwardRight',
-
-  'sprintForward',
-  'sprintBackward',
-  'sprintLeft',
-  'sprintRight',
-  'sprintForwardLeft',
-  'sprintForwardRight',
-  'sprintBackwardLeft',
-  'sprintBackwardRight',
-
-  'crouchWalkForward',
-  'crouchWalkBackward',
-  'crouchWalkLeft',
-  'crouchWalkRight',
-  'crouchWalkForwardLeft',
-  'crouchWalkForwardRight',
-  'crouchWalkBackwardLeft',
-  'crouchWalkBackwardRight',
-
-  'jumpUp',
-  'jumpLoop',
-  'jumpDown',
-
-  'deathFront',
-  'deathBack',
-  'deathRight',
-  'deathFrontHeadshot',
-  'deathBackHeadshot',
-  'deathCrouchHeadshotFront',
-]);
-
 function loadFBX(url: string): Promise<THREE.Group> {
   return new Promise((resolve, reject) => {
     loader.load(
@@ -203,17 +154,20 @@ function prepRenderable(root: THREE.Object3D): void {
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if ((mesh as any).isMesh) {
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+      // PERF: skinned-mesh shadow casting is *catastrophic* — the sun's
+      // shadow pass would rasterise 11 deformed characters × multiple
+      // submeshes every frame at 1024². On integrated GPUs this drops
+      // framerate by >50% during combat. Ground/wall shadows from the
+      // static arena geometry are plenty for readability.
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
 
-      const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
-      if (Array.isArray(mat)) {
-        for (const m of mat) {
-          if ('transparent' in m) m.transparent = true;
-        }
-      } else if (mat && 'transparent' in mat) {
-        mat.transparent = true;
-      }
+      // PERF: the previous loader forced `transparent = true` on every
+      // bot material. That disables early-Z, breaks opaque batching, and
+      // forces an alpha-sort pass per frame — combined with 11 bots each
+      // having several submeshes, it was the biggest GPU stall during
+      // firefights. Bot materials are fully opaque; leaving the flag off
+      // restores the opaque fast path.
     }
   });
 }
@@ -228,17 +182,24 @@ function isRootMotionPositionTrack(trackName: string): boolean {
     n.includes('hips.position') ||
     n.includes('pelvis.position') ||
     n.includes('root.position') ||
-    n.includes('armature.position')
+    n.includes('armature.position') ||
+    // Some Mixamo death clips put root drift on a top-level skeleton
+    // root node ("spine" or the FBX-exported scene root). Catch any
+    // track that starts with a plausible root bone name.
+    /^mixamorig:?hips\.position$/.test(n) ||
+    /^(hips|pelvis|root|armature|bip\d+|bone|spine)\.position$/.test(n)
   );
 }
 
-function makeClipInPlace(original: THREE.AnimationClip, key: AgentAnimKey): THREE.AnimationClip {
+function makeClipInPlace(original: THREE.AnimationClip): THREE.AnimationClip {
   const clip = original.clone();
 
-  if (!LOCOMOTION_KEYS.has(key)) {
-    return clip;
-  }
-
+  // Apply in-place stripping to every clip we use on agents. The only
+  // motion we ever want the animation itself to drive is vertical (Y —
+  // jumps and the player-falls-on-death sink). Horizontal world motion
+  // is handled by the entity's physics / AI — never by the clip. This
+  // prevents mixamo death clips from sliding the corpse several metres
+  // across the ground when they contain baked X/Z hip drift.
   clip.tracks = clip.tracks.map((track) => {
     if (!(track instanceof THREE.VectorKeyframeTrack)) {
       return track;
@@ -287,7 +248,7 @@ async function preloadCharacterAssets(variant: CharacterVariant): Promise<void> 
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
       const rawClip = getFirstClip(animObjs[i], animUrl(variant, key));
-      bundle.clips[key] = makeClipInPlace(rawClip, key);
+      bundle.clips[key] = makeClipInPlace(rawClip);
     }
 
     bundle.clonePool = [];

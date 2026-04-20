@@ -218,14 +218,17 @@ function aiShoot(ag: TDMAgent): void {
   const col = ag.team === TEAM_BLUE ? 0x60a5fa : 0xff6644;
 
   _muzzlePos.set(origin.x + dir.x * 0.6, 1.0, origin.z + dir.z * 0.6);
-  spawnMuzzleFlash(_muzzlePos.clone(), col);
+  spawnMuzzleFlash(_muzzlePos, col);
 
+  // PERF: pass dir/origin by reference — getAimDirection returns shared
+  // scratches, and hitscanShot/shotgunBlast both copy-on-entry into
+  // their own module scratches, so no retained reference leaks.
   if (ag.weaponId === 'shotgun') {
-    shotgunBlast(origin.clone(), dir.clone(), 'ai', ag.team, col, ag);
+    shotgunBlast(origin, dir, 'ai', ag.team, col, ag);
   } else if (ag.weaponId === 'rocket_launcher') {
-    spawnRocket(origin.clone(), dir.clone(), 'ai', ag.team, col, ag);
+    spawnRocket(origin, dir, 'ai', ag.team, col, ag);
   } else {
-    hitscanShot(origin.clone(), dir.clone(), 'ai', ag.team, ag.weaponId, col, ag);
+    hitscanShot(origin, dir, 'ai', ag.team, ag.weaponId, col, ag);
   }
   ag.ammo--;
 }
@@ -581,9 +584,9 @@ export function updateAI(ag: TDMAgent, dt: number): void {
           if (ag.shootTimer <= 0) {
             const { dir, origin } = getAimDirection(ag);
             const col = ag.team === TEAM_BLUE ? 0x60a5fa : 0xff6644;
-            const mz = new THREE.Vector3(origin.x + dir.x * 0.6, 1.0, origin.z + dir.z * 0.6);
-            spawnMuzzleFlash(mz, col);
-            hitscanShot(origin.clone(), dir.clone(), 'ai', ag.team, ag.weaponId, col, ag);
+            _muzzlePos.set(origin.x + dir.x * 0.6, 1.0, origin.z + dir.z * 0.6);
+            spawnMuzzleFlash(_muzzlePos, col);
+            hitscanShot(origin, dir, 'ai', ag.team, ag.weaponId, col, ag);
             ag.ammo--;
             ag.shootTimer = ag.fireRate * 1.5;
           }

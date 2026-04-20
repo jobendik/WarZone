@@ -854,9 +854,15 @@ export function spawnBloodSplatter(pos: THREE.Vector3, dir: THREE.Vector3): void
     if (dSq > 60 * 60) return;
   }
 
+  // PERF: cap total live particles so firefights don't balloon the
+  // update loop to 1000+ entries. Blood is the most frequent particle
+  // source (~5/hit × many hits/sec); skipping spawn when the world is
+  // already saturated is nearly invisible to the player.
+  if (gameState.particles.length > 220) return;
+
   // Directional blood particles — reuse the shared material rather than
-  // allocating new meshes/materials per hit.
-  for (let i = 0; i < 5; i++) {
+  // allocating new meshes/materials per hit. Reduced from 5 → 3 per hit.
+  for (let i = 0; i < 3; i++) {
     const m = borrowMesh(_bloodPool, _bloodGeo, _bloodMat);
     m.position.copy(pos);
     gameState.particles.push({

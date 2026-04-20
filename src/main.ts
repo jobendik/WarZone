@@ -385,8 +385,21 @@ async function init(): Promise<void> {
     },
   });
   initRoundSummary({
-    onNextMatch:     () => { void startMatchFromMenu(gameState.mode as GameMode); },
-    onReturnToLobby: () => { setBodyState('mainmenu'); showMainMenu(); },
+    onNextMatch:     () => {
+      document.body.classList.remove('round-over');
+      Audio.stopLoop('music_victory');
+      Audio.stopLoop('music_defeat');
+      void startMatchFromMenu(gameState.mode as GameMode);
+    },
+    onReturnToLobby: () => {
+      document.body.classList.remove('round-over');
+      Audio.stopLoop('music_victory');
+      Audio.stopLoop('music_defeat');
+      gameState.roundOver = false;
+      gameState.paused = false;
+      setBodyState('mainmenu');
+      showMainMenu();
+    },
   });
 
   setLoadProgress(60, 'Initializing screen FX…');

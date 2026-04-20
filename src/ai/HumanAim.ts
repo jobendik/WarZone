@@ -63,6 +63,13 @@ const _origin = new THREE.Vector3();
 const _toTarget = new THREE.Vector3();
 const _vel = new THREE.Vector3();
 
+// Scratch output vectors for getAimDirection() — returned by reference.
+// Callers MUST NOT retain the returned refs across frames (they are
+// overwritten by the next call). The AI shot path reads them
+// synchronously before the next bot's aim is evaluated.
+const _aimOutDir = new THREE.Vector3();
+const _aimOutOrigin = new THREE.Vector3();
+
 function normAngle(a: number): number {
   while (a > Math.PI) a -= Math.PI * 2;
   while (a < -Math.PI) a += Math.PI * 2;
@@ -227,19 +234,22 @@ export function getAimDirection(ag: TDMAgent): {
   const aim = ag.aim;
   const p = ag.personality;
 
-  const origin = new THREE.Vector3(ag.position.x, 0.95, ag.position.z);
+  // PERF: return shared scratch vectors instead of allocating fresh
+  // Vector3s per call. Bots fire at 10Hz and this runs every shot.
+  _aimOutOrigin.set(ag.position.x, 0.95, ag.position.z);
 
   // Fallback: no aim state yet — fire toward the current target directly
   if (!aim || !p) {
     if (ag.currentTarget) {
-      const dir = new THREE.Vector3(
+      _aimOutDir.set(
         ag.currentTarget.position.x - ag.position.x,
         0.1,
         ag.currentTarget.position.z - ag.position.z,
       ).normalize();
-      return { dir, origin, settled: true };
+      return { dir: _aimOutDir, origin: _aimOutOrigin, settled: true };
     }
-    return { dir: new THREE.Vector3(0, 0, -1), origin, settled: true };
+    _aimOutDir.set(0, 0, -1);
+    return { dir: _aimOutDir, origin: _aimOutOrigin, settled: true };
   }
 
   const panicSpread = p.panicSprayFactor * ag.pressureLevel * 0.09;
@@ -248,7 +258,7 @@ export function getAimDirection(ag: TDMAgent): {
   const yaw = aim.yaw + (Math.random() - 0.5) * panicSpread * adaptiveMul;
   const pitch = aim.pitch + (Math.random() - 0.5) * panicSpread * 0.5 * adaptiveMul;
 
-  const dir = new THREE.Vector3(
+  _aimOutDir.set(
     -Math.sin(yaw) * Math.cos(pitch),
     Math.sin(pitch),
     -Math.cos(yaw) * Math.cos(pitch),
@@ -258,7 +268,7 @@ export function getAimDirection(ag: TDMAgent): {
   const settleThreshold = 0.5 + (1 - p.triggerDiscipline) * 2.0;
   const settled = aim.overshootPhase <= 0 && angularSpeed < settleThreshold;
 
-  return { dir, origin, settled };
+  return { dir: _aimOutDir, origin: _aimOutOrigin, settled };
 }
 
 /**

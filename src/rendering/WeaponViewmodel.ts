@@ -255,18 +255,15 @@ function prepRenderable(root: THREE.Object3D): void {
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if ((mesh as any).isMesh) {
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+      // PERF: view-model never needs to cast or receive shadows (it lives
+      // on a camera-overlay layer and the sun never projects through it).
+      // Enabling them previously forced an extra shadow-map rasterisation
+      // per-frame of the full weapon, which on a 9MB GLB is a real cost.
+      // Also leave `transparent` unset — forcing it on every material
+      // disables the opaque fast path and breaks early-Z for the viewmodel.
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
       mesh.frustumCulled = false;
-
-      const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
-      if (Array.isArray(mat)) {
-        for (const m of mat) {
-          if ('transparent' in m) (m as THREE.Material & { transparent?: boolean }).transparent = true;
-        }
-      } else if (mat && 'transparent' in mat) {
-        (mat as THREE.Material & { transparent?: boolean }).transparent = true;
-      }
     }
   });
 }

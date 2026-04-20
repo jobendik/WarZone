@@ -549,6 +549,8 @@ function renderSettingsTab(): string {
         <div class="mm-setting-row"><label>Master Volume</label><input type="range" min="0" max="100" step="5" data-setting="masterVol"/><span data-setting-value="masterVol">100%</span></div>
         <div class="mm-setting-row"><label>Music</label><input type="range" min="0" max="100" step="5" data-setting="musicVol"/><span data-setting-value="musicVol">50%</span></div>
         <div class="mm-setting-row"><label>SFX</label><input type="range" min="0" max="100" step="5" data-setting="sfxVol"/><span data-setting-value="sfxVol">100%</span></div>
+        <div class="mm-setting-row"><label>Voice / Announcer</label><input type="range" min="0" max="100" step="5" data-setting="voiceVol"/><span data-setting-value="voiceVol">100%</span></div>
+        <div class="mm-setting-row"><label>UI</label><input type="range" min="0" max="100" step="5" data-setting="uiVol"/><span data-setting-value="uiVol">80%</span></div>
       </div>
 
       <div class="mm-setting-group">
