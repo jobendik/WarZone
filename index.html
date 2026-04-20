@@ -3,38 +3,90 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WARZONE — FPS Combat Sandbox</title>
-  <meta name="description" content="WARZONE - Intense FPS combat sandbox with multiple game modes and AI bots.">
+  <title>WARZONE — APEX PROTOCOL</title>
+  <meta name="description" content="WARZONE — Tactical FPS combat simulation with multiple game modes and AI bots.">
+
+  <!-- APEX PROTOCOL font stack.  Exo 2 is now REQUIRED — it's what
+       --f-body falls through to for body/paragraph copy. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Chakra+Petch:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Chakra+Petch:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+
   <style>
     /* Keep the in-game UI hidden until init() finishes, but let the
        loading screen show through from the very first paint.
 
-       IMPORTANT: we use `visibility` here, NOT `opacity`. An opacity
-       rule on `body.ready > *` would have higher CSS specificity than
-       the per-element `opacity: 0` defaults that control the sniper
-       scope overlay, damage arcs, reload rings, etc., and would force
-       them all visible at match start (huge "sniper scope" bug). */
+       IMPORTANT: `visibility`, NOT `opacity`. An opacity rule on
+       `body.ready > *` would have higher specificity than the
+       per-element `opacity: 0` defaults that control the sniper
+       scope overlay, damage arcs, reload rings, etc., and would
+       force them all visible at match start (huge "sniper scope"
+       bug). */
     body:not(.ready) > *:not(#loadingScreen) { visibility: hidden; }
   </style>
 </head>
 <body>
-  <!-- Loading screen -->
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       LOADING SCREEN — APEX PROTOCOL editorial mission briefing
+       (EXTRA IDEA #10 enriched layout).
+       Uses .ld-* classes so index.css styles it richly, but preserves
+       #lsFill and #lsText IDs so main.ts drives progress unchanged.
+       ═══════════════════════════════════════════════════════════════ -->
   <div id="loadingScreen" class="on">
-    <div class="ls-bg"></div>
-    <div class="ls-inner">
-      <img class="ls-logo" src="/images/WarZoneLogo.png" alt="WARZONE" />
-      <div class="ls-title">WARZONE</div>
-      <div class="ls-bar"><div class="ls-fill" id="lsFill"></div></div>
-      <div class="ls-text" id="lsText">Loading assets…</div>
+    <div class="ld-shell">
+
+      <div class="ld-topstrip">
+        <span>APEX // <span class="tick">PROTOCOL ACTIVE</span></span>
+        <span>SESSION <span class="tick">A7F-2193</span> · REGION EU-WEST</span>
+        <span>BUILD 24.06.1-<span class="tick">STABLE</span></span>
+      </div>
+
+      <div class="ld-center">
+        <div class="ld-slate">
+          <div class="ld-miss-tag">OPERATION BRIEFING</div>
+          <div class="ld-map-name">WARZONE</div>
+          <div class="ld-map-sub">TACTICAL COMBAT SIMULATION</div>
+          <div class="ld-coords">
+            <span>LAT <b>+47.38°</b></span>
+            <span>LON <b>−122.11°</b></span>
+            <span>ELEV <b>012m</b></span>
+            <span>WIND <b>NE · 04kt</b></span>
+          </div>
+        </div>
+
+        <div class="ld-intel">
+          <div class="ld-intel-head">// INTEL TRANSMISSION</div>
+          <div class="ld-intel-body" id="lsText">Initializing tactical systems…</div>
+        </div>
+      </div>
+
+      <div class="ld-progress">
+        <div class="ld-progress-head">
+          <span>DEPLOYING ASSETS</span>
+          <span class="pct">—</span>
+        </div>
+        <div class="ld-rail">
+          <div class="ld-rail-fill" id="lsFill" style="width:0%"></div>
+        </div>
+        <div class="ld-ticks">
+          <span>SCENE</span>
+          <span>NAV</span>
+          <span>AGENTS</span>
+          <span>PICKUPS</span>
+          <span>FX</span>
+          <span>SHADERS</span>
+          <span>READY</span>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- Start gate: shown AFTER Phase-1 init finishes, hides BEFORE the
-       MainMenu. Required to unlock the Web Audio context (browsers
-       require a user gesture before any audio can play) so the lobby
-       music actually starts under the MainMenu. -->
+  <!-- ═══════════════════════════════════════════════════════════════
+       START GATE — unlocks Web Audio on the first user gesture.
+       Shown AFTER Phase-1 init finishes, hides BEFORE the MainMenu.
+       ═══════════════════════════════════════════════════════════════ -->
   <div id="startGate">
     <div class="sg-inner">
       <img class="sg-logo" src="/images/WarZoneLogo.png" alt="WARZONE" />
@@ -45,6 +97,7 @@
   <div id="cw"></div>
   <div id="dmg"></div>
   <div id="hlf"></div>
+
   <!-- Crosshair + center effects -->
   <div id="xh">
     <div class="xh-line xh-top"></div>
@@ -91,7 +144,7 @@
   <!-- Subtitle overlay -->
   <div id="subtitleOverlay"></div>
 
-  <!-- Top-right: match info + killfeed -->
+  <!-- Top-center: match info (mode tag + timer + score) -->
   <div id="matchInfo">
     <div class="mi-mode" id="miMode">TDM</div>
     <div class="mi-time" id="miTime">05:00</div>
@@ -101,9 +154,11 @@
       <span class="mi-sc mi-red" id="miScoreRed">0</span>
     </div>
   </div>
+
+  <!-- Top-right: killfeed -->
   <div id="killfeed"></div>
 
-  <!-- Top-left: minimap -->
+  <!-- Top-left: tactical minimap -->
   <div id="minimap">
     <div class="mm-header">
       <span class="mm-label">TACTICAL</span>
@@ -113,13 +168,9 @@
     <div class="mm-border"></div>
   </div>
 
-  <!-- Damage overlays -->
-  <div id="dmg"></div>
-  <div id="hlf"></div>
-
-  <!-- Legacy simple-dropdown menu — kept in DOM so its <select> data is
-       available to startMatchFromMenu's fallback path, but hidden at boot.
-       The real boot UI is the career-style MainMenu (src/ui/MainMenu.ts). -->
+  <!-- Legacy simple-dropdown menu — kept in DOM (hidden) so its <select>
+       data is accessible as a fallback to startMatchFromMenu.  The real
+       boot UI is the career-style MainMenu (src/ui/MainMenu.ts). -->
   <div id="mainMenu" style="display:none">
     <div class="menu-panel">
       <div class="menu-logo">◆</div>
@@ -248,6 +299,7 @@
   <div id="kn"></div>
   <!-- Killstreak banner -->
   <div id="killstreak"></div>
+
   <div id="ds">
     <div class="ds-inner">
       <div class="ds-header">◆ KILLED IN ACTION ◆</div>
@@ -257,7 +309,7 @@
     </div>
   </div>
 
-  <!-- BOTTOM HUD: weapon card + health + grenades + slots -->
+  <!-- BOTTOM HUD: vitals (L) · weapon slots (C) · weapon card + gadgets (R) -->
   <div id="bottomHud">
     <!-- Left: health + armor -->
     <div class="bh-section bh-left">
@@ -328,7 +380,7 @@
     </div>
   </div>
 
-  <!-- Reload text (legacy, but restyled) -->
+  <!-- Reload text (legacy, still used by some code paths) -->
   <div id="reloadBar"><div id="reloadFill"></div></div>
   <div id="reloadText">RELOADING</div>
 
