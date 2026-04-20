@@ -16,7 +16,10 @@ import { AsyncPathPlanner } from '@/ai/navigation/PathPlanner';
 import { initViewmodel, preloadViewmodels, precompileViewmodelScene } from '@/rendering/WeaponViewmodel';
 import { initMenus } from '@/ui/Menus';
 import { initSettings } from '@/ui/Settings';
-import { initAmbientDust, initParticlePools, attachCombatFXWarmupProxies, detachCombatFXWarmupProxies } from '@/combat/Particles';
+import {
+  initAmbientDust, initParticlePools,
+  attachCombatFXWarmupProxies, detachCombatFXWarmupProxies,
+} from '@/combat/Particles';
 import { updateHUD } from '@/ui/HUD';
 import { updateScoreboard } from '@/ui/Scoreboard';
 import { initPostProcess } from '@/rendering/PostProcess';
@@ -34,8 +37,7 @@ import { initEnhancedADS } from '@/combat/EnhancedADS';
 import { initDynamicWeather } from '@/world/DynamicWeather';
 import { initPingSystem } from '@/ui/CommWheel';
 import { initEmotes } from '@/ui/Emotes';
-import { initMainMenu } from '@/ui/MainMenu';
-import { showMainMenu } from '@/ui/MainMenu';
+import { initMainMenu, showMainMenu } from '@/ui/MainMenu';
 import { startMatchFromMenu } from '@/ui/Menus';
 import { initDomination } from '@/combat/Domination';
 import { initHardpoint } from '@/combat/Hardpoint';
@@ -45,24 +47,34 @@ import { getSunLight, getAmbientLight } from '@/world/Lights';
 import { initNavDebug } from '@/core/NavDebug';
 import { gameState } from '@/core/GameState';
 import type { GameMode } from '@/core/GameModes';
-import { warmCombatProjectilePools, attachCombatProjectileWarmupProxies, detachCombatProjectileWarmupProxies } from '@/combat/Hitscan';
+import {
+  warmCombatProjectilePools,
+  attachCombatProjectileWarmupProxies,
+  detachCombatProjectileWarmupProxies,
+} from '@/combat/Hitscan';
 import { TEAM_BLUE, TEAM_RED, TEAM_COLORS } from '@/config/constants';
 import { buildSoldierMesh } from '@/rendering/SoldierMesh';
 import { makeNameTag } from '@/rendering/NameTag';
 import { createHPBarGroup } from '@/rendering/HPBar';
 import { createBlueSwatWarmupClone, createEnemyWarmupClone } from '@/rendering/AgentAnimations';
 
+// APEX PROTOCOL — pause drawer + victory shell
+import { initPauseMenu, showPauseMenu, hidePauseMenu, isPauseMenuOpen } from '@/ui/PauseMenu';
+import { initRoundSummary, hideRoundSummary } from '@/ui/RoundSummary';
+
+// ── Loading-screen driver — drives #lsFill, #lsText, and the % readout ─
 function setLoadProgress(pct: number, text: string): void {
   const fill = document.getElementById('lsFill');
   const txt = document.getElementById('lsText');
+  const pctEl = document.getElementById('ldPct');
   if (fill) fill.style.width = pct + '%';
   if (txt) txt.textContent = text;
+  if (pctEl) pctEl.textContent = Math.floor(pct) + '%';
 }
 
 async function precompileSceneViews(): Promise<void> {
   const { renderer, scene, camera } = gameState;
   if (!renderer || !scene || !camera) return;
-
   const compile = async () => {
     if (typeof (renderer as any).compileAsync === 'function') {
       await (renderer as any).compileAsync(scene, camera);
@@ -70,17 +82,15 @@ async function precompileSceneViews(): Promise<void> {
       renderer.compile(scene, camera);
     }
   };
-
   const originalPosition = camera.position.clone();
   const originalQuaternion = camera.quaternion.clone();
   const views = [
-    { pos: new THREE.Vector3(0, 8, 22), lookAt: new THREE.Vector3(0, 2, 0) },
-    { pos: new THREE.Vector3(24, 8, 24), lookAt: new THREE.Vector3(0, 2, 0) },
+    { pos: new THREE.Vector3(0, 8, 22),   lookAt: new THREE.Vector3(0, 2, 0) },
+    { pos: new THREE.Vector3(24, 8, 24),  lookAt: new THREE.Vector3(0, 2, 0) },
     { pos: new THREE.Vector3(-24, 8, 24), lookAt: new THREE.Vector3(0, 2, 0) },
     { pos: new THREE.Vector3(24, 8, -24), lookAt: new THREE.Vector3(0, 2, 0) },
     { pos: new THREE.Vector3(-24, 8, -24), lookAt: new THREE.Vector3(0, 2, 0) },
   ];
-
   try {
     for (const view of views) {
       camera.position.copy(view.pos);
@@ -101,34 +111,27 @@ function initModeState(mode: GameMode): void {
     case 'hardpoint':  initHardpoint(gameState.scene); break;
     case 'koth':       initKoth(gameState.scene); break;
     case 'sd':         initSd(gameState.scene); break;
-    default: break; // tdm, ffa, ctf, elimination, br, training — no extra init
+    default: break;
   }
 }
 
-/**
- * Two-phase boot:
- *
- *   Phase 1 — Fast boot (runs on page load):
- *     • renderer + scene + camera
- *     • audio, player profile, loadouts, contracts
- *     • ScreenFX (CSS overlays)
- *     • MainMenu is constructed and shown
- *     • `animate()` is NOT started yet — there's nothing to render
- *       behind the menu, so no reason to burn frames
- *
- *   Phase 2 — Match-assets load (runs the FIRST time the player
- *   clicks PLAY in the main menu):
- *     • arena.glb, baked navmesh, cover points
- *     • agents (character GLBs)
- *     • pickups, objectives, viewmodels (+ weapon GLB preload)
- *     • particle pools, ambient dust, dynamic weather
- *     • field upgrade / finishers / enhanced ADS / ping / emotes
- *     • shader precompile
- *     • `animate()` is started here
- *
- *   Phase 2 is idempotent — subsequent matches skip it and go
- *   straight into `startMatchFromMenu(mode)`.
- */
+// ─────────────────────────────────────────────────────────────────────
+//  Body class helpers — drive the CSS HUD visibility gates
+//  .mainmenu-open  → hide HUD, show menu
+//  .in-match       → show HUD
+//  .intro-active   → hide HUD during cinematic
+// ─────────────────────────────────────────────────────────────────────
+function setBodyState(state: 'mainmenu' | 'in-match' | 'summary' | 'pause' | 'intro'): void {
+  const b = document.body.classList;
+  b.remove('mainmenu-open', 'in-match', 'intro-active');
+  if (state === 'mainmenu') b.add('mainmenu-open');
+  if (state === 'in-match' || state === 'pause' || state === 'summary') b.add('in-match');
+  if (state === 'intro') b.add('intro-active');
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  Two-phase boot (unchanged structurally from prior main.ts)
+// ─────────────────────────────────────────────────────────────────────
 let matchAssetsLoaded = false;
 let matchAssetsLoading: Promise<void> | null = null;
 let _agentWarmupGroup: THREE.Group | null = null;
@@ -150,32 +153,21 @@ function attachAgentWarmupProxies(): void {
   group.add(placeholderRed);
 
   const swat = createBlueSwatWarmupClone();
-  if (swat) {
-    swat.position.set(-0.45, 0, -0.25);
-    group.add(swat);
-  }
+  if (swat) { swat.position.set(-0.45, 0, -0.25); group.add(swat); }
 
   const enemy = createEnemyWarmupClone();
-  if (enemy) {
-    enemy.position.set(0.45, 0, -0.25);
-    group.add(enemy);
-  }
+  if (enemy) { enemy.position.set(0.45, 0, -0.25); group.add(enemy); }
 
   const blueTag = makeNameTag('FALCON', TEAM_COLORS[TEAM_BLUE]);
-  blueTag.position.set(-1.35, 2.8, 0.35);
-  group.add(blueTag);
+  blueTag.position.set(-1.35, 2.8, 0.35); group.add(blueTag);
 
   const redTag = makeNameTag('VIPER', TEAM_COLORS[TEAM_RED]);
-  redTag.position.set(1.35, 2.8, 0.35);
-  group.add(redTag);
+  redTag.position.set(1.35, 2.8, 0.35); group.add(redTag);
 
   const blueHp = createHPBarGroup().group;
-  blueHp.position.set(-1.35, 0, 0.35);
-  group.add(blueHp);
-
+  blueHp.position.set(-1.35, 0, 0.35); group.add(blueHp);
   const redHp = createHPBarGroup().group;
-  redHp.position.set(1.35, 0, 0.35);
-  group.add(redHp);
+  redHp.position.set(1.35, 0, 0.35); group.add(redHp);
 
   gameState.scene.add(group);
   _agentWarmupGroup = group;
@@ -193,7 +185,6 @@ async function loadMatchAssets(): Promise<void> {
   if (matchAssetsLoading) return matchAssetsLoading;
 
   matchAssetsLoading = (async () => {
-    // Show the loading screen again — this is the "real" asset load.
     const ls = document.getElementById('loadingScreen');
     if (ls) ls.classList.add('on');
 
@@ -219,8 +210,7 @@ async function loadMatchAssets(): Promise<void> {
         const { buildNavMeshBlob } = await import('@/ai/navigation/NavMeshBuilder');
         const blobUrl = await buildNavMeshBlob();
         await gameState.navMeshManager.load(blobUrl);
-        URL.revokeObjectURL(blobUrl);
-        console.info(`[NavMesh] Built runtime navmesh: ${gameState.navMeshManager.navMesh?.regions.length} regions`);
+        console.info('[NavMesh] Runtime navmesh built.');
       } catch (err) {
         console.warn('[NavMesh] Runtime navmesh build also failed — bots will wander without pathfinding.', err);
       }
@@ -244,7 +234,6 @@ async function loadMatchAssets(): Promise<void> {
     initParticlePools();
     warmCombatProjectilePools();
 
-    // Match-level systems that need the built scene/lights/camera.
     initFieldUpgrade();
     initFinishers();
     initEnhancedADS();
@@ -269,18 +258,15 @@ async function loadMatchAssets(): Promise<void> {
       detachAgentWarmupProxies();
     }
 
-    // Navigation debug tools — need the loaded navmesh.
     initNavDebug();
 
     updateHUD();
     updateScoreboard();
 
     setLoadProgress(100, 'Ready!');
-    // Give the user's eye ~150ms on "Ready!" before fading.
     await new Promise((r) => setTimeout(r, 150));
     if (ls) ls.classList.remove('on');
 
-    // Start the render loop now that there's actually something to render.
     animate();
 
     matchAssetsLoaded = true;
@@ -293,19 +279,19 @@ async function loadMatchAssets(): Promise<void> {
   }
 }
 
-/**
- * Called from MainMenu when the player clicks PLAY. Loads assets on
- * the first call, then kicks off the match.
- */
 async function onMainMenuStart(mode: GameMode): Promise<void> {
   gameState.mode = mode;
   await loadMatchAssets();
   initModeState(mode);
+
+  // APEX: hide menu backdrop, light up HUD gates
+  setBodyState('in-match');
+  hideRoundSummary();
+
   await startMatchFromMenu(mode);
 }
 
 async function init(): Promise<void> {
-  // ── Phase 1: fast boot ───────────────────────────────────────────
   setLoadProgress(20, 'Initializing…');
   initScene();
   Audio.init();
@@ -315,10 +301,25 @@ async function init(): Promise<void> {
   initMenus();
   initSettings();
 
-  // Persistent meta-systems — cheap, no asset loads.
   initPlayerProfile();
   initLoadouts();
   initContracts();
+
+  // APEX: pause drawer + summary shell — wire callbacks
+  initPauseMenu({
+    onResume:   () => { gameState.paused = false; document.body.requestPointerLock?.(); },
+    onSettings: () => { /* Settings.ts drives its own panel */ },
+    onRestart:  () => { gameState.paused = false; void startMatchFromMenu(gameState.mode as GameMode); },
+    onQuit:     () => {
+      gameState.paused = true;
+      setBodyState('mainmenu');
+      showMainMenu();
+    },
+  });
+  initRoundSummary({
+    onNextMatch:     () => { void startMatchFromMenu(gameState.mode as GameMode); },
+    onReturnToLobby: () => { setBodyState('mainmenu'); showMainMenu(); },
+  });
 
   setLoadProgress(60, 'Initializing screen FX…');
   const wantsPostFX = new URLSearchParams(location.search).has('postfx');
@@ -335,7 +336,6 @@ async function init(): Promise<void> {
 
   setLoadProgress(80, 'Loading main menu…');
 
-  // Expose core game state to window for ad-hoc debugging.
   const postFxMod = await import('@/rendering/PostProcess.Bridge');
   (window as any).__td = {
     gameState,
@@ -346,14 +346,10 @@ async function init(): Promise<void> {
     renderInfo() {
       const info = gameState.renderer.info;
       return {
-        calls: info.render.calls,
-        triangles: info.render.triangles,
-        points: info.render.points,
-        lines: info.render.lines,
-        frame: info.render.frame,
-        geometries: info.memory.geometries,
-        textures: info.memory.textures,
-        programs: info.programs?.length ?? 0,
+        calls: info.render.calls, triangles: info.render.triangles,
+        points: info.render.points, lines: info.render.lines,
+        frame: info.render.frame,  geometries: info.memory.geometries,
+        textures: info.memory.textures, programs: info.programs?.length ?? 0,
       };
     },
     setShadows(on: boolean) {
@@ -368,9 +364,7 @@ async function init(): Promise<void> {
       const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
       const run = async (label: string) => {
         console.log(`%c[perfTest] ▶ ${label} — ${seconds}s`, 'color:#0af;font-weight:bold');
-        perf.enable();
-        await wait(seconds * 1000);
-        perf.dump();
+        perf.enable(); await wait(seconds * 1000); perf.dump();
       };
       if (!hasComposer) {
         this.setShadows(true); await wait(500);
@@ -393,7 +387,7 @@ async function init(): Promise<void> {
     THREE: (window as any).THREE,
   };
 
-  // Wire the MainMenu — clicking PLAY triggers Phase-2 asset load.
+  // Wire MainMenu — clicking PLAY triggers Phase-2 asset load + match start.
   initMainMenu(
     (mode, _loadoutIndex) => { void onMainMenuStart(mode); },
     () => { void onMainMenuStart('training'); },
@@ -403,18 +397,14 @@ async function init(): Promise<void> {
   await new Promise((r) => setTimeout(r, 120));
   const ls = document.getElementById('loadingScreen');
   if (ls) ls.classList.remove('on');
-  document.body.classList.add('ready');
 
-  // Freeze simulation; render loop is NOT started — MainMenu is a pure
-  // DOM overlay and doesn't need the 3D canvas animated behind it.
+  document.body.classList.add('ready');
+  setBodyState('mainmenu');
+
   gameState.paused = true;
   gameState.mainMenuOpen = true;
 
-  // ── Start gate ────────────────────────────────────────────────────
-  // Modern browsers block AudioContext playback until a user gesture.
-  // Show a splash with the WARZONE logo + PLAY button; the first click
-  // resumes the audio context and starts the lobby music so the
-  // MainMenu is never silent.
+  // Start gate — first-click audio unlock.
   const gate = document.getElementById('startGate');
   const playBtn = document.getElementById('sgPlay');
   if (gate && playBtn) {
@@ -422,8 +412,6 @@ async function init(): Promise<void> {
     const onFirstClick = async () => {
       playBtn.removeEventListener('click', onFirstClick);
       try { await Audio.resume(); } catch { /* non-fatal */ }
-      // Start the lobby music immediately; the dynamic-music system
-      // takes over once a match starts.
       try {
         const dm = await import('@/audio/DynamicMusic');
         dm.playMusicState('lobby');
@@ -435,9 +423,24 @@ async function init(): Promise<void> {
     };
     playBtn.addEventListener('click', onFirstClick);
   } else {
-    // Fallback: gate markup missing — go straight to the menu.
     showMainMenu();
   }
+
+  // APEX: pause keybind — ESC toggles the drawer while in-match.
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape') return;
+    if (gameState.mainMenuOpen) return;   // main menu handles its own ESC
+    if (!matchAssetsLoaded) return;
+    if (isPauseMenuOpen()) {
+      hidePauseMenu();
+      gameState.paused = false;
+      document.body.requestPointerLock?.();
+    } else {
+      gameState.paused = true;
+      showPauseMenu();
+    }
+    e.preventDefault();
+  }, true);
 }
 
 init().catch((err) => console.error('[main] init failed:', err));
