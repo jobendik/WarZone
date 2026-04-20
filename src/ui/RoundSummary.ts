@@ -13,15 +13,20 @@ import type { TDMAgent } from '@/entities/TDMAgent';
  *     .vc-banner       (VICTORY / DEFEAT gradient + final score)
  *     .vc-mvp          (MVP slate with amber left accent)
  *     .vc-body (2col)
- *       Left:  .vc-section-head "PROGRESSION" + .vc-progress-card
- *              .vc-section-head "ACCOLADES"   + .vc-medals grid
- *       Right: .vc-section-head "FINAL STANDINGS" + .vc-standings table
+ *       Left:  PROGRESSION card + ACCOLADES medal grid
+ *       Right: FINAL STANDINGS table
  *     .vc-footer       (▶ NEXT MATCH, RETURN TO LOBBY, hint)
  *
- * Public API:
- *   showRoundSummary(result)
- *   hideRoundSummary()
- *   isRoundSummaryOpen()
+ * Public API — two call signatures accepted for backward compatibility
+ * with Combat.ts which passes a team id:
+ *
+ *   showRoundSummary(winnerTeam)        legacy — TEAM_BLUE or TEAM_RED number
+ *   showRoundSummary(resultObject)      structured — { victory, mode, ... }
+ *
+ * Both produce the same victory/defeat screen.
+ *
+ * Score model — gameState has no pScore field and TDMAgent has no
+ * `assists`/`score`. We synthesize:  score = kills * 100 + assists * 25.
  */
 
 export interface RoundSummaryResult {
@@ -43,14 +48,25 @@ let cbs: RoundSummaryCallbacks = {};
 let open = false;
 let keyListener: ((e: KeyboardEvent) => void) | null = null;
 
-// Group medals by ID, count occurrences
+// ── Helpers ────────────────────────────────────────────────────────────
+function scoreFromKills(kills: number, assists: number): number {
+  return kills * 100 + assists * 25;
+}
+
+function teamScoresFromGameState(): { blue: number; red: number } {
+  const ts = (gameState as any).teamScores as number[] | undefined;
+  return {
+    blue: ts?.[TEAM_BLUE] ?? 0,
+    red:  ts?.[TEAM_RED]  ?? 0,
+  };
+}
+
 function aggregateMedals(): Array<{ id: MedalId; count: number }> {
   const counts = new Map<MedalId, number>();
   for (const entry of matchState.medalsEarned) {
     counts.set(entry.medal, (counts.get(entry.medal) ?? 0) + 1);
   }
   const arr = Array.from(counts.entries()).map(([id, count]) => ({ id, count }));
-  // Sort: epic → gold → silver → bronze, then by count desc
   const tierOrder = { epic: 0, gold: 1, silver: 2, bronze: 3 };
   arr.sort((a, b) => {
     const ta = tierOrder[MEDALS[a.id].tier];
@@ -66,29 +82,32 @@ function computeMVP(): {
   kills: number; deaths: number; assists: number; score: number;
 } {
   const player = gameState.player;
+  const pKills   = gameState.pKills   ?? 0;
+  const pDeaths  = gameState.pDeaths  ?? 0;
+  const pAssists = gameState.pAssists ?? 0;
+
   const playerRow = {
     name:    player?.name ?? 'OPERATOR',
-    team:    player?.team ?? TEAM_BLUE,
+    team:    (player?.team as number) ?? TEAM_BLUE,
     isPlayer: true,
-    kills:   gameState.pKills ?? 0,
-    deaths:  gameState.pDeaths ?? 0,
-    assists: gameState.pAssists ?? 0,
-    score:   gameState.pScore ?? (gameState.pKills ?? 0) * 100,
+    kills:   pKills,
+    deaths:  pDeaths,
+    assists: pAssists,
+    score:   scoreFromKills(pKills, pAssists),
   };
 
   let best = playerRow;
   for (const ag of (gameState.agents ?? []) as TDMAgent[]) {
     if (!ag || ag === player) continue;
-    const score = (ag as any).score ?? (ag.kills ?? 0) * 100;
+    const kills  = ag.kills  ?? 0;
+    const deaths = ag.deaths ?? 0;
+    const score  = scoreFromKills(kills, 0);   // bots have no assists tracker
     if (score > best.score) {
       best = {
         name:   ag.name ?? '—',
-        team:   ag.team ?? TEAM_BLUE,
+        team:   (ag.team as number) ?? TEAM_BLUE,
         isPlayer: false,
-        kills:  ag.kills ?? 0,
-        deaths: ag.deaths ?? 0,
-        assists: ag.assists ?? 0,
-        score,
+        kills, deaths, assists: 0, score,
       };
     }
   }
@@ -100,30 +119,63 @@ function buildStandingsRows(): Array<{
   kills: number; deaths: number; score: number;
 }> {
   const player = gameState.player;
-  const rows: Array<any> = [];
+  const rows: Array<{
+    name: string; team: number; isPlayer: boolean;
+    kills: number; deaths: number; score: number;
+  }> = [];
+
   if (player) {
+    const kills   = gameState.pKills   ?? 0;
+    const deaths  = gameState.pDeaths  ?? 0;
+    const assists = gameState.pAssists ?? 0;
     rows.push({
       name:    player.name ?? 'YOU',
-      team:    player.team ?? TEAM_BLUE,
+      team:    (player.team as number) ?? TEAM_BLUE,
       isPlayer: true,
-      kills:   gameState.pKills ?? 0,
-      deaths:  gameState.pDeaths ?? 0,
-      score:   gameState.pScore ?? 0,
+      kills, deaths,
+      score:   scoreFromKills(kills, assists),
     });
   }
   for (const ag of (gameState.agents ?? []) as TDMAgent[]) {
     if (!ag || ag === player) continue;
+    const kills  = ag.kills  ?? 0;
+    const deaths = ag.deaths ?? 0;
     rows.push({
       name:   ag.name ?? '—',
-      team:   ag.team ?? TEAM_BLUE,
+      team:   (ag.team as number) ?? TEAM_BLUE,
       isPlayer: false,
-      kills:  ag.kills ?? 0,
-      deaths: ag.deaths ?? 0,
-      score:  (ag as any).score ?? (ag.kills ?? 0) * 100,
+      kills, deaths,
+      score:  scoreFromKills(kills, 0),
     });
   }
   rows.sort((a, b) => b.score - a.score);
   return rows.slice(0, 6).map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+// ── Normalise argument ─────────────────────────────────────────────────
+/**
+ * Accept either:
+ *   - legacy `showRoundSummary(winnerTeam: number)`
+ *       where number is TEAM_BLUE (0) or TEAM_RED (1)
+ *   - structured `showRoundSummary(result: RoundSummaryResult)`
+ *
+ * Legacy path synthesises mode/map/scores from gameState.
+ */
+function normalizeArg(arg: RoundSummaryResult | number): RoundSummaryResult {
+  if (typeof arg === 'number') {
+    const winnerTeam = arg;
+    const playerTeam = (gameState.player?.team as number) ?? TEAM_BLUE;
+    const scores = teamScoresFromGameState();
+    return {
+      victory:    winnerTeam === playerTeam,
+      mode:       String(gameState.mode ?? 'TDM').toUpperCase(),
+      map:        (gameState as any).mapName ?? 'WARZONE',
+      blueScore:  scores.blue,
+      redScore:   scores.red,
+      xpAwarded:  matchState.playerXP ?? 0,
+    };
+  }
+  return arg;
 }
 
 // ── Render ─────────────────────────────────────────────────────────────
@@ -139,8 +191,9 @@ function render(result: RoundSummaryResult): string {
   const resultCls = result.victory ? '' : 'defeat';
   const resultText = result.victory ? 'VICTORY' : 'DEFEAT';
   const kicker = `// MATCH CONCLUDED · ${result.map.toUpperCase()}`;
-  const friendlyScore = mvp.team === TEAM_RED ? result.redScore : result.blueScore;
-  const hostileScore  = mvp.team === TEAM_RED ? result.blueScore : result.redScore;
+  const playerTeam = (gameState.player?.team as number) ?? TEAM_BLUE;
+  const friendlyScore = playerTeam === TEAM_RED ? result.redScore : result.blueScore;
+  const hostileScore  = playerTeam === TEAM_RED ? result.blueScore : result.redScore;
 
   const medalsHTML = medals.length > 0
     ? medals.map(({ id, count }) => {
@@ -251,26 +304,30 @@ function render(result: RoundSummaryResult): string {
   `;
 }
 
-// ── Public API ────────────────────────────────────────────────────────
+// ── Public API ─────────────────────────────────────────────────────────
 export function initRoundSummary(callbacks: RoundSummaryCallbacks = {}): void {
   cbs = { ...cbs, ...callbacks };
 }
 
-export function showRoundSummary(result: RoundSummaryResult): void {
+/**
+ * Show the post-match summary.  Accepts both the legacy team-id form
+ * (from Combat.ts:  showRoundSummary(TEAM_BLUE)) and the structured
+ * form (from main.ts when richer data is available).
+ */
+export function showRoundSummary(arg: RoundSummaryResult | number): void {
   if (!rootEl) rootEl = document.getElementById('roundSummary') as HTMLDivElement;
   if (!rootEl) return;
 
+  const result = normalizeArg(arg);
   rootEl.innerHTML = render(result);
   rootEl.classList.add('on');
   open = true;
 
-  // Wire buttons
   const nextBtn  = rootEl.querySelector('#vcNext')  as HTMLButtonElement | null;
   const lobbyBtn = rootEl.querySelector('#vcLobby') as HTMLButtonElement | null;
-  nextBtn?.addEventListener('click', () => { hideRoundSummary(); cbs.onNextMatch?.(); });
+  nextBtn?.addEventListener('click',  () => { hideRoundSummary(); cbs.onNextMatch?.(); });
   lobbyBtn?.addEventListener('click', () => { hideRoundSummary(); cbs.onReturnToLobby?.(); });
 
-  // Keyboard shortcuts
   if (!keyListener) {
     keyListener = (e: KeyboardEvent) => {
       if (!open) return;
