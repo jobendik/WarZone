@@ -1,4 +1,5 @@
 import { gameState } from '@/core/GameState';
+import { TEAM_BLUE, TEAM_RED } from '@/config/constants';
 
 /**
  * PauseMenu — APEX PROTOCOL left drawer pause UI.
@@ -93,7 +94,6 @@ function ensureDrawer(): HTMLDivElement {
   document.body.appendChild(drawerEl);
   metaEl = drawerEl.querySelector('#pzMeta') as HTMLElement;
 
-  // Wire clicks
   drawerEl.querySelectorAll('.pz-opt').forEach((btn) => {
     btn.addEventListener('click', () => {
       const action = (btn as HTMLElement).dataset.action;
@@ -121,8 +121,10 @@ function updateMeta(): void {
   const timeRem = Math.max(0, Math.floor(gameState.matchTimeRemaining ?? 0));
   const m = Math.floor(timeRem / 60), s = timeRem % 60;
   const timeStr = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  const blue = gameState.scoreBlue ?? 0;
-  const red  = gameState.scoreRed  ?? 0;
+  // teamScores is indexed by team id (TEAM_BLUE / TEAM_RED), not named props.
+  const scores = (gameState as any).teamScores as number[] | undefined;
+  const blue = scores?.[TEAM_BLUE] ?? 0;
+  const red  = scores?.[TEAM_RED]  ?? 0;
   metaEl.textContent = `${mode} · ${timeStr} remaining · ${blue} — ${red}`;
 }
 
@@ -131,7 +133,7 @@ export function initPauseMenu(callbacks: PauseMenuCallbacks = {}): void {
   cbs = { ...cbs, ...callbacks };
   ensureDrawer();
 
-  if (keyListener) return;   // wire once
+  if (keyListener) return;
   keyListener = (e: KeyboardEvent) => {
     if (!open) return;
     if (e.code === 'Escape')   { e.preventDefault(); handleAction('resume');   return; }
@@ -156,7 +158,7 @@ export function hidePauseMenu(): void {
   if (drawerEl) drawerEl.classList.remove('on');
   open = false;
 }
-// Alias — a few callers use the misspelled name
+// Alias — a few callers use the misspelled name.
 export const hidePausedMenu = hidePauseMenu;
 
 export function isPauseMenuOpen(): boolean { return open; }
