@@ -1,17 +1,47 @@
-- hook up music, sfx, ect. to the settings. Now only the Master volume works
 
-- Add the dual_mac10_smg.glb to the last remaining weapon that has a stub.
-  Remember that it is a dual weapon so it must fire from both the barrels.
 
-- Optimize the game. When the action begins we have less than 1 FPS!
 
-- The wheel is attached to the Q button, and this triggers the pause menu too.
-  And it is being used to lean to the left.
-  This is a bug.
 
+
+
+
+
+
+
+
+
+FIXED (?)
+    
 - The Victory (and probably Defeat) screens are not hooked up to the game.
   The game must actually end, and we should play the victory/defeat music  
   and sounds. And there is something off with the rendering of the screen too.
 
-  - The death animation should be played "in place" like the other animations,
-    so that he does not slide when the animation is played.
+  - The wheel is attached to the Q button, and this triggers the pause menu too.
+  And it is being used to lean to the left.
+  This is a bug.
+
+  - hook up music, sfx, ect. to the settings. Now only the Master volume works
+
+
+    Pressing the ESC button should trigger the pause menu at the first press.
+    Now we first get the "Click to deply" window - which is supposed to begins
+    related to only the Battle Royale mode. Also, the music should eighter be much
+    lower, another track should play or it should simply be silent.
+
+        The  ai aagents can shoot through walls.
+
+- Optimize the game. When the action begins the FPS drops dramatically.Should we 
+  repace shaders/procedural explotion and bullet traces with 
+  images/sprites like png or bmp or even glb instead?
+
+  
+- Add the dual_mac10_smg.glb to the last remaining weapon that has a stub.
+  Remember that it is a dual weapon so it must fire from both the barrels.
+  DONE — wired `dual_mac10_smg.glb` into WeaponViewmodel for the `smg` slot
+  as an animated viewmodel (shoot/reload/equip ranges from the txt spec),
+  added a secondary muzzle flash + light + sprite driven by a new
+  `muzzleOffsetSecondary` on VMLayout so both barrels flash per shot, and
+  added a left-side shell casing ejection in fireViewmodel() for dual guns.
+
+
+

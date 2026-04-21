@@ -1,4 +1,5 @@
 import { gameState } from '@/core/GameState';
+import { ARENA_TEAM_TOTAL } from '@/config/constants';
 import { dom } from './DOMElements';
 import { getModeDefaults, getModeLabel, type GameMode } from '@/core/GameModes';
 import { resetMatch } from '@/combat/Combat';
@@ -20,7 +21,15 @@ export function syncLockHintVisibility(): void {
 
   const locked = document.pointerLockElement === gameState.renderer?.domElement;
   const scoreboardOpen = !!document.getElementById('tabboard')?.classList.contains('on');
-  hint.classList.toggle('on', !locked && !gameState.mainMenuOpen && !gameState.paused && !gameState.roundOver && !gameState._introActive && !scoreboardOpen && !gameState.keys.tab);
+  const shouldShow = gameState.mode === 'br'
+    && !locked
+    && !gameState.mainMenuOpen
+    && !gameState.paused
+    && !gameState.roundOver
+    && !gameState._introActive
+    && !scoreboardOpen
+    && !gameState.keys.tab;
+  hint.classList.toggle('on', shouldShow);
 }
 
 /**
@@ -83,8 +92,8 @@ export async function startMatchFromMenu(
     resetMatchMedals();
     rollChallenges(3);
     if (mode !== 'training') {
-      const blueAgents = gameState.agents.filter(a => a.team === 0).slice(0, 6);
-      const redAgents  = gameState.agents.filter(a => a.team === 1).slice(0, 6);
+      const blueAgents = gameState.agents.filter(a => a.team === 0).slice(0, ARENA_TEAM_TOTAL);
+      const redAgents  = gameState.agents.filter(a => a.team === 1).slice(0, ARENA_TEAM_TOTAL);
       await playMatchIntro({
         mapName:   'Arena',
         modeLabel: getModeLabel(mode),
@@ -122,6 +131,7 @@ export function togglePause(force?: boolean): void {
   if (gameState.mainMenuOpen || gameState.roundOver) return;
   gameState.paused = typeof force === 'boolean' ? force : !gameState.paused;
   if (gameState.paused) {
+    playMusicState('none');
     showPauseMenu();
     document.exitPointerLock?.();
     dom.lockHint.classList.remove('on');

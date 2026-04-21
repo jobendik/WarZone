@@ -29,7 +29,7 @@ import { initFloatingDamagePool } from '@/ui/FloatingDamage';
 
 // MORESCRIPTS — new system imports
 import { initPlayerProfile } from '@/core/PlayerProfile';
-import { initLoadouts } from '@/config/Loadouts';
+import { initLoadouts, setActiveLoadout } from '@/config/Loadouts';
 import { initFieldUpgrade } from '@/combat/FieldUpgradeController';
 import { initContracts } from '@/ui/ContractSystem';
 import { initFinishers } from '@/combat/Finishers';
@@ -37,7 +37,7 @@ import { initEnhancedADS } from '@/combat/EnhancedADS';
 import { initDynamicWeather } from '@/world/DynamicWeather';
 import { initPingSystem } from '@/ui/CommWheel';
 import { initEmotes } from '@/ui/Emotes';
-import { initMainMenu, showMainMenu } from '@/ui/MainMenu';
+import { initMainMenu, showMainMenu, hideMainMenu } from '@/ui/MainMenu';
 import { startMatchFromMenu, syncLockHintVisibility } from '@/ui/Menus';
 import { initDomination } from '@/combat/Domination';
 import { initHardpoint } from '@/combat/Hardpoint';
@@ -57,10 +57,12 @@ import { buildSoldierMesh } from '@/rendering/SoldierMesh';
 import { makeNameTag } from '@/rendering/NameTag';
 import { createHPBarGroup } from '@/rendering/HPBar';
 import { createBlueSwatWarmupClone, createEnemyWarmupClone } from '@/rendering/AgentAnimations';
+import { warmupTTS } from '@/ai/BotVoice';
 
 // APEX PROTOCOL — pause drawer + victory shell
 import { initPauseMenu, showPauseMenu, hidePauseMenu, isPauseMenuOpen } from '@/ui/PauseMenu';
-import { initRoundSummary, hideRoundSummary } from '@/ui/RoundSummary';
+import { initRoundSummary, showRoundSummary, hideRoundSummary } from '@/ui/RoundSummary';
+import { matchState, type MedalId } from '@/ui/Medals';
 
 // ── Loading-screen driver — drives #lsFill, #lsText, and the % readout ─
 function setLoadProgress(pct: number, text: string): void {
@@ -127,6 +129,84 @@ function setBodyState(state: 'mainmenu' | 'in-match' | 'summary' | 'pause' | 'in
   if (state === 'mainmenu') b.add('mainmenu-open');
   if (state === 'in-match' || state === 'pause' || state === 'summary') b.add('in-match');
   if (state === 'intro') b.add('intro-active');
+}
+
+const PREVIEW_MEDALS: MedalId[] = ['first_blood', 'headshot', 'revenge', 'multi_kill'];
+let roundSummaryPreviewSnapshot: null | {
+  playerXP: number;
+  medalsEarned: typeof matchState.medalsEarned;
+} = null;
+
+function applyRoundSummaryPreviewState(victory: boolean): number {
+  if (roundSummaryPreviewSnapshot) {
+    matchState.playerXP = roundSummaryPreviewSnapshot.playerXP;
+    matchState.medalsEarned.length = 0;
+    matchState.medalsEarned.push(...roundSummaryPreviewSnapshot.medalsEarned);
+    roundSummaryPreviewSnapshot = null;
+  }
+
+  if (matchState.medalsEarned.length > 0 || matchState.playerXP > 0) {
+    return matchState.playerXP;
+  }
+
+  roundSummaryPreviewSnapshot = {
+    playerXP: matchState.playerXP,
+    medalsEarned: matchState.medalsEarned.map((entry) => ({ ...entry })),
+  };
+
+  const now = gameState.worldElapsed;
+  matchState.medalsEarned.length = 0;
+  matchState.medalsEarned.push(
+    ...PREVIEW_MEDALS.map((medal, index) => ({ medal, at: now - (PREVIEW_MEDALS.length - index) * 0.4 })),
+  );
+  matchState.playerXP = victory ? 850 : 450;
+  return matchState.playerXP;
+}
+
+function restoreRoundSummaryPreviewState(): void {
+  if (!roundSummaryPreviewSnapshot) return;
+  matchState.playerXP = roundSummaryPreviewSnapshot.playerXP;
+  matchState.medalsEarned.length = 0;
+  matchState.medalsEarned.push(...roundSummaryPreviewSnapshot.medalsEarned);
+  roundSummaryPreviewSnapshot = null;
+}
+
+function previewRoundSummary(victory: boolean): void {
+  const teamScores = (gameState as any).teamScores as number[] | undefined;
+  const playerTeam = (gameState.player?.team as number) ?? TEAM_BLUE;
+  const friendlyScore = teamScores?.[playerTeam] ?? (victory ? 20 : 17);
+  const hostileTeam = playerTeam === TEAM_BLUE ? TEAM_RED : TEAM_BLUE;
+  const hostileScore = teamScores?.[hostileTeam] ?? (victory ? 17 : 20);
+  const xpAwarded = applyRoundSummaryPreviewState(victory);
+
+  gameState.paused = true;
+  gameState.roundOver = true;
+  document.body.classList.add('round-over');
+  setBodyState('summary');
+  hidePauseMenu();
+  hideMainMenu();
+  Audio.stopLoop('music_victory');
+  Audio.stopLoop('music_defeat');
+
+  showRoundSummary({
+    victory,
+    mode: String(gameState.mode ?? 'TDM').toUpperCase(),
+    map: (gameState as any).mapName ?? 'WARZONE',
+    blueScore: playerTeam === TEAM_BLUE ? friendlyScore : hostileScore,
+    redScore: playerTeam === TEAM_RED ? friendlyScore : hostileScore,
+    xpAwarded,
+  });
+}
+
+function hideRoundSummaryPreview(): void {
+  hideRoundSummary();
+  restoreRoundSummaryPreviewState();
+  document.body.classList.remove('round-over');
+  Audio.stopLoop('music_victory');
+  Audio.stopLoop('music_defeat');
+  gameState.roundOver = false;
+  setBodyState('mainmenu');
+  showMainMenu();
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -313,6 +393,12 @@ async function loadMatchAssets(): Promise<void> {
       attachAgentWarmupProxies();
       await precompileSceneViews();
       await precompileViewmodelScene();
+      // Force actual draw calls for every warmup proxy. compile()/compileAsync
+      // upload sources but some drivers defer linking until the first real
+      // render(). This hidden render pass forces the full GPU pipeline
+      // (shader link, VAO setup, texture upload) during load instead of
+      // the first combat frame.
+      gameState.renderer.render(gameState.scene, gameState.camera);
       console.info('[perf] Shader precompile complete.');
     } catch (err) {
       console.warn('[perf] Shader precompile failed (non-fatal):', err);
@@ -396,7 +482,7 @@ async function init(): Promise<void> {
       Audio.stopLoop('music_victory');
       Audio.stopLoop('music_defeat');
       gameState.roundOver = false;
-      gameState.paused = false;
+      gameState.paused = true;   // keep the world frozen while at the menu
       setBodyState('mainmenu');
       showMainMenu();
     },
@@ -465,12 +551,21 @@ async function init(): Promise<void> {
       console.log(`%c[perfTest] ✓ done`, 'color:#0f0;font-weight:bold');
       console.log('renderInfo:', this.renderInfo());
     },
+    previewVictory() {
+      previewRoundSummary(true);
+    },
+    previewDefeat() {
+      previewRoundSummary(false);
+    },
+    hideSummaryPreview() {
+      hideRoundSummaryPreview();
+    },
     THREE: (window as any).THREE,
   };
 
   // Wire MainMenu — clicking PLAY triggers Phase-2 asset load + match start.
   initMainMenu(
-    (mode, _loadoutIndex) => { void onMainMenuStart(mode); },
+    (mode, loadoutIndex) => { setActiveLoadout(loadoutIndex); void onMainMenuStart(mode); },
     () => { void onMainMenuStart('training'); },
   );
 
@@ -499,6 +594,7 @@ async function init(): Promise<void> {
       } catch (err) {
         console.warn('[main] Failed to start lobby music:', err);
       }
+      warmupTTS();
       gate.classList.remove('on');
       showMainMenu();
     };

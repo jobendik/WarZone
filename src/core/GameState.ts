@@ -285,4 +285,6 @@ export const gameState = {
   _tutorialGrenadeThrown: false,
   _introActive: false,
   _pauseOnIntroEnd: false,
+  /** True while the comm/ping wheel is open — prevents pointer-lock loss from auto-pausing. */
+  commWheelOpen: false,
 };

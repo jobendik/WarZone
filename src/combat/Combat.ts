@@ -5,7 +5,7 @@ import {
   RESPAWN_TIME,
 } from '@/config/constants';
 import { spawnDamageNumber } from '@/ui/FloatingDamage';
-import { onPlayerKill, onPlayerDeath } from '@/ui/Medals';
+import { matchState, onPlayerKill, onPlayerDeath } from '@/ui/Medals';
 import { fireChallengeEvent } from '@/ui/Challenges';
 import type { TDMAgent } from '@/entities/TDMAgent';
 import { spawnDeath } from './Particles';
@@ -56,7 +56,11 @@ import { reportContractEvent } from '@/ui/ContractSystem';
 import { onPlayerKillForFieldUpgrade, chargeFromEvent } from '@/combat/FieldUpgradeController';
 import { spawnRagdoll } from '@/rendering/RagdollSystem';
 import { BotVoice } from '@/ai/BotVoice';
-import { getActivePerkHooks } from '@/config/Loadouts';
+import { getActivePerkHooks, getActiveLoadout } from '@/config/Loadouts';
+import { getDomState } from '@/combat/Domination';
+import { getHardpointState } from '@/combat/Hardpoint';
+import { getKothState } from '@/combat/KingOfTheHill';
+import { getSdState } from '@/combat/Searchanddestroy';
 
 const STREAK_NAMES: Record<number, string> = {
   3: 'KILLING SPREE',
@@ -150,8 +154,10 @@ export function applyWeaponToAgent(ag: TDMAgent, weaponId: WeaponId): void {
 function applyPlayerLoadoutForMode(): void {
   const defaults = getModeDefaults(gameState.mode);
   if (defaults.playerStartsArmed) {
-    const primary = CLASS_DEFAULT_WEAPON[gameState.pClass] || 'assault_rifle';
-    gameState.pWeaponSlots = [primary, 'pistol'];
+    const loadout = getActiveLoadout();
+    const primary   = (loadout?.primary   as WeaponId) || CLASS_DEFAULT_WEAPON[gameState.pClass] || 'assault_rifle';
+    const secondary = (loadout?.secondary as WeaponId) || 'pistol';
+    gameState.pWeaponSlots = [primary, secondary];
     gameState.pActiveSlot = 0;
   } else {
     gameState.pWeaponSlots = ['knife'];
@@ -570,6 +576,109 @@ function getCurrentLeadScore(): number {
   return Math.max(gameState.teamScores[TEAM_BLUE], gameState.teamScores[TEAM_RED]);
 }
 
+type ObjectiveModeSnapshot = {
+  blueScore: number;
+  redScore: number;
+  ended: boolean;
+  winnerTeam: number | null;
+  draw: boolean;
+};
+
+function getObjectiveModeSnapshot(): ObjectiveModeSnapshot | null {
+  if (gameState.mode === 'domination') {
+    const state = getDomState();
+    if (!state) return null;
+    return {
+      blueScore: state.scoreBlue,
+      redScore: state.scoreRed,
+      ended: state.ended,
+      winnerTeam: state.winner === 'blue' ? TEAM_BLUE : state.winner === 'red' ? TEAM_RED : null,
+      draw: state.winner === 'draw',
+    };
+  }
+  if (gameState.mode === 'hardpoint') {
+    const state = getHardpointState();
+    if (!state) return null;
+    return {
+      blueScore: Math.floor(state.scoreBlue),
+      redScore: Math.floor(state.scoreRed),
+      ended: state.ended,
+      winnerTeam: state.winner === 'blue' ? TEAM_BLUE : state.winner === 'red' ? TEAM_RED : null,
+      draw: state.winner === 'draw',
+    };
+  }
+  if (gameState.mode === 'koth') {
+    const state = getKothState();
+    if (!state) return null;
+    return {
+      blueScore: Math.floor(state.holdBlue),
+      redScore: Math.floor(state.holdRed),
+      ended: state.ended,
+      winnerTeam: state.winner === 'blue' ? TEAM_BLUE : state.winner === 'red' ? TEAM_RED : null,
+      draw: state.winner === 'draw',
+    };
+  }
+  if (gameState.mode === 'sd') {
+    const state = getSdState();
+    if (!state) return null;
+    return {
+      blueScore: state.roundBlue,
+      redScore: state.roundRed,
+      ended: state.matchEnded,
+      winnerTeam: state.winner === 'blue' ? TEAM_BLUE : state.winner === 'red' ? TEAM_RED : null,
+      draw: state.winner === 'draw',
+    };
+  }
+  return null;
+}
+
+function syncObjectiveModeScores(): ObjectiveModeSnapshot | null {
+  const snapshot = getObjectiveModeSnapshot();
+  if (!snapshot) return null;
+
+  const prevBlue = gameState.teamScores[TEAM_BLUE] ?? 0;
+  const prevRed = gameState.teamScores[TEAM_RED] ?? 0;
+  gameState.teamScores[TEAM_BLUE] = snapshot.blueScore;
+  gameState.teamScores[TEAM_RED] = snapshot.redScore;
+
+  if (prevBlue !== snapshot.blueScore || prevRed !== snapshot.redScore) {
+    updateScoreboard();
+  }
+
+  return snapshot;
+}
+
+function enterPostMatchState(): void {
+  gameState.roundOver = true;
+  gameState.paused = true;
+  gameState.isADS = false;
+  gameState.mouseHeld = false;
+  document.body.classList.add('round-over');
+
+  stopDynamicMusic();
+  Audio.stopEnvironmentAmbience();
+  Audio.stopAmbientMusic();
+  Audio.stopLoop('music_victory');
+  Audio.stopLoop('music_defeat');
+
+  document.exitPointerLock?.();
+}
+
+function finalizeDrawMatch(blueScore: number, redScore: number): void {
+  if (gameState.roundOver) return;
+  enterPostMatchState();
+
+  setTimeout(() => showRoundSummary({
+    victory: false,
+    draw: true,
+    mode: String(gameState.mode ?? 'TDM').toUpperCase(),
+    map: (gameState as any).mapName ?? 'WARZONE',
+    blueScore,
+    redScore,
+    xpAwarded: matchState.playerXP ?? 0,
+  }), 800);
+}
+
 /**
  * Finalise the match: freeze the simulation, swap combat music for
  * victory/defeat music, play the announcer voice line, and show the
@@ -580,19 +689,7 @@ function getCurrentLeadScore(): number {
  */
 function finalizeMatch(winnerTeam: number): void {
   if (gameState.roundOver) return;
-  gameState.roundOver = true;
-  gameState.paused = true;
-  gameState.isADS = false;
-  gameState.mouseHeld = false;
-  document.body.classList.add('round-over');
-
-  // Stop combat-era audio
-  stopDynamicMusic();
-  Audio.stopEnvironmentAmbience();
-  Audio.stopAmbientMusic();
-  // In case previous match's victory/defeat music is still looping
-  Audio.stopLoop('music_victory');
-  Audio.stopLoop('music_defeat');
+  enterPostMatchState();
 
   // Determine whether the local player won. For FFA, `winnerTeam` isn't
   // meaningful — compare player kills to the top bot.
@@ -611,12 +708,9 @@ function finalizeMatch(winnerTeam: number): void {
 
   // Announcer voice callout
   Audio.play(isVictory ? 'victory' : 'defeat');
-  // Victory / defeat music loop (falls back silently if the sample
-  // isn't loaded — synth music stubs return 0 duration)
-  Audio.loop(isVictory ? 'music_victory' : 'music_defeat');
-
-  // Release pointer lock so the summary buttons are interactive
-  document.exitPointerLock?.();
+  // Victory / defeat music — plays once and stops; stored in
+  // playingLoops so the callbacks can cut it early via stopLoop().
+  Audio.playOnce(isVictory ? 'music_victory' : 'music_defeat');
 
   setTimeout(() => showRoundSummary(winnerTeam), 800);
 }
@@ -833,6 +927,16 @@ export function updateRespawns(dt = 0.016): void {
   if (gameState.roundOver) return;
 
   if (gameState.mode === 'br') return;
+
+  const objectiveMode = syncObjectiveModeScores();
+  if (objectiveMode?.ended) {
+    if (objectiveMode.draw || objectiveMode.winnerTeam == null) {
+      finalizeDrawMatch(objectiveMode.blueScore, objectiveMode.redScore);
+    } else {
+      finalizeMatch(objectiveMode.winnerTeam);
+    }
+    return;
+  }
 
   if (gameState.matchTimeRemaining <= 0) {
     // Overtime: if scores are tied, enter sudden death instead of ending

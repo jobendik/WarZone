@@ -551,6 +551,7 @@ function renderSettingsTab(): string {
         <div class="mm-setting-row"><label>SFX</label><input type="range" min="0" max="100" step="5" data-setting="sfxVol"/><span data-setting-value="sfxVol">100%</span></div>
         <div class="mm-setting-row"><label>Voice / Announcer</label><input type="range" min="0" max="100" step="5" data-setting="voiceVol"/><span data-setting-value="voiceVol">100%</span></div>
         <div class="mm-setting-row"><label>UI</label><input type="range" min="0" max="100" step="5" data-setting="uiVol"/><span data-setting-value="uiVol">80%</span></div>
+        <div class="mm-setting-row"><label>Bot Voice TTS</label><label class="mm-checkbox"><input type="checkbox" data-setting="enableBotVoice"/><span>Enabled</span></label><span data-setting-value="enableBotVoice">ON</span></div>
       </div>
 
       <div class="mm-setting-group">
@@ -622,21 +623,6 @@ function build(): HTMLDivElement {
         <div class="mn-col" id="mmLeftCol"></div>
         <div class="mn-col mn-center" id="mmContent"></div>
         <div class="mn-col" id="mmRightCol"></div>
-      </div>
-
-      <!-- BOTTOM STRIP -->
-      <div class="mn-bottom">
-        <div class="mn-server">
-          <div class="dot"></div>
-          <span>SERVER <b>EU-WEST-01</b></span>
-          <span>PING <b>&lt;30ms</b></span>
-        </div>
-        <div class="mn-keys">
-          <div class="mn-key"><kbd>ESC</kbd> <span>PAUSE</span></div>
-          <div class="mn-key"><kbd>TAB</kbd> <span>SCOREBOARD</span></div>
-          <div class="mn-key"><kbd>Q</kbd> <span>PING</span></div>
-        </div>
-        <button class="mn-quit-btn" id="mmQuit">QUIT</button>
       </div>
 
     </div>
@@ -741,10 +727,6 @@ function wireTabEvents(): void {
       hideMainMenu();
     });
   }
-
-  // Quit
-  const quitBtn = state.container.querySelector('#mmQuit');
-  if (quitBtn) quitBtn.addEventListener('click', () => hideMainMenu());
 
   // CAREER: Prestige
   const prestigeBtn = state.container.querySelector('#prestigeBtn');

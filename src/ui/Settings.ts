@@ -2,6 +2,7 @@ import { FP } from '@/config/player';
 import { Audio } from '@/audio/AudioManager';
 import { movement } from '@/movement/MovementController';
 import { gameState } from '@/core/GameState';
+import { getSunLight } from '@/world/Lights';
 
 const STORAGE_KEY = 'warzone_settings';
 
@@ -21,6 +22,9 @@ export interface GameSettings {
   colorblindMode: string;
   showFPS: boolean;
   showSubtitles: boolean;
+  particleQuality: number;   // 0-1: 0 = low, 0.5 = medium, 1 = high
+  shadowMapSize: number;     // 512, 1024, or 2048
+  enableBotVoice: boolean;
 }
 
 const defaults: GameSettings = {
@@ -39,6 +43,9 @@ const defaults: GameSettings = {
   colorblindMode: 'off',
   showFPS: false,
   showSubtitles: true,
+  particleQuality: 1,
+  shadowMapSize: 1024,
+  enableBotVoice: false,
 };
 
 let current: GameSettings = { ...defaults };
@@ -62,6 +69,9 @@ const SETTING_KEYS: SettingKey[] = [
   'colorblindMode',
   'showFPS',
   'showSubtitles',
+  'particleQuality',
+  'shadowMapSize',
+  'enableBotVoice',
 ];
 
 export function getSettings(): Readonly<GameSettings> {
@@ -111,6 +121,20 @@ export function applySettings(): void {
   gameState.showFPS = current.showFPS;
   gameState.showSubtitles = current.showSubtitles;
 
+  // Shadow map size — update the sun's shadow map when changed
+  const sun = getSunLight?.();
+  if (sun?.shadow) {
+    const sz = current.shadowMapSize || 1024;
+    if (sun.shadow.mapSize.x !== sz) {
+      sun.shadow.mapSize.set(sz, sz);
+      if (sun.shadow.map) {
+        sun.shadow.map.dispose();
+        sun.shadow.map = null as any;
+      }
+      sun.shadow.needsUpdate = true;
+    }
+  }
+
   document.body.classList.remove('cb-deuteranopia', 'cb-protanopia', 'cb-tritanopia');
   if (current.colorblindMode !== 'off') {
     document.body.classList.add(`cb-${current.colorblindMode}`);
@@ -146,6 +170,7 @@ function formatValue(key: SettingKey, value: GameSettings[SettingKey]): string {
     case 'uiVol':
     case 'headBobScale':
     case 'botDifficulty':
+    case 'particleQuality':
       return `${Math.round(Number(value) * 100)}%`;
 
     case 'sensitivity':
@@ -160,7 +185,11 @@ function formatValue(key: SettingKey, value: GameSettings[SettingKey]): string {
     case 'crosshairDot':
     case 'showFPS':
     case 'showSubtitles':
+    case 'enableBotVoice':
       return value ? 'ON' : 'OFF';
+
+    case 'shadowMapSize':
+      return `${value}px`;
 
     default:
       return String(value);
@@ -176,6 +205,7 @@ function getUiValueForControl(key: SettingKey, value: GameSettings[SettingKey]):
     case 'uiVol':
     case 'headBobScale':
     case 'botDifficulty':
+    case 'particleQuality':
       return String(Math.round(Number(value) * 100));
 
     default:
@@ -198,6 +228,7 @@ function parseControlValue(key: SettingKey, control: ControlEl): GameSettings[Se
     case 'uiVol':
     case 'headBobScale':
     case 'botDifficulty':
+    case 'particleQuality':
       return (parseFloat(raw) / 100) as GameSettings[SettingKey];
 
     case 'sensitivity':
@@ -205,6 +236,7 @@ function parseControlValue(key: SettingKey, control: ControlEl): GameSettings[Se
       return parseFloat(raw) as GameSettings[SettingKey];
 
     case 'fov':
+    case 'shadowMapSize':
       return parseInt(raw, 10) as GameSettings[SettingKey];
 
     case 'crosshairColor':
@@ -214,6 +246,7 @@ function parseControlValue(key: SettingKey, control: ControlEl): GameSettings[Se
     case 'crosshairDot':
     case 'showFPS':
     case 'showSubtitles':
+    case 'enableBotVoice':
       return Boolean((control as HTMLInputElement).checked) as GameSettings[SettingKey];
 
     default:
@@ -292,6 +325,7 @@ function renderSettingsOverlay(): string {
           <div class="mm-setting-row"><label>SFX</label><input type="range" min="0" max="100" step="5" data-setting="sfxVol"/><span data-setting-value="sfxVol">100%</span></div>
           <div class="mm-setting-row"><label>Voice / Announcer</label><input type="range" min="0" max="100" step="5" data-setting="voiceVol"/><span data-setting-value="voiceVol">100%</span></div>
           <div class="mm-setting-row"><label>UI</label><input type="range" min="0" max="100" step="5" data-setting="uiVol"/><span data-setting-value="uiVol">80%</span></div>
+          <div class="mm-setting-row"><label>Bot Voice TTS</label><label class="mm-checkbox"><input type="checkbox" data-setting="enableBotVoice"/><span>Enabled</span></label><span data-setting-value="enableBotVoice">ON</span></div>
         </div>
 
         <div class="mm-setting-group">
@@ -310,6 +344,12 @@ function renderSettingsOverlay(): string {
           <div class="mm-setting-row"><label>Bot Difficulty</label><input type="range" min="0" max="100" step="10" data-setting="botDifficulty"/><span data-setting-value="botDifficulty">50%</span></div>
           <div class="mm-setting-row"><label>Show FPS</label><label class="mm-checkbox"><input type="checkbox" data-setting="showFPS"/><span>Enabled</span></label><span data-setting-value="showFPS">OFF</span></div>
           <div class="mm-setting-row"><label>Subtitles</label><label class="mm-checkbox"><input type="checkbox" data-setting="showSubtitles"/><span>Enabled</span></label><span data-setting-value="showSubtitles">ON</span></div>
+        </div>
+
+        <div class="mm-setting-group">
+          <div class="mm-section-head">PERFORMANCE</div>
+          <div class="mm-setting-row"><label>Particle Quality</label><input type="range" min="0" max="100" step="50" data-setting="particleQuality"/><span data-setting-value="particleQuality">100%</span></div>
+          <div class="mm-setting-row"><label>Shadow Map Size</label><select data-setting="shadowMapSize"><option value="512">512 (Low)</option><option value="1024">1024 (Medium)</option><option value="2048">2048 (High)</option></select><span data-setting-value="shadowMapSize">1024px</span></div>
         </div>
       </div>
     </div>

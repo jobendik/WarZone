@@ -6,6 +6,7 @@ import type { TDMAgent } from '@/entities/TDMAgent';
 import {
   findBestTarget, canSee, checkAudioAwareness,
   countNearbyAllies, updateEnemyMemory, decayEnemyMemory,
+  isOccluded,
 } from './Perception';
 import { evalFuzzy } from './FuzzyLogic';
 import { findCoverFrom, pushOutOfWall } from './CoverSystem';
@@ -209,12 +210,34 @@ function deliverCalloutsOncePerFrame(): void {
   }
 }
 
-/** Fire the agent's weapon using the simulated crosshair direction. */
+/** Fire the agent's weapon using the simulated crosshair direction.
+ *  PERF/FIX: before firing, check if the aim ray hits a wall before the
+ *  target. This prevents bots from shooting through walls/crates (they
+ *  could see the target last frame, aim toward it, but the target moved
+ *  behind cover by the time the burst fires). */
 function aiShoot(ag: TDMAgent): void {
   if (ag.isDead || !ag.currentTarget || ag.currentTarget.isDead) return;
   if (ag.weaponId === 'unarmed') return;
 
   const { dir, origin } = getAimDirection(ag);
+
+  // Wall-block check: cast a quick ray along the firing direction and
+  // confirm the target isn't behind a wall. Without this, bots fire
+  // through crates/walls whenever their aim spring leads ahead of LOS.
+  const tgt = ag.currentTarget;
+  const distToTarget = Math.sqrt(
+    (tgt.position.x - origin.x) ** 2 + (tgt.position.z - origin.z) ** 2,
+  );
+  _muzzlePos.set(origin.x, origin.y, origin.z);
+  const rc = gameState.raycaster;
+  rc.set(_muzzlePos, dir);
+  rc.near = 0;
+  rc.far = distToTarget;
+  const wallHits = rc.intersectObjects(gameState.wallMeshes, false);
+  if (wallHits.length > 0 && wallHits[0].distance < distToTarget * 0.92) {
+    return; // aim ray hits a wall before reaching the target — don't fire
+  }
+
   const col = ag.team === TEAM_BLUE ? 0x60a5fa : 0xff6644;
 
   _muzzlePos.set(origin.x + dir.x * 0.6, 1.0, origin.z + dir.z * 0.6);
@@ -574,21 +597,25 @@ export function updateAI(ag: TDMAgent, dt: number): void {
         }
       }
     } else if (canReact && ag.hasLastKnown && ag.alertLevel > 60 && !ag.isReloading && ag.ammo > 3) {
-      // Suppressive fire
-      const p = ag.personality;
-      const suppress = p ? (0.25 + p.trigHappy * 0.4) : 0.3;
-      if (!ag.underPressure || Math.random() < 0.15) {
-        const timeSinceTarget = ag.stateTime;
-        if (timeSinceTarget < 1.5 && Math.random() < suppress) {
-          ag.shootTimer -= dt;
-          if (ag.shootTimer <= 0) {
-            const { dir, origin } = getAimDirection(ag);
-            const col = ag.team === TEAM_BLUE ? 0x60a5fa : 0xff6644;
-            _muzzlePos.set(origin.x + dir.x * 0.6, 1.0, origin.z + dir.z * 0.6);
-            spawnMuzzleFlash(_muzzlePos, col);
-            hitscanShot(origin, dir, 'ai', ag.team, ag.weaponId, col, ag);
-            ag.ammo--;
-            ag.shootTimer = ag.fireRate * 1.5;
+      // Suppressive fire — only if there's a clear shot toward last known position
+      // (prevents shooting through walls/crates)
+      const hasLOS = !isOccluded(ag.position, ag.lastKnownPos);
+      if (hasLOS) {
+        const p = ag.personality;
+        const suppress = p ? (0.25 + p.trigHappy * 0.4) : 0.3;
+        if (!ag.underPressure || Math.random() < 0.15) {
+          const timeSinceTarget = ag.stateTime;
+          if (timeSinceTarget < 1.5 && Math.random() < suppress) {
+            ag.shootTimer -= dt;
+            if (ag.shootTimer <= 0) {
+              const { dir, origin } = getAimDirection(ag);
+              const col = ag.team === TEAM_BLUE ? 0x60a5fa : 0xff6644;
+              _muzzlePos.set(origin.x + dir.x * 0.6, 1.0, origin.z + dir.z * 0.6);
+              spawnMuzzleFlash(_muzzlePos, col);
+              hitscanShot(origin, dir, 'ai', ag.team, ag.weaponId, col, ag);
+              ag.ammo--;
+              ag.shootTimer = ag.fireRate * 1.5;
+            }
           }
         }
       }

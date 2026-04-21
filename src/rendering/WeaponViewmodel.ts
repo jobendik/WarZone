@@ -11,6 +11,12 @@ let vmGroup: THREE.Group;
 let vmMuzzleFlash: THREE.PointLight;
 let vmMuzzleMesh: THREE.Mesh;
 let vmMuzzleSprite: THREE.Sprite;
+// Secondary muzzle flash for dual-barrel weapons (e.g. dual MAC-10).
+// Always present but only made visible when the active weapon has a
+// `muzzleOffsetSecondary` defined.
+let vmMuzzleFlash2: THREE.PointLight;
+let vmMuzzleMesh2: THREE.Mesh;
+let vmMuzzleSprite2: THREE.Sprite;
 
 let currentWeaponMesh: THREE.Group | null = null;
 let currentWeaponId: WeaponId = 'assault_rifle';
@@ -26,11 +32,16 @@ let wasReloading = false;
 let currentM16Wrapper: THREE.Group | null = null;
 let m16DebugOverlay: HTMLDivElement | null = null;
 
+let currentSMGWrapper: THREE.Group | null = null;
+let smgDebugOverlay: HTMLDivElement | null = null;
+
 interface VMLayout {
   pos: [number, number, number];
   rot: [number, number, number];
   scale: number;
   muzzleOffset: [number, number, number];
+  /** Optional second muzzle offset for dual-barrel weapons (e.g. dual MAC-10). */
+  muzzleOffsetSecondary?: [number, number, number];
   recoilZ: number;
   recoilUp: number;
   recoilRot: number;
@@ -44,7 +55,9 @@ const VM_LAYOUTS: Record<WeaponId, VMLayout> = {
   unarmed:         { pos: [0.14, -0.25, -0.15], rot: [0, 0, 0], scale: 1.0, muzzleOffset: [0, 0, 0], recoilZ: 0, recoilUp: 0, recoilRot: 0, climbPerShot: 0, bobMul: 0.6 },
   knife:           { pos: [0.14, -0.12, -0.18], rot: [0, 0, 0], scale: 1.0, muzzleOffset: [0, 0, 0], recoilZ: 0, recoilUp: 0, recoilRot: 0, climbPerShot: 0, bobMul: 0.5 },
   pistol:          { pos: [0.14, -0.12, -0.20], rot: [0, 0, 0], scale: 1.4, muzzleOffset: [0, 0.008, -0.10], recoilZ: 0.025, recoilUp: 0.012, recoilRot: 0.08, climbPerShot: 0.008, bobMul: 0.7 },
-  smg:             { pos: [0.12, -0.11, -0.22], rot: [0, 0, 0], scale: 1.3, muzzleOffset: [0, 0.008, -0.14], recoilZ: 0.012, recoilUp: 0.006, recoilRot: 0.04, climbPerShot: 0.003, bobMul: 0.85 },
+  // Dual MAC-10: two barrels — left and right of the center axis. Both muzzles
+  // flash simultaneously every shot. Tune these offsets to match the GLB.
+  smg:             { pos: [0.05, -0.055, -0.130], rot: [0, 0, 0], scale: 1.0, muzzleOffset: [-0.060, 0.010, -0.170], muzzleOffsetSecondary: [0.060, 0.010, -0.170], recoilZ: 0.014, recoilUp: 0.007, recoilRot: 0.05, climbPerShot: 0.003, bobMul: 0.85 },
   assault_rifle:   { pos: [0.11, -0.10, -0.24], rot: [0, 0, 0], scale: 1.2, muzzleOffset: [0, 0.010, -0.18], recoilZ: 0.018, recoilUp: 0.008, recoilRot: 0.06, climbPerShot: 0.005, bobMul: 1.0 },
   shotgun:         { pos: [0.12, -0.11, -0.22], rot: [0, 0, 0], scale: 1.2, muzzleOffset: [0, 0.012, -0.20], recoilZ: 0.040, recoilUp: 0.025, recoilRot: 0.14, climbPerShot: 0, bobMul: 1.15 },
   sniper_rifle:    { pos: [0.10, -0.10, -0.26], rot: [0, 0, 0], scale: 1.1, muzzleOffset: [0, 0.010, -0.26], recoilZ: 0.035, recoilUp: 0.018, recoilRot: 0.10, climbPerShot: 0, bobMul: 1.3 },
@@ -83,13 +96,14 @@ const SHOTGUN_GLB_URL = `${BASE_URL}models/weapons/shotgun.glb`;
 const SNIPER_GLB_URL = `${BASE_URL}models/weapons/sniper_rifle.glb`;
 const GRENADE_LAUNCHER_GLB_URL = `${BASE_URL}models/weapons/grenadelauncher.glb`;
 const KNIFE_GLB_URL = `${BASE_URL}models/weapons/knife.glb`;
+const DUAL_MAC10_GLB_URL = `${BASE_URL}models/weapons/dual_mac10_smg.glb`;
 
 type CachedGLB = {
   scene: THREE.Group;
   animations: THREE.AnimationClip[];
 };
 
-type AnimatedWeaponId = 'assault_rifle' | 'pistol' | 'shotgun' | 'sniper_rifle' | 'rocket_launcher';
+type AnimatedWeaponId = 'assault_rifle' | 'pistol' | 'shotgun' | 'sniper_rifle' | 'rocket_launcher' | 'smg';
 type AnimatedRangeName = 'equip' | 'shoot' | 'reload' | 'hit';
 type KnifeRangeName = 'equip' | 'idle' | 'slice1' | 'slice2' | 'slice3';
 
@@ -176,6 +190,38 @@ pistol: {
     },
     logLabel: 'grenadelauncher.glb',
   },
+  smg: {
+    url: DUAL_MAC10_GLB_URL,
+    desiredMaxDimension: 0.870,
+    position: new THREE.Vector3(0.125, -0.280, -0.185),
+    rotation: new THREE.Euler(0.010, -0.660, -0.140),
+    // Ranges derived from dual_mac10_smg.txt:
+    //   shooting 0.00-0.25, reload 0.25-1.73, equip 2.20-2.47
+    holdTime: 2.47,
+    ranges: {
+      shoot: [0.00, 0.25],
+      reload: [0.25, 1.73],
+      equip: [2.20, 2.47],
+    },
+    logLabel: 'dual_mac10_smg.glb',
+  },
+};
+
+const SMG_VIEWMODEL_TUNE = ANIMATED_VIEWMODEL_CONFIGS.smg;
+
+const SMG_DEBUG_TUNER = {
+  enabled: false, // set true to enable tuning overlay
+  position: new THREE.Vector3(
+    SMG_VIEWMODEL_TUNE.position.x,
+    SMG_VIEWMODEL_TUNE.position.y,
+    SMG_VIEWMODEL_TUNE.position.z,
+  ),
+  rotation: new THREE.Euler(
+    SMG_VIEWMODEL_TUNE.rotation.x,
+    SMG_VIEWMODEL_TUNE.rotation.y,
+    SMG_VIEWMODEL_TUNE.rotation.z,
+  ),
+  desiredMaxDimension: SMG_VIEWMODEL_TUNE.desiredMaxDimension,
 };
 
 const M16_VIEWMODEL_TUNE = ANIMATED_VIEWMODEL_CONFIGS.assault_rifle;
@@ -274,6 +320,7 @@ function isAnimatedWeapon(weaponId: WeaponId): weaponId is AnimatedWeaponId {
     || weaponId === 'shotgun'
     || weaponId === 'sniper_rifle'
     || weaponId === 'rocket_launcher'
+    || weaponId === 'smg'
 }
 
 async function loadAnimatedViewmodel(weaponId: AnimatedWeaponId): Promise<CachedGLB | null> {
@@ -740,12 +787,12 @@ I/K = Y+ / Y-
 U/O = Z- / Z+
 
 Scale:
-Q/E = size- / size+
+N/M = size- / size+
 
 Rotate:
-1/2 = pitch- / pitch+
-3/4 = yaw- / yaw+
-5/6 = roll- / roll+
+[/] = pitch- / pitch+
+;/' = yaw- / yaw+
+,/. = roll- / roll+
 
 P = print values
 
@@ -824,33 +871,33 @@ function onM16DebugKeyDown(ev: KeyboardEvent): void {
       M16_DEBUG_TUNER.position.z += posStep;
       break;
 
-    case 'q':
-    case 'Q':
+    case 'n':
+    case 'N':
       M16_DEBUG_TUNER.desiredMaxDimension = Math.max(0.05, M16_DEBUG_TUNER.desiredMaxDimension - scaleStep);
       sizeChanged = true;
       break;
-    case 'e':
-    case 'E':
+    case 'm':
+    case 'M':
       M16_DEBUG_TUNER.desiredMaxDimension += scaleStep;
       sizeChanged = true;
       break;
 
-    case '1':
+    case '[':
       M16_DEBUG_TUNER.rotation.x -= rotStep;
       break;
-    case '2':
+    case ']':
       M16_DEBUG_TUNER.rotation.x += rotStep;
       break;
-    case '3':
+    case ';':
       M16_DEBUG_TUNER.rotation.y -= rotStep;
       break;
-    case '4':
+    case "'":
       M16_DEBUG_TUNER.rotation.y += rotStep;
       break;
-    case '5':
+    case ',':
       M16_DEBUG_TUNER.rotation.z -= rotStep;
       break;
-    case '6':
+    case '.':
       M16_DEBUG_TUNER.rotation.z += rotStep;
       break;
 
@@ -932,6 +979,7 @@ function clearCurrentWeaponMesh(): void {
   }
 
   currentM16Wrapper = null;
+  currentSMGWrapper = null;
   currentAnimatedWeaponId = null;
   activeAnimatedRange = null;
   currentAnimatedAction = null;
@@ -979,22 +1027,29 @@ function attachLoadedAnimatedWeapon(weaponId: AnimatedWeaponId): void {
     console.info('[WeaponViewmodel] M16 raw bounds center:', rawCenter.toArray());
   }
 
-  const desiredDim = weaponId === 'assault_rifle' && M16_DEBUG_TUNER.enabled
-    ? M16_DEBUG_TUNER.desiredMaxDimension
+  const isM16Tuning = weaponId === 'assault_rifle' && M16_DEBUG_TUNER.enabled;
+  const isSMGTuning = weaponId === 'smg' && SMG_DEBUG_TUNER.enabled;
+  const desiredDim = isM16Tuning ? M16_DEBUG_TUNER.desiredMaxDimension
+    : isSMGTuning ? SMG_DEBUG_TUNER.desiredMaxDimension
     : cfg.desiredMaxDimension;
   const wrapper = normalizeViewmodelWrapper(
     cloneRoot,
     desiredDim,
-    weaponId === 'assault_rifle' && M16_DEBUG_TUNER.enabled ? M16_DEBUG_TUNER.position : cfg.position,
-    weaponId === 'assault_rifle' && M16_DEBUG_TUNER.enabled ? M16_DEBUG_TUNER.rotation : cfg.rotation,
+    isM16Tuning ? M16_DEBUG_TUNER.position : isSMGTuning ? SMG_DEBUG_TUNER.position : cfg.position,
+    isM16Tuning ? M16_DEBUG_TUNER.rotation : isSMGTuning ? SMG_DEBUG_TUNER.rotation : cfg.rotation,
   );
 
   wrapper.name = `${weaponId}ViewmodelWrapper`;
 
   if (weaponId === 'assault_rifle') {
     currentM16Wrapper = wrapper;
+    currentSMGWrapper = null;
+  } else if (weaponId === 'smg') {
+    currentSMGWrapper = wrapper;
+    currentM16Wrapper = null;
   } else {
     currentM16Wrapper = null;
+    currentSMGWrapper = null;
   }
 
   currentAnimatedWeaponId = weaponId;
@@ -1031,6 +1086,186 @@ function attachLoadedAnimatedWeapon(weaponId: AnimatedWeaponId): void {
 
     refreshM16DebugOverlay();
   }
+
+  if (weaponId === 'smg') {
+    refreshSMGDebugOverlay();
+  }
+}
+
+function ensureSMGDebugOverlay(): void {
+  if (!SMG_DEBUG_TUNER.enabled) return;
+  if (smgDebugOverlay) return;
+
+  const el = document.createElement('div');
+  el.style.position = 'fixed';
+  el.style.left = '12px';
+  el.style.bottom = '12px';
+  el.style.zIndex = '99999';
+  el.style.padding = '10px 12px';
+  el.style.background = 'rgba(0,0,0,0.75)';
+  el.style.color = '#a0ffb0';
+  el.style.fontFamily = 'monospace';
+  el.style.fontSize = '12px';
+  el.style.lineHeight = '1.45';
+  el.style.border = '1px solid rgba(100,255,130,0.45)';
+  el.style.borderRadius = '8px';
+  el.style.whiteSpace = 'pre';
+  el.style.pointerEvents = 'none';
+  document.body.appendChild(el);
+
+  smgDebugOverlay = el;
+  refreshSMGDebugOverlay();
+}
+
+function refreshSMGDebugOverlay(): void {
+  if (!smgDebugOverlay || !SMG_DEBUG_TUNER.enabled) return;
+
+  const p = SMG_DEBUG_TUNER.position;
+  const r = SMG_DEBUG_TUNER.rotation;
+
+  smgDebugOverlay.textContent =
+`SMG VIEWMODEL TUNER
+
+Move:
+J/L = X- / X+
+I/K = Y+ / Y-
+U/O = Z- / Z+
+
+Scale:
+N/M = size- / size+
+
+Rotate:
+[/] = pitch- / pitch+
+;/' = yaw- / yaw+
+,/. = roll- / roll+
+
+P = print values
+
+desiredMaxDimension: ${SMG_DEBUG_TUNER.desiredMaxDimension.toFixed(3)}
+
+position:
+x: ${p.x.toFixed(3)}
+y: ${p.y.toFixed(3)}
+z: ${p.z.toFixed(3)}
+
+rotation:
+x: ${r.x.toFixed(3)}
+y: ${r.y.toFixed(3)}
+z: ${r.z.toFixed(3)}
+`;
+}
+
+function logSMGTuningValues(): void {
+  const p = SMG_DEBUG_TUNER.position;
+  const r = SMG_DEBUG_TUNER.rotation;
+
+  console.info(
+`// Paste into ANIMATED_VIEWMODEL_CONFIGS.smg:
+desiredMaxDimension: ${SMG_DEBUG_TUNER.desiredMaxDimension.toFixed(3)},
+position: new THREE.Vector3(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}),
+rotation: new THREE.Euler(${r.x.toFixed(3)}, ${r.y.toFixed(3)}, ${r.z.toFixed(3)}),`
+  );
+}
+
+function applySMGDebugTransform(): void {
+  if (!currentSMGWrapper) return;
+  currentSMGWrapper.position.copy(SMG_DEBUG_TUNER.position);
+  currentSMGWrapper.rotation.copy(SMG_DEBUG_TUNER.rotation);
+}
+
+function onSMGDebugKeyDown(ev: KeyboardEvent): void {
+  if (!SMG_DEBUG_TUNER.enabled) return;
+  if (!currentSMGWrapper) return;
+  if (currentWeaponId !== 'smg') return;
+
+  const tag = (ev.target as HTMLElement | null)?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+  const posStep = ev.shiftKey ? 0.02 : 0.005;
+  const rotStep = ev.shiftKey ? 0.08 : 0.02;
+  const scaleStep = ev.shiftKey ? 0.05 : 0.01;
+
+  let changed = true;
+  let sizeChanged = false;
+
+  switch (ev.key) {
+    case 'j':
+    case 'J':
+      SMG_DEBUG_TUNER.position.x -= posStep;
+      break;
+    case 'l':
+    case 'L':
+      SMG_DEBUG_TUNER.position.x += posStep;
+      break;
+    case 'i':
+    case 'I':
+      SMG_DEBUG_TUNER.position.y += posStep;
+      break;
+    case 'k':
+    case 'K':
+      SMG_DEBUG_TUNER.position.y -= posStep;
+      break;
+    case 'u':
+    case 'U':
+      SMG_DEBUG_TUNER.position.z -= posStep;
+      break;
+    case 'o':
+    case 'O':
+      SMG_DEBUG_TUNER.position.z += posStep;
+      break;
+
+    case 'n':
+    case 'N':
+      SMG_DEBUG_TUNER.desiredMaxDimension = Math.max(0.05, SMG_DEBUG_TUNER.desiredMaxDimension - scaleStep);
+      sizeChanged = true;
+      break;
+    case 'm':
+    case 'M':
+      SMG_DEBUG_TUNER.desiredMaxDimension += scaleStep;
+      sizeChanged = true;
+      break;
+
+    case '[':
+      SMG_DEBUG_TUNER.rotation.x -= rotStep;
+      break;
+    case ']':
+      SMG_DEBUG_TUNER.rotation.x += rotStep;
+      break;
+    case ';':
+      SMG_DEBUG_TUNER.rotation.y -= rotStep;
+      break;
+    case "'":
+      SMG_DEBUG_TUNER.rotation.y += rotStep;
+      break;
+    case ',':
+      SMG_DEBUG_TUNER.rotation.z -= rotStep;
+      break;
+    case '.':
+      SMG_DEBUG_TUNER.rotation.z += rotStep;
+      break;
+
+    case 'p':
+    case 'P':
+      logSMGTuningValues();
+      changed = false;
+      break;
+
+    default:
+      changed = false;
+      break;
+  }
+
+  if (!changed) return;
+
+  ev.preventDefault();
+
+  if (sizeChanged) {
+    applyWeaponSwap('smg');
+  } else {
+    applySMGDebugTransform();
+  }
+
+  refreshSMGDebugOverlay();
 }
 
 function ensureKnifeDebugOverlay(): void {
@@ -1073,12 +1308,12 @@ I/K = Y+ / Y-
 U/O = Z- / Z+
 
 Scale:
-Q/E = size- / size+
+N/M = size- / size+
 
 Rotate:
-1/2 = pitch- / pitch+
-3/4 = yaw- / yaw+
-5/6 = roll- / roll+
+[/] = pitch- / pitch+
+;/' = yaw- / yaw+
+,/. = roll- / roll+
 
 P = print values
 
@@ -1157,33 +1392,33 @@ function onKnifeDebugKeyDown(ev: KeyboardEvent): void {
       KNIFE_DEBUG_TUNER.position.z += posStep;
       break;
 
-    case 'q':
-    case 'Q':
+    case 'n':
+    case 'N':
       KNIFE_DEBUG_TUNER.desiredMaxDimension = Math.max(0.05, KNIFE_DEBUG_TUNER.desiredMaxDimension - scaleStep);
       sizeChanged = true;
       break;
-    case 'e':
-    case 'E':
+    case 'm':
+    case 'M':
       KNIFE_DEBUG_TUNER.desiredMaxDimension += scaleStep;
       sizeChanged = true;
       break;
 
-    case '1':
+    case '[':
       KNIFE_DEBUG_TUNER.rotation.x -= rotStep;
       break;
-    case '2':
+    case ']':
       KNIFE_DEBUG_TUNER.rotation.x += rotStep;
       break;
-    case '3':
+    case ';':
       KNIFE_DEBUG_TUNER.rotation.y -= rotStep;
       break;
-    case '4':
+    case "'":
       KNIFE_DEBUG_TUNER.rotation.y += rotStep;
       break;
-    case '5':
+    case ',':
       KNIFE_DEBUG_TUNER.rotation.z -= rotStep;
       break;
-    case '6':
+    case '.':
       KNIFE_DEBUG_TUNER.rotation.z += rotStep;
       break;
 
@@ -1307,6 +1542,12 @@ function applyWeaponSwap(weaponId: WeaponId): void {
   vmMuzzleMesh.visible = hasMuzzle;
   vmMuzzleSprite.visible = hasMuzzle;
 
+  // Secondary muzzle (dual-barrel weapons only)
+  const hasSecondaryMuzzle = hasMuzzle && !!VM_LAYOUTS[weaponId].muzzleOffsetSecondary;
+  vmMuzzleFlash2.visible = hasSecondaryMuzzle;
+  vmMuzzleMesh2.visible = hasSecondaryMuzzle;
+  vmMuzzleSprite2.visible = hasSecondaryMuzzle;
+
   if (isAnimatedWeapon(weaponId) && cachedAnimated.get(weaponId)) {
     attachLoadedAnimatedWeapon(weaponId);
   } else if (weaponId === 'knife' && cachedKnife) {
@@ -1356,7 +1597,7 @@ async function tryLoadSpecialViewmodel(weaponId: WeaponId): Promise<void> {
  * individual loaders fall back to procedural meshes).
  */
 export async function preloadViewmodels(): Promise<void> {
-  const animatedIds: AnimatedWeaponId[] = ['assault_rifle', 'pistol', 'shotgun', 'sniper_rifle', 'rocket_launcher'];
+  const animatedIds: AnimatedWeaponId[] = ['assault_rifle', 'pistol', 'shotgun', 'sniper_rifle', 'rocket_launcher', 'smg'];
   for (const weaponId of ALL_VIEWMODEL_WEAPON_IDS) {
     if (weaponId === 'knife' || isAnimatedWeapon(weaponId)) continue;
     getProceduralWeaponTemplate(weaponId);
@@ -1472,9 +1713,38 @@ export function initViewmodel(): void {
   vmMuzzleSprite.scale.set(0.08, 0.08, 1);
   vmGroup.add(vmMuzzleSprite);
 
+  // ── Secondary muzzle (dual-barrel weapons) ──
+  vmMuzzleFlash2 = new THREE.PointLight(0xffaa33, 0, 4);
+  vmMuzzleFlash2.visible = false;
+  vmGroup.add(vmMuzzleFlash2);
+
+  vmMuzzleMesh2 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.018, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffdd55, transparent: true, opacity: 0 }),
+  );
+  vmMuzzleMesh2.visible = false;
+  vmGroup.add(vmMuzzleMesh2);
+
+  const flashMat2 = new THREE.SpriteMaterial({
+    color: 0xffcc44,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthTest: false,
+  });
+  vmMuzzleSprite2 = new THREE.Sprite(flashMat2);
+  vmMuzzleSprite2.scale.set(0.08, 0.08, 1);
+  vmMuzzleSprite2.visible = false;
+  vmGroup.add(vmMuzzleSprite2);
+
   if (M16_DEBUG_TUNER.enabled) {
     ensureM16DebugOverlay();
     window.addEventListener('keydown', onM16DebugKeyDown);
+  }
+
+  if (SMG_DEBUG_TUNER.enabled) {
+    ensureSMGDebugOverlay();
+    window.addEventListener('keydown', onSMGDebugKeyDown);
   }
 
   if (KNIFE_DEBUG_TUNER.enabled) {
@@ -1509,6 +1779,15 @@ export function fireViewmodel(): void {
   vmMuzzleSprite.scale.set(0.12, 0.12, 1);
   vmMuzzleSprite.material.rotation = Math.random() * Math.PI * 2;
 
+  // Dual-barrel weapons (e.g. dual MAC-10): fire the second muzzle in sync
+  if (layout.muzzleOffsetSecondary) {
+    vmMuzzleFlash2.intensity = 6;
+    (vmMuzzleMesh2.material as THREE.MeshBasicMaterial).opacity = 1.0;
+    (vmMuzzleSprite2.material as THREE.SpriteMaterial).opacity = 0.9;
+    vmMuzzleSprite2.scale.set(0.12, 0.12, 1);
+    vmMuzzleSprite2.material.rotation = Math.random() * Math.PI * 2;
+  }
+
   // Shell casing ejection (hitscan weapons only — not rockets)
   if (currentWeaponId !== 'rocket_launcher') {
     const cam = gameState.camera;
@@ -1517,6 +1796,12 @@ export function fireViewmodel(): void {
     right.cross(cam.up).normalize();
     const ejectionPt = cam.position.clone().add(right.clone().multiplyScalar(0.15)).add(new THREE.Vector3(0, -0.05, 0));
     spawnShellCasing(ejectionPt, right);
+    // Dual-barrel weapons eject a second casing from the opposite side
+    if (layout.muzzleOffsetSecondary) {
+      const leftDir = right.clone().multiplyScalar(-1);
+      const ejectionPt2 = cam.position.clone().add(leftDir.clone().multiplyScalar(0.15)).add(new THREE.Vector3(0, -0.05, 0));
+      spawnShellCasing(ejectionPt2, leftDir);
+    }
   }
 
   const kickUp = layout.recoilRot * 0.4 + Math.random() * layout.recoilRot * 0.15
@@ -1653,6 +1938,16 @@ export function updateViewmodel(dt: number): void {
   spriteMat.opacity *= Math.max(0, 1 - dt * 18);
   vmMuzzleSprite.scale.multiplyScalar(Math.max(0.8, 1 - dt * 8));
 
+  // Secondary muzzle decay (only relevant when visible, but cheap to always run)
+  if (vmMuzzleFlash2.visible) {
+    vmMuzzleFlash2.intensity *= Math.max(0, 1 - dt * 25);
+    const flashMat2b = vmMuzzleMesh2.material as THREE.MeshBasicMaterial;
+    flashMat2b.opacity *= Math.max(0, 1 - dt * 20);
+    const spriteMat2 = vmMuzzleSprite2.material as THREE.SpriteMaterial;
+    spriteMat2.opacity *= Math.max(0, 1 - dt * 18);
+    vmMuzzleSprite2.scale.multiplyScalar(Math.max(0.8, 1 - dt * 8));
+  }
+
   const switchDrop = (1 - easeOutCubic(switchProgress)) * 0.15;
   const reloadDrop = reloadLerp * 0.08;
   const reloadTilt = reloadLerp * 0.6;
@@ -1740,6 +2035,13 @@ export function updateViewmodel(dt: number): void {
   vmMuzzleFlash.position.set(mOff[0], mOff[1], mOff[2]);
   vmMuzzleMesh.position.set(mOff[0], mOff[1], mOff[2]);
   vmMuzzleSprite.position.set(mOff[0], mOff[1], mOff[2]);
+
+  const mOff2 = layout.muzzleOffsetSecondary;
+  if (mOff2) {
+    vmMuzzleFlash2.position.set(mOff2[0], mOff2[1], mOff2[2]);
+    vmMuzzleMesh2.position.set(mOff2[0], mOff2[1], mOff2[2]);
+    vmMuzzleSprite2.position.set(mOff2[0], mOff2[1], mOff2[2]);
+  }
 
   if (Math.abs(gameState.recoilPitch) > 0.0001) {
     const apply = gameState.recoilPitch * Math.min(1, dt * 20);

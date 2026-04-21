@@ -9,6 +9,10 @@
 export let ARENA_HALF = 58;
 export let ARENA_MARGIN = ARENA_HALF - 1.5;
 export const RESPAWN_TIME = 3;
+export const ARENA_TEAM_TOTAL = 7;
+export const ARENA_BLUE_BOT_COUNT = ARENA_TEAM_TOTAL - 1;
+export const ARENA_RED_BOT_COUNT = ARENA_TEAM_TOTAL;
+export const ARENA_SPAWN_COUNT = 8;
 
 /** Axis-aligned walkable bounds of the arena (derived from the navmesh). */
 export const ARENA_BOUNDS = {
@@ -54,12 +58,13 @@ export function configureArenaBounds(bounds: {
   const z0 = bounds.minZ + inset;
   const z1 = bounds.maxZ - inset;
   const jitter = 4;
+  const columns = Math.min(4, ARENA_SPAWN_COUNT);
 
   BLUE_SPAWNS.length = 0;
   RED_SPAWNS.length = 0;
-  for (let i = 0; i < 6; i++) {
-    const dx = (i % 3) * jitter;
-    const dz = Math.floor(i / 3) * jitter;
+  for (let i = 0; i < ARENA_SPAWN_COUNT; i++) {
+    const dx = (i % columns) * jitter;
+    const dz = Math.floor(i / columns) * jitter;
     BLUE_SPAWNS.push([x0 + dx, 0, z0 + dz]);
     RED_SPAWNS.push([x1 - dx, 0, z1 - dz]);
   }
@@ -86,11 +91,13 @@ export const TEAM_NAMES: Record<TeamId, string> = {
 export const BLUE_SPAWNS: [number, number, number][] = [
   [-40, 0, -40], [-36, 0, -44], [-44, 0, -36],
   [-36, 0, -40], [-40, 0, -36], [-44, 0, -44],
+  [-32, 0, -44], [-32, 0, -40],
 ];
 
 export const RED_SPAWNS: [number, number, number][] = [
   [40, 0, 40], [36, 0, 44], [44, 0, 36],
   [36, 0, 40], [40, 0, 36], [44, 0, 44],
+  [32, 0, 44], [32, 0, 40],
 ];
 
 /** Agent hitbox radii (shared between Bullets and Hitscan) */

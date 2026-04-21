@@ -27,6 +27,7 @@
  */
 
 import * as THREE from 'three';
+import { gameState } from '@/core/GameState';
 
 export type WeatherPreset = 'clear' | 'overcast' | 'storm' | 'tempest' | 'rain' | 'fog' | 'snow' | 'dusk' | 'night' | 'dawn';
 
@@ -255,7 +256,7 @@ class RainSystem {
   private radius: number;
   private intensity: number = 0;
 
-  constructor(scene: THREE.Scene, count: number = 4000, radius: number = 100) {
+  constructor(scene: THREE.Scene, count: number = 1500, radius: number = 80) {
     this.count = count;
     this.radius = radius;
     const positions = new Float32Array(count * 3);
@@ -316,7 +317,7 @@ class SnowSystem {
   private radius: number;
   private phases: Float32Array;
 
-  constructor(scene: THREE.Scene, count: number = 3000, radius: number = 80) {
+  constructor(scene: THREE.Scene, count: number = 1200, radius: number = 65) {
     this.count = count;
     this.radius = radius;
     const positions = new Float32Array(count * 3);
@@ -700,6 +701,8 @@ function attemptShift(): void {
   state.nextShiftAttempt = state.matchElapsed + duration + 18 + Math.random() * 25;
 }
 
+let _precipFrame = 0;
+
 export function updateDynamicWeather(dt: number, cameraPos?: THREE.Vector3): void {
   state.matchElapsed += dt;
 
@@ -726,13 +729,17 @@ export function updateDynamicWeather(dt: number, cameraPos?: THREE.Vector3): voi
   // no transition is in progress.
   state.skyDome?.updateFromChannels(state.current, dt);
 
-  // Precipitation
+  // Precipitation — throttle to every 2nd frame and skip entirely
+  // during heavy combat (player can't notice rain fidelity in a firefight).
+  _precipFrame++;
+  const skipPrecip = (_precipFrame & 1) === 0;
+  const combatHeavy = gameState.particles?.length > 100;
   const camPos = cameraPos ?? new THREE.Vector3();
-  if (state.rainSystem) {
-    state.rainSystem.update(dt, state.current.rainIntensity, state.current.windSpeed, camPos);
+  if (state.rainSystem && !skipPrecip && !combatHeavy) {
+    state.rainSystem.update(dt * 2, state.current.rainIntensity, state.current.windSpeed, camPos);
   }
-  if (state.snowSystem) {
-    state.snowSystem.update(dt, state.current.snowIntensity, state.current.windSpeed, camPos, state.matchElapsed);
+  if (state.snowSystem && !skipPrecip && !combatHeavy) {
+    state.snowSystem.update(dt * 2, state.current.snowIntensity, state.current.windSpeed, camPos, state.matchElapsed);
   }
 
   // Lightning

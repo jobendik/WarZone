@@ -54,6 +54,11 @@ const _hsPenOrigin = new THREE.Vector3();
 const _hsShotPos = new THREE.Vector3();
 const _hsWhizPos = new THREE.Vector3();
 const _grenadePool: ProjectilePoolEntry[] = [];
+
+// Scratch vectors for explode() — eliminates per-agent `new Vector3()` and
+// `agPos.clone().sub(pos)` allocations during grenade/rocket fights.
+const _explAgPos = new THREE.Vector3();
+const _explPushDir = new THREE.Vector3();
 let _projectilePoolsInited = false;
 let _combatProjectileWarmupGroup: THREE.Group | null = null;
 
@@ -305,8 +310,10 @@ export function hitscanShot(
     spawnBulletHole(_hsEnd, worldNormal);
     playImpact(_hsEnd, 'wall');
 
-    // Bullet penetration — high-power hitscan weapons pierce thin walls
-    if (wep.isHitscan && wep.damage >= 18 && wallHits[0].distance < wep.range * 0.7) {
+    // Bullet penetration — high-power hitscan weapons pierce thin walls.
+    // Only allow the PLAYER to wallbang — AI bots doing it feels like
+    // cheating because they aim perfectly at last-known positions.
+    if (ownerType === 'player' && wep.isHitscan && wep.damage >= 18 && wallHits[0].distance < wep.range * 0.7) {
       _hsPenOrigin.copy(_hsDir).multiplyScalar(0.3).add(_hsEnd);
       const remainRange = wep.range - wallHits[0].distance - 0.3;
       if (remainRange > 2) {
@@ -497,7 +504,9 @@ export function updateProjectiles(dt: number): void {
           explode(b.mesh.position.clone(), b.splashRadius!, b.dmg, b.ownerAgent ?? null);
         }
         releaseBullet(b, scene);
-        bullets.splice(i, 1);
+        bullets[i] = bullets[bullets.length - 1];
+        bullets.pop();
+        i--;
       }
       continue;
     }
@@ -541,7 +550,9 @@ export function updateProjectiles(dt: number): void {
       if (hit || b.life <= 0) {
         explode(b.mesh.position.clone(), b.splashRadius!, b.dmg, b.ownerAgent ?? null);
         releaseBullet(b, scene);
-        bullets.splice(i, 1);
+        bullets[i] = bullets[bullets.length - 1];
+        bullets.pop();
+        i--;
       }
       continue;
     }
@@ -551,7 +562,9 @@ export function updateProjectiles(dt: number): void {
     b.mesh.position.z += b.dir.z * b.spd * dt;
     if (b.life <= 0) {
       releaseBullet(b, scene);
-      bullets.splice(i, 1);
+      bullets[i] = bullets[bullets.length - 1];
+      bullets.pop();
+      i--;
     }
   }
 }
@@ -566,28 +579,44 @@ function explode(pos: THREE.Vector3, radius: number, damage: number, ownerAgent:
     if (ownerAgent && ag === ownerAgent) continue;
     if (ownerAgent && !isEnemy(ownerAgent, ag)) continue;
 
-    const agPos = new THREE.Vector3(ag.position.x, 1.0, ag.position.z);
-    const dist = agPos.distanceTo(pos);
+    _explAgPos.set(ag.position.x, 1.0, ag.position.z);
+    const dist = _explAgPos.distanceTo(pos);
     if (dist < radius) {
+      // Wall occlusion — don't damage targets shielded by geometry.
+      // Cast a ray from the blast centre to the agent; if a wall is
+      // closer than the agent the explosion is blocked.
+      _explPushDir.subVectors(_explAgPos, pos);
+      const agDist = _explPushDir.length();
+      if (agDist > 0.1) {
+        _explPushDir.normalize();
+        const rc = gameState.raycaster;
+        rc.set(pos, _explPushDir);
+        rc.near = 0;
+        rc.far = agDist;
+        const wallBlock = rc.intersectObjects(gameState.wallMeshes, false);
+        if (wallBlock.length > 0 && wallBlock[0].distance < agDist * 0.9) {
+          continue; // wall between blast and target — skip damage
+        }
+      }
       const falloff = 1 - dist / radius;
       const dmg = Math.round(damage * falloff);
       if (ag === gameState.player) dealDmgPlayer(dmg, ownerAgent);
       else dealDmgAgent(ag, dmg, ownerAgent);
 
       // Explosion knockback — push away from blast centre
-      const pushDir = agPos.clone().sub(pos);
-      pushDir.y = 0;
-      if (pushDir.lengthSq() > 0.001) pushDir.normalize();
+      _explPushDir.subVectors(_explAgPos, pos);
+      _explPushDir.y = 0;
+      if (_explPushDir.lengthSq() > 0.001) _explPushDir.normalize();
       const knockForce = falloff * 12;
       if (ag === gameState.player) {
         // Push player via movement velocity
-        movement.velocity.x += pushDir.x * knockForce;
-        movement.velocity.z += pushDir.z * knockForce;
+        movement.velocity.x += _explPushDir.x * knockForce;
+        movement.velocity.z += _explPushDir.z * knockForce;
         gameState.pVelY = Math.max(gameState.pVelY, falloff * 4);
       } else {
         // Push bot via YUKA velocity
-        ag.velocity.x += pushDir.x * knockForce;
-        ag.velocity.z += pushDir.z * knockForce;
+        ag.velocity.x += _explPushDir.x * knockForce;
+        ag.velocity.z += _explPushDir.z * knockForce;
       }
     }
   }

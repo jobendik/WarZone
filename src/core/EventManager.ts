@@ -289,7 +289,20 @@ function requestMouseLock(): void {
 }
 
 function onPointerLockChange(): void {
+  const wasLocked = gameState.mouseLocked;
   gameState.mouseLocked = document.pointerLockElement === gameState.renderer.domElement;
+  if (
+    wasLocked
+    && !gameState.mouseLocked
+    && !gameState.paused
+    && !gameState.mainMenuOpen
+    && !gameState.roundOver
+    && !gameState._introActive
+    && !gameState.commWheelOpen
+  ) {
+    togglePause(true);
+    return;
+  }
   if (!gameState.mouseLocked) gameState.isADS = false;
   syncLockHintVisibility();
 }

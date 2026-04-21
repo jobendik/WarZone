@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as YUKA from 'yuka';
 import { gameState } from '@/core/GameState';
+import { RESPAWN_TIME } from '@/config/constants';
 import { FP } from '@/config/player';
 import { WEAPONS } from '@/config/weapons';
 import { allowsRespawn, getFacingYawTowardsArena, getModeDefaults, getPlayerSpawn, getWorldBoundary } from '@/core/GameModes';
@@ -17,7 +18,7 @@ import { consumeAmmo } from '@/br/Inventory';
 import { updateMovement, getCameraOffset, getCurrentPlayerHeight, requestJump, toggleCrouch, setLean, attemptSlide, movement } from '@/movement/MovementController';
 import { playHeal } from '@/audio/SoundHooks';
 import { getActivePerkHooks } from '@/config/Loadouts';
-import { isKillcamActive, updateKillcam, isPotgActive, updatePotgReplay } from '@/ui/Killcam';
+import { isKillcamActive, stopKillcam, updateKillcam, isPotgActive, updatePotgReplay } from '@/ui/Killcam';
 
 const NAV_FLOOR_SAMPLE_Y = 2.0;
 
@@ -33,6 +34,24 @@ const NAV_COLLIDE_Y_EPSILON = 2.2;
 
 const navPoint = new YUKA.Vector3();
 const navProjectedPoint = new YUKA.Vector3();
+let respawnFadeResetHandle: number | null = null;
+
+function playRespawnFade(): void {
+  const overlay = document.getElementById('respawnFade');
+  if (!overlay) return;
+
+  overlay.classList.remove('on');
+  void overlay.offsetWidth;
+  overlay.classList.add('on');
+
+  if (respawnFadeResetHandle != null) {
+    window.clearTimeout(respawnFadeResetHandle);
+  }
+  respawnFadeResetHandle = window.setTimeout(() => {
+    overlay.classList.remove('on');
+    respawnFadeResetHandle = null;
+  }, 260);
+}
 
 export function getFloorY(x: number, z: number): number {
   if (gameState.navMeshManager.navMesh) {
@@ -141,10 +160,6 @@ export function updatePlayer(dt: number): void {
   }
 
   if (gameState.pDead) {
-    if (isKillcamActive()) {
-      if (updateKillcam(dt)) return;
-    }
-
     if (gameState.mode === 'br') {
       dom.dsp.textContent = 'Spectating killer — press ENTER for a new match';
       let target = gameState.spectatorTarget;
@@ -178,8 +193,15 @@ export function updatePlayer(dt: number): void {
       return;
     }
 
-    gameState.respTimer -= dt;
+    const elapsedSinceDeath = Math.max(0, gameState.worldElapsed - (gameState.deathTime ?? gameState.worldElapsed));
+    gameState.respTimer = Math.max(0, RESPAWN_TIME - elapsedSinceDeath);
     dom.dsp.textContent = 'Respawning in ' + Math.max(0, gameState.respTimer).toFixed(1) + 's…';
+
+    if (isKillcamActive()) {
+      if (gameState.respTimer > 0 && updateKillcam(dt)) return;
+      stopKillcam();
+    }
+
     if (gameState.respTimer <= 0) {
       gameState.pDead = false;
       player.isDead = false;
@@ -205,6 +227,7 @@ export function updatePlayer(dt: number): void {
       player.spawnPos.set(sp[0], 0, sp[2]);
       gameState.cameraYaw = getFacingYawTowardsArena(sp[0], sp[2]);
       gameState.cameraPitch = 0;
+      playRespawnFade();
       setViewmodelWeapon(gameState.pWeaponId);
       updateHUD();
     }

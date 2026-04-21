@@ -286,6 +286,38 @@ class AudioMgr {
     this.playingLoops.set(id, src);
   }
 
+  /**
+   * Play a track exactly once (no loop). Stored in playingLoops so it can
+   * be cut short early via stopLoop(). Auto-removed when playback ends.
+   */
+  playOnce(id: string, volume = 1): void {
+    if (!this.enabled || !this.ctx) return;
+    if (this.playingLoops.has(id)) return;
+    const buf = this.samples.get(id);
+    if (!buf) return;
+
+    const def = SOUNDS[id];
+    const bus =
+      def?.category === 'music' ? this.busMusic :
+      def?.category === 'voice' ? this.busVoice :
+      def?.category === 'ui' ? this.busUi : this.busSfx;
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = false;
+    const g = this.ctx.createGain();
+    g.gain.value = volume * (def?.volume ?? 1);
+    src.connect(g);
+    g.connect(bus);
+    src.onended = () => {
+      this.playingLoops.delete(id);
+      try { src.disconnect(); } catch { /* noop */ }
+      try { g.disconnect(); } catch { /* noop */ }
+    };
+    src.start();
+    this.playingLoops.set(id, src);
+  }
+
   stopLoop(id: string): void {
     const src = this.playingLoops.get(id);
     if (src) {

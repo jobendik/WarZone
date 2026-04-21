@@ -5,6 +5,7 @@ import { TDMAgent } from './TDMAgent';
 import {
   TEAM_BLUE, TEAM_RED, TEAM_COLORS,
   BLUE_SPAWNS, RED_SPAWNS,
+  ARENA_BLUE_BOT_COUNT, ARENA_RED_BOT_COUNT,
 } from '@/config/constants';
 import type { BotClass } from '@/config/classes';
 import type { TeamId } from '@/config/constants';
@@ -168,9 +169,9 @@ export async function buildAgents(): Promise<void> {
   gameState.player = player;
 
   // Blue team AI
-  const blueClasses: BotClass[] = ['rifleman', 'rifleman', 'assault', 'sniper', 'flanker'];
-  const blueNames = ['Falcon', 'Blaze', 'Storm', 'Ghost', 'Hawk'];
-  for (let i = 0; i < 5; i++) {
+  const blueClasses: BotClass[] = ['rifleman', 'rifleman', 'assault', 'sniper', 'flanker', 'assault'];
+  const blueNames = ['Falcon', 'Blaze', 'Storm', 'Ghost', 'Hawk', 'Rook'];
+  for (let i = 0; i < ARENA_BLUE_BOT_COUNT; i++) {
     const rawSpawn = BLUE_SPAWNS[i + 1] || BLUE_SPAWNS[i % BLUE_SPAWNS.length];
     const sp = resolveArenaSpawn(rawSpawn, TEAM_BLUE);
     const bot = mkAgent(
@@ -183,9 +184,9 @@ export async function buildAgents(): Promise<void> {
   }
 
   // Red team AI
-  const redClasses: BotClass[] = ['rifleman', 'rifleman', 'assault', 'assault', 'sniper', 'flanker'];
-  const redNames = ['Demon', 'Inferno', 'Hammer', 'Fang', 'Specter', 'Viper'];
-  for (let i = 0; i < 6; i++) {
+  const redClasses: BotClass[] = ['rifleman', 'rifleman', 'assault', 'assault', 'sniper', 'flanker', 'rifleman'];
+  const redNames = ['Demon', 'Inferno', 'Hammer', 'Fang', 'Specter', 'Viper', 'Reaper'];
+  for (let i = 0; i < ARENA_RED_BOT_COUNT; i++) {
     const sp = resolveArenaSpawn(RED_SPAWNS[i % RED_SPAWNS.length], TEAM_RED);
     const bot = mkAgent(
       redNames[i], TEAM_RED, redClasses[i], sp[0], sp[2],

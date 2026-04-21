@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
 import { Audio } from '@/audio/AudioManager';
+import { getSettings } from '@/ui/Settings';
 
 export type CalloutKind =
   // Spotting
@@ -356,6 +357,7 @@ export interface CalloutSource {
  * priority preemption, TTS playback, and subtitle overlay.
  */
 export function triggerCallout(source: CalloutSource, kind: CalloutKind): boolean {
+  if (!getSettings().enableBotVoice) return false;
   const def = CALLOUTS[kind];
   if (!def) return false;
 
@@ -489,3 +491,21 @@ export const BotVoice = {
     triggerCallout(src, pool[Math.floor(Math.random() * pool.length)]);
   },
 };
+
+/**
+ * Call this during the loading screen / first user interaction to force
+ * the OS TTS engine to initialize (which takes 1-3 seconds on Windows).
+ * Prevents the game from freezing when the first bot fires a shot.
+ */
+export function warmupTTS(): void {
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    try {
+      const u = new SpeechSynthesisUtterance('');
+      u.volume = 0;
+      u.rate = 10;
+      window.speechSynthesis.speak(u);
+    } catch {
+      // ignore
+    }
+  }
+}

@@ -24,17 +24,16 @@ const PERCEPTION_STAGGER = 3;
 // from/to to a 0.5m grid and caching results inside a single frame gives a
 // large speedup with no perceivable accuracy loss (walls don't move and
 // agents barely move within one frame).
-const _losCache = new Map<number, boolean>();
+const _losCache = new Map<string, boolean>();
 let _losCacheFrame = -1;
 const _LOS_GRID = 0.5; // meters per cell — tighter = more accurate, less reuse
 
-function _losKey(fx: number, fz: number, tx: number, tz: number): number {
-  // Pack four small ints (-256..255 range each) into one Number key.
-  const a = ((fx / _LOS_GRID) | 0) & 0x1ff;
-  const b = ((fz / _LOS_GRID) | 0) & 0x1ff;
-  const c = ((tx / _LOS_GRID) | 0) & 0x1ff;
-  const d = ((tz / _LOS_GRID) | 0) & 0x1ff;
-  return (a << 27) | (b << 18) | (c << 9) | d;
+function _losKey(fx: number, fz: number, tx: number, tz: number): string {
+  const a = (fx / _LOS_GRID) | 0;
+  const b = (fz / _LOS_GRID) | 0;
+  const c = (tx / _LOS_GRID) | 0;
+  const d = (tz / _LOS_GRID) | 0;
+  return `${a},${b},${c},${d}`;
 }
 
 export function isOccluded(from: YUKA.Vector3, to: YUKA.Vector3): boolean {

@@ -31,6 +31,7 @@ import type { TDMAgent } from '@/entities/TDMAgent';
 
 export interface RoundSummaryResult {
   victory: boolean;
+  draw?: boolean;
   mode: string;
   map: string;
   blueScore: number;
@@ -188,8 +189,8 @@ function render(result: RoundSummaryResult): string {
   const standings = buildStandingsRows();
   const medals = aggregateMedals();
 
-  const resultCls = result.victory ? '' : 'defeat';
-  const resultText = result.victory ? 'VICTORY' : 'DEFEAT';
+  const resultCls = result.draw ? 'draw' : result.victory ? '' : 'defeat';
+  const resultText = result.draw ? 'DRAW' : result.victory ? 'VICTORY' : 'DEFEAT';
   const kicker = `// MATCH CONCLUDED · ${result.map.toUpperCase()}`;
   const playerTeam = (gameState.player?.team as number) ?? TEAM_BLUE;
   const friendlyScore = playerTeam === TEAM_RED ? result.redScore : result.blueScore;

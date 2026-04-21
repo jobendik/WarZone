@@ -73,10 +73,15 @@ import { getModeLabel } from '@/core/GameModes';
 let _hudThrottle = 0;
 let _minimapThrottle = 0;
 
+// PERF: module-level scratch for camera forward vector — avoids
+// allocating a new THREE.Vector3() every single frame in the hot path.
+const _camFwdScratch = new THREE.Vector3();
+
 // ── FPS counter ──
 let _fpsFrames = 0;
 let _fpsLastTime = 0;
 let _fpsDisplay = 0;
+let _shadowThrottle = 0;
 
 function getHudScores(): { blue: number; red: number } {
   if (gameState.mode === 'domination') {
@@ -179,9 +184,9 @@ export function animate(): void {
     updateHeartbeat(dt);
     updateSubtitles(dt);
 
-    const camFwd = new THREE.Vector3();
-    gameState.camera.getWorldDirection(camFwd);
-    Audio.updateListener(gameState.camera.position, camFwd);
+    _camFwdScratch.set(0, 0, 0);
+    gameState.camera.getWorldDirection(_camFwdScratch);
+    Audio.updateListener(gameState.camera.position, _camFwdScratch);
 
     perf.begin('projectiles+particles');
     updateProjectiles(dt);
@@ -314,6 +319,17 @@ export function animate(): void {
     fx.setLowHp(gameState.pDead ? 0 : hpT);
     fx.update(rawDt);
   }
+
+  // PERF: throttle shadow map updates to every 3rd frame. The shadow pass
+  // re-rasterises every castShadow mesh into a 1024² depth buffer — 2-4ms/frame.
+  // Since the arena geometry is static and agents don't cast shadows, updating
+  // every 3rd frame is visually identical but saves substantial GPU time.
+  // During heavy combat (many particles), skip shadows entirely.
+  _shadowThrottle++;
+  const heavyCombat = gameState.particles.length > 80;
+  const shouldUpdateShadows = !heavyCombat && (_shadowThrottle % 3 === 0);
+  gameState.renderer.shadowMap.autoUpdate = shouldUpdateShadows;
+  if (shouldUpdateShadows) gameState.renderer.shadowMap.needsUpdate = true;
 
   // Render path: use composer only if the installed FX provides one
   // (i.e. the GPU post-process stack). Otherwise render directly — the

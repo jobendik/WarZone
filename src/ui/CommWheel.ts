@@ -125,6 +125,7 @@ function ensurePingContainer(): HTMLDivElement {
 function openWheel(): void {
   if (wheelOpen) return;
   wheelOpen = true;
+  gameState.commWheelOpen = true;
   wheelOpenTime = performance.now() / 1000;
   const wheel = ensureWheelContainer();
   wheel.classList.add('on');
@@ -142,6 +143,7 @@ function openWheel(): void {
 function closeWheel(commit: boolean): void {
   if (!wheelOpen) return;
   wheelOpen = false;
+  gameState.commWheelOpen = false;
   const wheel = ensureWheelContainer();
   wheel.classList.remove('on');
   document.body.classList.remove('comm-wheel-open');
