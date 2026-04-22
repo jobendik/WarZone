@@ -97,6 +97,12 @@ const MODES: Array<{ id: GameMode; name: string; subtitle: string; players: stri
     players: '8P · 8 MIN',
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
   },
+  {
+    id: 'br', name: 'BATTLE ROYALE',
+    subtitle: 'Drop in, loot up, be the last one standing.',
+    players: '1P · 15 MIN',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2 L12 10"/><path d="M6 6 Q12 14 18 6"/><circle cx="12" cy="18" r="3"/><path d="M12 15 L12 10"/></svg>`,
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────
