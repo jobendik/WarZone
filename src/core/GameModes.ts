@@ -23,6 +23,7 @@ const spawnDirs = [
   new THREE.Vector3(-1, 0, -1).normalize(),
 ];
 const SPAWN_UP = new THREE.Vector3(0, 1, 0);
+const SPAWN_DOWN = new THREE.Vector3(0, -1, 0);
 
 let cachedMainIslandNavMesh: any = null;
 let cachedMainIslandRegions: Set<any> | null = null;
@@ -232,14 +233,23 @@ function projectSpawn(x: number, z: number): [number, number, number, any] | nul
 
 function isSpawnIndoors(x: number, z: number): boolean {
   if (gameState.wallMeshes.length === 0) return false;
-  // Cast upward from just above the player's head. If we hit a wall/roof
-  // mesh within ~8m, the candidate is under a roof i.e. inside a building.
-  spawnProjected.set(x, SPAWN_SAMPLE_Y + 0.6, z);
-  spawnRay.set(spawnProjected, SPAWN_UP);
+  // Cast DOWNWARD from well above the candidate point rather than upward.
+  // Ceiling geometry has normals pointing DOWN (away from the interior),
+  // so an upward ray hits the back face which Three.js culls on FrontSide
+  // materials — causing misses.  A downward ray from above always strikes
+  // the TOP (front face) of any roof reliably.
+  const fromY = 25;
+  spawnProjected.set(x, fromY, z);
+  spawnRay.set(spawnProjected, SPAWN_DOWN);
   spawnRay.near = 0;
-  spawnRay.far = 10;
+  spawnRay.far = 60;
   const hit = spawnRay.intersectObjects(gameState.wallMeshes, false)[0];
-  return !!hit && hit.distance < 8;
+  if (!hit) return false;
+  // World Y of the first surface found above the candidate point.
+  // Outdoor ground: hitY ≈ 0, not a ceiling.
+  // Indoor ceiling: hitY ≈ 3–6 m, clearly a roof above head height.
+  const hitY = fromY - hit.distance;
+  return hitY > 1.2 && hitY < 14;
 }
 
 function scoreSpawnOpenness(x: number, z: number): number {
