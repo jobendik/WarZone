@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
 import { BR_MAP_HALF } from './BRConfig';
+import { getFloorY } from '@/entities/Player';
 
 export type DropState = 'waiting' | 'onPlane' | 'freefall' | 'parachute' | 'landed';
 
@@ -233,7 +234,16 @@ export function updateDropSequence(dt: number): void {
     }
 
     if (gameState.player.position.y <= 0.1) {
-      gameState.player.position.y = 0;
+      // Snap to the navmesh surface instead of hardcoding y=0. The glb map's
+      // floor sits at whatever Y `br_navmesh.glb` defines; forcing y=0 here
+      // used to leave the player on a different plane than the AI (who
+      // track the navmesh) and, when the navmesh Y exceeded
+      // NAV_COLLIDE_Y_EPSILON, the player became unable to move because
+      // `collidesPlayer` could no longer locate a walkable region.
+      const floorY = getFloorY(gameState.player.position.x, gameState.player.position.z);
+      gameState.player.position.y = floorY;
+      gameState.pPosY = floorY;
+      gameState.pVelY = 0;
       drop.state = 'landed';
       if (drop.parachuteMesh) drop.parachuteMesh.visible = false;
     }

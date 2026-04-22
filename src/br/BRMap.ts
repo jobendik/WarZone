@@ -1,20 +1,25 @@
 /**
- * BRMap — Optimized 320×320 map with Fortnite-bright visuals.
+ * BRMap — Battle Royale map loaded exclusively from `public/models/br_map.glb`.
  *
- * Performance optimizations:
- * - Trees use InstancedMesh (100+ trees = 2 draw calls: trunks + leaves)
- * - Rocks use InstancedMesh (1 draw call)
- * - Buildings use merged geometry (see Buildings.ts)
- * - Ground is a single-draw shader plane
- * - All colliders added to gameState for physics
+ * Earlier revisions layered procedurally generated buildings/trees/rocks and
+ * a shader ground plane on top of the glb. That produced three problems:
+ *   1. Hundreds of extra meshes + colliders crushed perf to ~1 FPS.
+ *   2. The shader plane at y=0 fought with the glb's actual floor height,
+ *      so the player (pinned to y=0 on landing) walked on a different
+ *      surface than the AI bots (who snap to the `br_navmesh.glb` floor).
+ *   3. When `br_navmesh.glb` sits at a non-zero Y, player `collidesPlayer`
+ *      couldn't find a region (vertical epsilon), so the player was stuck.
+ *
+ * The fix: load only the glb, let `br_navmesh.glb` define the walkable
+ * surface Y, and let player landing / bot landing snap to that navmesh Y.
  */
 
 import * as THREE from 'three';
 import * as YUKA from 'yuka';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { gameState } from '@/core/GameState';
-import { BR_MAP_SIZE, BR_MAP_HALF, BR_MAP_MARGIN } from './BRConfig';
-import { createBuilding, type Building } from './Buildings';
+import { BR_MAP_SIZE, BR_MAP_HALF } from './BRConfig';
+import type { Building } from './Buildings';
 import { SpatialGrid } from './SpatialGrid';
 
 // ── BVH acceleration for BR wall/occlusion meshes ──
@@ -107,85 +112,19 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
   _brCoverPointStart = gameState.coverPoints.length;
   _brSceneObjects = [];
 
-  // ── Fortnite-style bright ground ──
-  const groundMat = new THREE.ShaderMaterial({
-    uniforms: {
-      uTime: { value: 0 },
-    },
-    vertexShader: `
-      varying vec2 vW;
-      varying float vD;
-      void main(){
-        vec4 w = modelMatrix * vec4(position, 1.);
-        vW = w.xz;
-        vD = length(w.xz);
-        gl_Position = projectionMatrix * viewMatrix * w;
-      }
-    `,
-    fragmentShader: `
-      uniform float uTime;
-      varying vec2 vW;
-      varying float vD;
+  // The map visual + collision geometry comes entirely from br_map.glb now.
+  // We do NOT add a procedural ground plane — the glb ships with its own
+  // terrain, and a y=0 plane would hover above/below the real surface and
+  // cause the player to walk on a different floor than the navmesh-bound AI.
+  gameState.floorMat = null;
 
-      float hash(vec2 p){ p=fract(p*vec2(234.34,435.345)); p+=dot(p,p+34.23); return fract(p.x*p.y); }
-      float noise(vec2 p){
-        vec2 i=floor(p),f=fract(p);
-        float a=hash(i),b=hash(i+vec2(1.,0.)),c=hash(i+vec2(0.,1.)),d=hash(i+vec2(1.,1.));
-        vec2 u=f*f*(3.-2.*f);
-        return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y;
-      }
-
-      void main(){
-        // Base grass gradient
-        float n = noise(vW * 0.04) * 0.5 + noise(vW * 0.15) * 0.3 + noise(vW * 0.5) * 0.2;
-        vec3 grass1 = vec3(0.28, 0.52, 0.22);  // rich green
-        vec3 grass2 = vec3(0.38, 0.62, 0.30);  // lighter green
-        vec3 grass3 = vec3(0.30, 0.44, 0.20);  // darker green
-        vec3 col = mix(grass1, mix(grass2, grass3, n), smoothstep(0.3, 0.7, n));
-
-        // Dirt patches
-        float dirt = noise(vW * 0.08 + 42.);
-        vec3 dirtCol = vec3(0.45, 0.35, 0.25);
-        col = mix(col, dirtCol, smoothstep(0.68, 0.78, dirt) * 0.6);
-
-        // Roads (along X and Z axes, wider)
-        float roadX = 1. - smoothstep(3.5, 4.5, abs(vW.y));
-        float roadZ = 1. - smoothstep(3.5, 4.5, abs(vW.x));
-        vec3 roadCol = vec3(0.3, 0.3, 0.32);
-        col = mix(col, roadCol, max(roadX, roadZ) * 0.85);
-
-        // Road dashes
-        float dashX = step(0.4, fract(vW.x * 0.1)) * roadX;
-        float dashZ = step(0.4, fract(vW.y * 0.1)) * roadZ;
-        col += vec3(0.7, 0.7, 0.5) * max(dashX, dashZ) * 0.12;
-
-        // Distance fade at edges
-        float edgeFade = smoothstep(140., 170., vD);
-        col = mix(col, vec3(0.45, 0.55, 0.42), edgeFade * 0.5);
-
-        gl_FragColor = vec4(col, 1.);
-      }
-    `,
-  });
-  gameState.floorMat = groundMat;
-
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(BR_MAP_SIZE + 60, BR_MAP_SIZE + 60),
-    groundMat,
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-  _brSceneObjects.push(ground);
-
-  onProgress?.('Placing buildings...');
+  onProgress?.('Loading map model...');
   await nextFrame();
 
   // ── Battle Royale map model (public/models/br_map.glb) ──
-  // Added as visual dressing on top of the procedural terrain. Its meshes
-  // are registered for AI line-of-sight raycasts (wallMeshes) so bots can
-  // see/shoot through it correctly. The procedural buildings/trees/rocks
-  // still provide per-object colliders and steering obstacles.
+  // All walkable geometry, decoration and occluders live inside the glb.
+  // Every mesh is registered for AI line-of-sight raycasts (wallMeshes) and
+  // gets a BVH so LOS calls stay O(log n) rather than O(triangles).
   const brMapModel = await loadBRMapModel();
   if (brMapModel) {
     scene.add(brMapModel);
@@ -198,13 +137,8 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
       if (!(mesh as any).isMesh) return;
       const geom = (mesh as any).geometry as THREE.BufferGeometry | undefined;
       if (!geom) return;
-      // br_map.glb is decorative dressing — the playable geometry comes
-      // from the procedural buildings. Casting shadows from 276 extra
-      // meshes balloons the shadow pass; receiving is still useful.
       mesh.castShadow = false;
       mesh.receiveShadow = true;
-      // Build a BVH so LOS raycasts against this mesh are O(log n) rather
-      // than O(triangles). tryBuildBVH handles skinned/morph meshes gracefully.
       const hadBefore = !!(geom as any).boundsTree;
       tryBuildBVH(geom);
       if (!hadBefore && (geom as any).boundsTree) brBvhBuilt++;
@@ -212,9 +146,13 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
       brMeshCount++;
     });
     console.info(`[BRMap] Loaded br_map.glb — ${brMeshCount} meshes registered for occlusion (BVH built on ${brBvhBuilt}).`);
+  } else {
+    console.warn('[BRMap] br_map.glb failed to load — the match will have no map geometry.');
   }
 
   // ── POIs ──
+  // Named areas used for bot spawn distribution and loot placement. These
+  // are logical points only — the physical geometry is in the glb.
   const pois = [
     { name: 'Pleasant Park', x: -100, z: -90, radius: 28 },
     { name: 'Retail Row', x: 110, z: -35, radius: 25 },
@@ -226,143 +164,15 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
     { name: 'Snobby Shores', x: 130, z: 130, radius: 20 },
   ];
 
-  // ── Buildings ──
+  // No procedural buildings. `buildingGrid` stays empty; callers handle
+  // `queryRadius()` returning 0 hits by falling back to navmesh / POIs.
   const buildings: Building[] = [];
   buildingGrid.clear();
 
-  for (const poi of pois) {
-    const count = 3 + Math.floor(Math.random() * 3); // 3-5 per POI
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
-      const dist = 4 + Math.random() * poi.radius * 0.65;
-      const bx = poi.x + Math.cos(angle) * dist;
-      const bz = poi.z + Math.sin(angle) * dist;
-      const w = 8 + Math.random() * 10;
-      const d = 8 + Math.random() * 10;
-      const floors = 1 + Math.floor(Math.random() * 3);
-
-      if (overlaps(buildings, bx, bz, w, d)) continue;
-
-      const b = createBuilding(bx, bz, w, d, floors);
-      scene.add(b.mesh);
-      _brSceneObjects.push(b.mesh);
-
-      // Register per-wall colliders (with door gaps)
-      for (const wc of b.wallColliders) {
-        gameState.colliders.push({ type: 'box', x: wc.x, z: wc.z, hw: wc.hw + 0.15, hd: wc.hd + 0.15 });
-        gameState.arenaColliders.push({ type: 'box', x: wc.x, z: wc.z, hw: wc.hw, hd: wc.hd });
-      }
-
-      // Register for wall raycasts (all child meshes) + BVH so LOS calls
-      // are O(log n) rather than O(triangles) per ray.
-      b.mesh.traverse(obj => {
-        const mesh = obj as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        const geom = (mesh as any).geometry as THREE.BufferGeometry | undefined;
-        tryBuildBVH(geom);
-        gameState.wallMeshes.push(mesh);
-      });
-
-      // No YUKA obstacle for buildings — per-wall colliders + keepInside handle it.
-      // A single large circle would block bots from navigating through doorways.
-
-      buildings.push(b);
-      buildingGrid.insert(b, bx, bz);
-    }
-  }
-
-  onProgress?.('Planting trees...');
-  await nextFrame();
-
-  // ── Instanced trees (1 trunk mesh + 1 leaf mesh for ALL trees) ──
-  const TREE_COUNT = 120;
-  const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 3.5, 6);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9 });
-  const treeInstances = new THREE.InstancedMesh(trunkGeo, trunkMat, TREE_COUNT);
-  treeInstances.castShadow = true;
-  treeInstances.receiveShadow = false;
-
-  const leafGeo = new THREE.ConeGeometry(2.0, 4.5, 7);
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3a8a3a, roughness: 0.85 });
-  const leafInstances = new THREE.InstancedMesh(leafGeo, leafMat, TREE_COUNT);
-  leafInstances.castShadow = true;
-  leafInstances.receiveShadow = false;
-
-  const _m = new THREE.Matrix4();
-  let treeIdx = 0;
-  for (let i = 0; i < TREE_COUNT * 2 && treeIdx < TREE_COUNT; i++) {
-    const x = (Math.random() - 0.5) * BR_MAP_SIZE * 0.92;
-    const z = (Math.random() - 0.5) * BR_MAP_SIZE * 0.92;
-    if (nearBuilding(buildings, x, z, 5)) continue;
-    if (nearRoad(x, z)) continue;
-
-    // Trunk
-    _m.makeTranslation(x, 1.75, z);
-    const scale = 0.85 + Math.random() * 0.3;
-    _m.scale(new THREE.Vector3(scale, scale, scale));
-    treeInstances.setMatrixAt(treeIdx, _m);
-    treeInstances.setColorAt(treeIdx, new THREE.Color(0x5a3a1a + Math.floor(Math.random() * 0x101010)));
-
-    // Leaves
-    _m.makeTranslation(x, 5.2 * scale, z);
-    _m.scale(new THREE.Vector3(scale, scale, scale));
-    leafInstances.setMatrixAt(treeIdx, _m);
-    const green = 0x2a7a2a + Math.floor(Math.random() * 0x003000);
-    leafInstances.setColorAt(treeIdx, new THREE.Color(green));
-
-    // Collider (simple circle)
-    gameState.colliders.push({ type: 'circle', x, z, r: 0.6 });
-    gameState.arenaColliders.push({ type: 'circle', x, z, r: 0.5 });
-
-    treeIdx++;
-  }
-  treeInstances.count = treeIdx;
-  leafInstances.count = treeIdx;
-  treeInstances.instanceMatrix.needsUpdate = true;
-  leafInstances.instanceMatrix.needsUpdate = true;
-  if (treeInstances.instanceColor) treeInstances.instanceColor.needsUpdate = true;
-  if (leafInstances.instanceColor) leafInstances.instanceColor.needsUpdate = true;
-  scene.add(treeInstances);
-  scene.add(leafInstances);
-  _brSceneObjects.push(treeInstances, leafInstances);
-
-  onProgress?.('Scattering rocks...');
-  await nextFrame();
-
-  // ── Instanced rocks ──
-  const ROCK_COUNT = 60;
-  const rockGeo = new THREE.DodecahedronGeometry(1, 0);
-  const rockMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 0.9, flatShading: true });
-  const rockInstances = new THREE.InstancedMesh(rockGeo, rockMat, ROCK_COUNT);
-  rockInstances.castShadow = true;
-  rockInstances.receiveShadow = true;
-
-  let rockIdx = 0;
-  for (let i = 0; i < ROCK_COUNT * 2 && rockIdx < ROCK_COUNT; i++) {
-    const x = (Math.random() - 0.5) * BR_MAP_SIZE * 0.92;
-    const z = (Math.random() - 0.5) * BR_MAP_SIZE * 0.92;
-    if (nearBuilding(buildings, x, z, 4)) continue;
-
-    const r = 0.6 + Math.random() * 1.0;
-    _m.makeTranslation(x, r * 0.45, z);
-    _m.scale(new THREE.Vector3(r, r * 0.7, r));
-    const rot = new THREE.Matrix4().makeRotationY(Math.random() * Math.PI * 2);
-    _m.multiply(rot);
-    rockInstances.setMatrixAt(rockIdx, _m);
-    rockInstances.setColorAt(rockIdx, new THREE.Color(0x6a6a6a + Math.floor(Math.random() * 0x202020)));
-
-    gameState.colliders.push({ type: 'circle', x, z, r: r * 0.8 });
-    gameState.arenaColliders.push({ type: 'circle', x, z, r: r * 0.7 });
-
-    rockIdx++;
-  }
-  rockInstances.count = rockIdx;
-  rockInstances.instanceMatrix.needsUpdate = true;
-  if (rockInstances.instanceColor) rockInstances.instanceColor.needsUpdate = true;
-  scene.add(rockInstances);
-  _brSceneObjects.push(rockInstances);
-
   // ── Boundary (soft wall) ──
+  // Keeps bots and the player inside the playable area even though the
+  // glb may extend further. Expressed as colliders so keepInside pushes
+  // agents back; `collidesPlayer` uses the same boundary via getWorldBoundary.
   for (const [bx, bz, bw, bd] of [
     [0, -BR_MAP_HALF - 1.5, BR_MAP_SIZE + 3, 3] as const,
     [0, BR_MAP_HALF + 1.5, BR_MAP_SIZE + 3, 3] as const,
@@ -379,16 +189,28 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
   // ── Fortnite lighting ──
   buildBRLights();
 
-  // ── Cover points near buildings ──
-  for (const b of buildings) {
-    for (const off of [[b.hw + 1.2, 0], [-b.hw - 1.2, 0], [0, b.hd + 1.2], [0, -b.hd - 1.2]]) {
-      const px = b.cx + off[0];
-      const pz = b.cz + off[1];
-      if (Math.abs(px) < BR_MAP_MARGIN && Math.abs(pz) < BR_MAP_MARGIN) {
-        gameState.coverPoints.push(new YUKA.Vector3(px, 0, pz));
-      }
+  // ── Cover points at each POI ──
+  // Without procedural buildings we derive cover points from POIs instead:
+  // four compass offsets per POI give bots something to fall back to during
+  // endgame hold evaluation. AI combat goals can still find cover from
+  // wallMeshes raycasts against the glb.
+  for (const poi of pois) {
+    const r = Math.max(4, poi.radius * 0.35);
+    for (const [dx, dz] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+      gameState.coverPoints.push(new YUKA.Vector3(poi.x + dx, 0, poi.z + dz));
     }
   }
+
+  // Empty instanced meshes kept to preserve BRMapData shape for other
+  // modules (they all use `.count` which is 0 here — a no-op).
+  const emptyInstances = (): THREE.InstancedMesh => new THREE.InstancedMesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({ visible: false }),
+    0,
+  );
+  const treeInstances = emptyInstances();
+  const leafInstances = emptyInstances();
+  const rockInstances = emptyInstances();
 
   _mapData = { buildings, pois, treeInstances, leafInstances, rockInstances };
   return _mapData;
@@ -428,24 +250,6 @@ function buildBRLights(): void {
   // Bright fog — Fortnite uses light blue haze, not dark
   scene.fog = new THREE.FogExp2(0xb0c8e0, 0.003);
   scene.background = new THREE.Color(0x78a8d8);
-}
-
-function overlaps(buildings: Building[], x: number, z: number, w: number, d: number): boolean {
-  for (const b of buildings) {
-    if (Math.abs(b.cx - x) < (b.width + w) / 2 + 2 && Math.abs(b.cz - z) < (b.depth + d) / 2 + 2) return true;
-  }
-  return false;
-}
-
-function nearBuilding(buildings: Building[], x: number, z: number, pad: number): boolean {
-  for (const b of buildings) {
-    if (Math.abs(b.cx - x) < b.hw + pad && Math.abs(b.cz - z) < b.hd + pad) return true;
-  }
-  return false;
-}
-
-function nearRoad(x: number, z: number): boolean {
-  return Math.abs(x) < 5 || Math.abs(z) < 5;
 }
 
 export function disposeBRMap(): void {
