@@ -52,6 +52,7 @@ import { WEAPONS } from '@/config/weapons';
 import { SpatialGrid } from './SpatialGrid';
 import { buildingGrid, getBRMapData } from './BRMap';
 import { findCoverFrom, pushOutOfWall } from '@/ai/CoverSystem';
+import { getFloorY } from '@/entities/Player';
 import {
   findNearbyFight, decideEngagement, shouldHealUp, doHealUp,
   findEndgameHold,
@@ -284,7 +285,10 @@ export function landBRBots(): void {
     const state = getBRState(ag);
     if (!state) continue;
 
-    ag.position.y = 0;
+    // Snap to navmesh floor so bots start on the same surface as the player.
+    // Previously hardcoded to y=0 which left bots floating (or sunken) when
+    // the glb map's floor isn't at y=0.
+    ag.position.y = getFloorY(ag.position.x, ag.position.z);
     ag.active = true;
     if (ag.renderComponent) ag.renderComponent.visible = true;
 
