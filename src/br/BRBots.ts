@@ -33,6 +33,7 @@ import {
 } from '@/rendering/AgentAnimations';
 import { setupFuzzy } from '@/ai/FuzzyLogic';
 import { makePersonality } from '@/ai/Personality';
+import { NavAgentRuntime } from '@/ai/navigation/NavAgentRuntime';
 import {
   PatrolState, EngageState, InvestigateState, RetreatState,
   CoverState, FlankState, SeekPickupState, TeamPushState, PeekState,
@@ -166,6 +167,13 @@ function mkBot(name: string, cls: BotClass, x: number, z: number): TDMAgent {
   ag.wanderB.weight = 0;
   ag.arriveB.weight = 0; ag.seekB.weight = 0;
   ag.fleeB.weight = 0; ag.pursuitB.weight = 0;
+
+  // NavMesh runtime — required by goals in @/ai/goals/Goals.ts which read/write
+  // ag.navRuntime.path and ag.navRuntime.pathPending. Without this, BR bots
+  // throw hundreds of "Cannot read properties of undefined (reading 'path')"
+  // errors as soon as PatrolGoal (or any move-to-position goal) activates.
+  ag.navRuntime = new NavAgentRuntime(ag, gameState.navMeshManager);
+  ag.navRuntime.initFromSpawn(ag.spawnPos);
 
   ag.stateMachine = new YUKA.StateMachine(ag);
   ag.stateMachine.add('PATROL', new PatrolState());

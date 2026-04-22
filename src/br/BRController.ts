@@ -25,6 +25,7 @@ import { WEAPONS } from '@/config/weapons';
 import { hideArena, showArena } from '@/world/Arena';
 import { setViewmodelWeapon, setViewmodelVisible } from '@/rendering/WeaponViewmodel';
 import type { TDMAgent } from '@/entities/TDMAgent';
+import type * as YUKA from 'yuka';
 
 export type BRPhase = 'pregame' | 'airdrop' | 'landing' | 'combat' | 'over';
 
@@ -72,6 +73,14 @@ function hideLoading(): void {
 
 let _brStarting = false;
 
+// Previous (TDM) navmesh stashed when BR starts, restored on cleanup so
+// returning to an Arena game mode still has working pathfinding.
+let _savedNavMesh: YUKA.NavMesh | null = null;
+let _savedNavComponents: any[][] | null = null;
+let _savedMainComponent: Set<any> | null = null;
+let _savedRegionToComponent: Map<any, number> | null = null;
+const BR_NAVMESH_URL = `${import.meta.env.BASE_URL}models/br_navmesh.glb`;
+
 export async function startBRMatch(): Promise<void> {
   if (_brStarting) return;
   _brStarting = true;
@@ -99,6 +108,22 @@ export async function startBRMatch(): Promise<void> {
   brState.playersAlive = 30;
   brState.winnerName = null;
   brState.frameCount = 0;
+
+  // Swap in the Battle Royale navmesh. We stash the TDM navmesh (and the
+  // derived component metadata) so cleanupBR can restore it when the
+  // player returns to an arena mode.
+  showLoading('Loading BR navmesh...');
+  await nextFrame();
+  const nmm = gameState.navMeshManager;
+  _savedNavMesh = nmm.navMesh;
+  _savedNavComponents = nmm.components;
+  _savedMainComponent = nmm.mainComponent;
+  _savedRegionToComponent = nmm.regionToComponent;
+  try {
+    await nmm.load(BR_NAVMESH_URL);
+  } catch (err) {
+    console.warn('[BR] Failed to load br_navmesh.glb — BR pathfinding will be unavailable.', err);
+  }
 
   await buildBRMap((msg) => showLoading(msg));
 
@@ -175,6 +200,19 @@ export function cleanupBR(): void {
   disposeBRMap();
   resetSupplyDrops();
   showArena();
+
+  // Restore the pre-BR (TDM) navmesh so arena modes still have pathfinding.
+  if (_savedNavMesh) {
+    const nmm = gameState.navMeshManager;
+    nmm.navMesh = _savedNavMesh;
+    nmm.components = _savedNavComponents ?? [];
+    nmm.mainComponent = _savedMainComponent ?? new Set();
+    nmm.regionToComponent = _savedRegionToComponent ?? new Map();
+    _savedNavMesh = null;
+    _savedNavComponents = null;
+    _savedMainComponent = null;
+    _savedRegionToComponent = null;
+  }
 
   for (const ag of gameState.agents) {
     if (ag === gameState.player) continue;

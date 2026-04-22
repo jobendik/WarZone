@@ -11,10 +11,32 @@
 
 import * as THREE from 'three';
 import * as YUKA from 'yuka';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { gameState } from '@/core/GameState';
 import { BR_MAP_SIZE, BR_MAP_HALF, BR_MAP_MARGIN } from './BRConfig';
 import { createBuilding, type Building } from './Buildings';
 import { SpatialGrid } from './SpatialGrid';
+
+const BR_MAP_MODEL_URL = `${import.meta.env.BASE_URL}models/br_map.glb`;
+const brMapLoader = new GLTFLoader();
+
+function loadBRMapModel(): Promise<THREE.Group | null> {
+  return new Promise((resolve) => {
+    brMapLoader.load(
+      BR_MAP_MODEL_URL,
+      (gltf) => {
+        const root = gltf.scene;
+        root.name = 'BRMapRenderModel';
+        resolve(root);
+      },
+      undefined,
+      (err) => {
+        console.warn(`[BRMap] Failed to load ${BR_MAP_MODEL_URL} — falling back to procedural map only.`, err);
+        resolve(null);
+      },
+    );
+  });
+}
 
 export interface BRMapData {
   buildings: Building[];
@@ -130,6 +152,29 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
 
   onProgress?.('Placing buildings...');
   await nextFrame();
+
+  // ── Battle Royale map model (public/models/br_map.glb) ──
+  // Added as visual dressing on top of the procedural terrain. Its meshes
+  // are registered for AI line-of-sight raycasts (wallMeshes) so bots can
+  // see/shoot through it correctly. The procedural buildings/trees/rocks
+  // still provide per-object colliders and steering obstacles.
+  const brMapModel = await loadBRMapModel();
+  if (brMapModel) {
+    scene.add(brMapModel);
+    _brSceneObjects.push(brMapModel);
+    brMapModel.updateMatrixWorld(true);
+    let brMeshCount = 0;
+    brMapModel.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!(mesh as any).isMesh) return;
+      if (!(mesh as any).geometry) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      gameState.wallMeshes.push(mesh);
+      brMeshCount++;
+    });
+    console.info(`[BRMap] Loaded br_map.glb — ${brMeshCount} meshes registered for occlusion.`);
+  }
 
   // ── POIs ──
   const pois = [
