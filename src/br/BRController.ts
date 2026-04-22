@@ -244,7 +244,7 @@ export function onBRDeath(victim: TDMAgent): void {
     if (inv) {
       const items = dumpInventoryOnDeath(inv);
       if (items.length > 0) {
-        spawnGroundLoot(victim.position.x, victim.position.z, 0.5, items, true);
+        spawnGroundLoot(victim.position.x, victim.position.z, victim.position.y + 0.4, items, true);
       }
     }
   } else {
@@ -265,7 +265,7 @@ export function onBRDeath(victim: TDMAgent): void {
       items.push({ id: 'heal_s', category: 'heal', name: 'Bandage', rarity: 'common', stackSize: 10, qty: 2 });
     }
     if (items.length > 0) {
-      spawnGroundLoot(victim.position.x, victim.position.z, 0.5, items, true);
+      spawnGroundLoot(victim.position.x, victim.position.z, victim.position.y + 0.4, items, true);
     }
   }
 }

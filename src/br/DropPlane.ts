@@ -233,14 +233,19 @@ export function updateDropSequence(dt: number): void {
       drop.parachuteMesh.position.copy(gameState.player.position as any);
     }
 
-    if (gameState.player.position.y <= 0.1) {
+    // Detect landing against the actual floor, not a hardcoded y=0. br_navmesh
+    // sits at a variable non-zero Y, so a fixed `<= 0.1` threshold makes the
+    // player fall straight through the visible terrain before the landing
+    // code ever runs. Sampling `getFloorY` here means the trigger fires the
+    // moment the parachuting player intersects the navmesh surface.
+    const floorY = getFloorY(gameState.player.position.x, gameState.player.position.z);
+    if (gameState.player.position.y <= floorY + 0.1) {
       // Snap to the navmesh surface instead of hardcoding y=0. The glb map's
       // floor sits at whatever Y `br_navmesh.glb` defines; forcing y=0 here
       // used to leave the player on a different plane than the AI (who
       // track the navmesh) and, when the navmesh Y exceeded
       // NAV_COLLIDE_Y_EPSILON, the player became unable to move because
       // `collidesPlayer` could no longer locate a walkable region.
-      const floorY = getFloorY(gameState.player.position.x, gameState.player.position.z);
       gameState.player.position.y = floorY;
       gameState.pPosY = floorY;
       gameState.pVelY = 0;

@@ -13,6 +13,7 @@ import { spawnGroundLoot } from './LootSystem';
 import { zone } from './ZoneSystem';
 import type { InventoryItem } from './Inventory';
 import { WEAPONS } from '@/config/weapons';
+import { getFloorY } from '@/entities/Player';
 
 interface ActiveDrop {
   beam: THREE.Mesh;
@@ -22,6 +23,8 @@ interface ActiveDrop {
   startY: number;
   landAt: number;
   landed: boolean;
+  /** Resolved navmesh-surface Y for the crate once it lands. */
+  landY?: number;
 }
 
 const active: ActiveDrop[] = [];
@@ -148,19 +151,26 @@ function spawnOne(): void {
   const a = Math.random() * Math.PI * 2;
   const tx = zone.currentCenter.x + Math.cos(a) * r * Math.random();
   const tz = zone.currentCenter.y + Math.sin(a) * r * Math.random();
+  // Resolve the landing Y now so the descent animation terminates on the
+  // actual map surface (br_navmesh sits at a non-zero Y — a hardcoded 0.5
+  // would bury the crate tens of metres beneath the terrain).
+  const floorY = getFloorY(tx, tz);
+  const landY = floorY + 0.5;
+  const startY = landY + 140;
 
   const beam = buildBeam();
-  beam.position.set(tx, 70, tz);
+  beam.position.set(tx, landY + 70, tz);
   gameState.scene.add(beam);
 
   const crate = buildCrate();
-  crate.position.set(tx, 140, tz);
+  crate.position.set(tx, startY, tz);
   gameState.scene.add(crate);
 
   active.push({
     beam, crate,
     targetX: tx, targetZ: tz,
-    startY: 140,
+    startY,
+    landY,
     landAt: gameState.worldElapsed + DESCENT_TIME,
     landed: false,
   });
@@ -180,16 +190,17 @@ export function updateSupplyDrops(dt: number): void {
 
     if (!d.landed) {
       const remaining = d.landAt - now;
+      const endY = d.landY ?? 0.5;
       if (remaining <= 0) {
         d.landed = true;
-        d.crate.position.y = 0.5;
-        // Drop legendary loot at crate position
-        spawnGroundLoot(d.targetX, d.targetZ, 0.5, rollLegendaryLoot(), false);
+        d.crate.position.y = endY;
+        // Drop legendary loot at crate position, just above the floor.
+        spawnGroundLoot(d.targetX, d.targetZ, endY - 0.1, rollLegendaryLoot(), false);
         // Beam fades over 6s then removes
       } else {
         const t = 1 - (remaining / DESCENT_TIME);
         const eased = t * t * (3 - 2 * t);
-        d.crate.position.y = d.startY - eased * (d.startY - 0.5);
+        d.crate.position.y = d.startY - eased * (d.startY - endY);
       }
     } else {
       // Linger 6s after landing, then cleanup
