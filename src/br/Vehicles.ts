@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { gameState } from '@/core/GameState';
+import { getFloorY } from '@/entities/Player';
 
 export interface Vehicle {
   id: number;
@@ -182,8 +183,12 @@ async function attachVehicleModel(root: THREE.Group): Promise<void> {
 }
 
 export function spawnVehicle(x: number, z: number): Vehicle {
+  // Place the vehicle on the navmesh surface rather than at world Y=0;
+  // br_navmesh.glb sits at a non-zero Y and hardcoding 0 leaves vehicles
+  // embedded many metres below the visible terrain.
+  const y = getFloorY(x, z);
   const g = buildFallbackVehicleMesh();
-  g.position.set(x, 0, z);
+  g.position.set(x, y, z);
   gameState.scene.add(g);
 
   void attachVehicleModel(g);
@@ -191,7 +196,7 @@ export function spawnVehicle(x: number, z: number): Vehicle {
   const v: Vehicle = {
     id: _nextVehicleId++,
     mesh: g,
-    position: new THREE.Vector3(x, 0, z),
+    position: new THREE.Vector3(x, y, z),
     velocity: new THREE.Vector3(),
     yaw: Math.random() * Math.PI * 2,
     steerAngle: 0,
@@ -292,7 +297,7 @@ export function updateVehicles(dt: number): void {
       v.position.add(v.velocity.clone().multiplyScalar(dt));
 
       gameState.player.position.copy(v.position as any);
-      gameState.player.position.y = 1.2;
+      gameState.player.position.y = v.position.y + 1.2;
 
       v.mesh.position.copy(v.position);
       v.mesh.rotation.y = v.yaw;

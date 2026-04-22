@@ -6,6 +6,7 @@ import { WEAPONS, type WeaponId } from '@/config/weapons';
 import { getBRMapData } from './BRMap';
 import { SpatialGrid } from './SpatialGrid';
 import type { InventoryItem } from './Inventory';
+import { getFloorY } from '@/entities/Player';
 
 const BASE_URL = import.meta.env.BASE_URL;
 
@@ -544,7 +545,13 @@ export function populateMapLoot(): void {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = Math.random() * poi.radius;
-      spawnGroundLoot(poi.x + Math.cos(a) * r, poi.z + Math.sin(a) * r, 0.4, [rollLootItem()]);
+      const lx = poi.x + Math.cos(a) * r;
+      const lz = poi.z + Math.sin(a) * r;
+      // Spawn on the navmesh surface. Using a hardcoded 0.4 left every pickup
+      // beneath the visible terrain because br_navmesh.glb sits at a non-zero
+      // Y (median ≈ 23 m), so the visual ground is ~20 m above world Y=0.
+      const ly = getFloorY(lx, lz) + 0.4;
+      spawnGroundLoot(lx, lz, ly, [rollLootItem()]);
     }
   }
 }
