@@ -55,16 +55,20 @@ function playRespawnFade(): void {
 
 export function getFloorY(x: number, z: number): number {
   if (gameState.navMeshManager.navMesh) {
-    // Sample from the player's current height so the epsilon-based fast path
-    // works regardless of where the navmesh sits in world space. Arena /
-    // tdm_map_navmesh sit near Y=0, but br_navmesh sits at median Y≈23 with
-    // individual regions reaching Y≈61. A fixed low sample Y combined with
-    // a small epsilon would miss every BR region, forcing getFloorY to
-    // return 0 and stranding the player/bots/loot at sea level while the
-    // navmesh is ~20 m overhead (manifesting as "player can't move" because
-    // `collidesPlayer` then fails the in-region test).
-    const sampleY = Number.isFinite(gameState.pPosY) ? gameState.pPosY : NAV_FLOOR_SAMPLE_Y;
-    navPoint.set(x, sampleY, z);
+    // Sample at a fixed Y that sits safely inside the arena/tdm_map_navmesh
+    // vertical range ([0.05, 3.65]). Using `gameState.pPosY` here is NOT
+    // safe for arena modes: the player respawns at pPosY=0, which combined
+    // with the small FP.playerRadius / ±3 epsilons can miss every TDM region
+    // that sits above Y=3. When the fast path misses, `projectPoint` below
+    // falls back to the closest main-component region by Euclidean distance
+    // — which for multi-height arena navmeshes frequently picks an elevated
+    // platform region instead of the ground the player is actually over,
+    // teleporting the player up (or blocking all movement because
+    // `collidesPlayer` can't find a walkable region at their new Y). The
+    // fixed sample keeps the cheap in-region test reliable for arenas while
+    // the `projectPoint` fallback below handles BR, where the navmesh sits
+    // at Y≈[-3, 61] and no fixed sample Y can cover it.
+    navPoint.set(x, NAV_FLOOR_SAMPLE_Y, z);
 
     const region = gameState.navMeshManager.getRegionForPoint(navPoint, Math.max(1, FP.playerRadius))
       ?? gameState.navMeshManager.getRegionForPoint(navPoint, 3);
@@ -77,10 +81,10 @@ export function getFloorY(x: number, z: number): number {
     }
 
     // Fast path missed — either (x,z) is outside any region horizontally,
-    // or the navmesh is far from sampleY vertically (e.g. spawning a
-    // pickup/vehicle/bot before the player's Y has been initialised onto
-    // the navmesh). Fall back to the closest main-component region, which
-    // ignores Y entirely and always returns a valid floor height.
+    // or the navmesh sits too far from NAV_FLOOR_SAMPLE_Y vertically (e.g.
+    // br_navmesh, whose regions sit at median Y≈23). Fall back to the
+    // closest main-component region, which ignores Y entirely and always
+    // returns a valid floor height.
     const projected = gameState.navMeshManager.projectPoint(navPoint, 3);
     if (Number.isFinite(projected.y)) {
       return projected.y;
