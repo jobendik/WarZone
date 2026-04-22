@@ -17,6 +17,34 @@ import { BR_MAP_SIZE, BR_MAP_HALF, BR_MAP_MARGIN } from './BRConfig';
 import { createBuilding, type Building } from './Buildings';
 import { SpatialGrid } from './SpatialGrid';
 
+// ── BVH acceleration for BR wall/occlusion meshes ──
+// Arena.ts installs three-mesh-bvh's patched Mesh.prototype.raycast globally
+// and builds boundsTrees on every arena mesh. Without boundsTrees on the BR
+// meshes, LOS raycasts (Perception.isOccluded, Hitscan, hearing, etc.) fall
+// back to O(triangles) per mesh per ray. br_map.glb ships with 276 meshes
+// and ~420k triangles, so with ~29 bots doing multiple LOS raycasts per
+// frame the cost explodes to a few FPS. Building a BVH per mesh fixes it.
+function tryBuildBVH(geom: THREE.BufferGeometry | undefined): void {
+  if (!geom) return;
+  if ((geom as any).boundsTree) return;
+  const fn = (geom as any).computeBoundsTree as ((opts?: unknown) => void) | undefined;
+  if (typeof fn !== 'function') return;
+  // Skinned / morph-target / degenerate meshes are unsupported by three-mesh-bvh;
+  // fall back with a warning so those rays still work (just slower on that mesh).
+  try {
+    fn.call(geom);
+  } catch (err) {
+    console.warn('[BRMap] BVH build failed for mesh', (geom as any).name, err);
+  }
+}
+
+function tryDisposeBVH(geom: THREE.BufferGeometry | undefined): void {
+  if (!geom) return;
+  const fn = (geom as any).disposeBoundsTree as (() => void) | undefined;
+  if (typeof fn !== 'function') return;
+  try { fn.call(geom); } catch { /* ignore */ }
+}
+
 const BR_MAP_MODEL_URL = `${import.meta.env.BASE_URL}models/br_map.glb`;
 const brMapLoader = new GLTFLoader();
 
@@ -164,16 +192,26 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
     _brSceneObjects.push(brMapModel);
     brMapModel.updateMatrixWorld(true);
     let brMeshCount = 0;
+    let brBvhBuilt = 0;
     brMapModel.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
       if (!(mesh as any).isMesh) return;
-      if (!(mesh as any).geometry) return;
-      mesh.castShadow = true;
+      const geom = (mesh as any).geometry as THREE.BufferGeometry | undefined;
+      if (!geom) return;
+      // br_map.glb is decorative dressing — the playable geometry comes
+      // from the procedural buildings. Casting shadows from 276 extra
+      // meshes balloons the shadow pass; receiving is still useful.
+      mesh.castShadow = false;
       mesh.receiveShadow = true;
+      // Build a BVH so LOS raycasts against this mesh are O(log n) rather
+      // than O(triangles). tryBuildBVH handles skinned/morph meshes gracefully.
+      const hadBefore = !!(geom as any).boundsTree;
+      tryBuildBVH(geom);
+      if (!hadBefore && (geom as any).boundsTree) brBvhBuilt++;
       gameState.wallMeshes.push(mesh);
       brMeshCount++;
     });
-    console.info(`[BRMap] Loaded br_map.glb — ${brMeshCount} meshes registered for occlusion.`);
+    console.info(`[BRMap] Loaded br_map.glb — ${brMeshCount} meshes registered for occlusion (BVH built on ${brBvhBuilt}).`);
   }
 
   // ── POIs ──
@@ -215,9 +253,14 @@ export async function buildBRMap(onProgress?: (msg: string) => void): Promise<BR
         gameState.arenaColliders.push({ type: 'box', x: wc.x, z: wc.z, hw: wc.hw, hd: wc.hd });
       }
 
-      // Register for wall raycasts (all child meshes)
+      // Register for wall raycasts (all child meshes) + BVH so LOS calls
+      // are O(log n) rather than O(triangles) per ray.
       b.mesh.traverse(obj => {
-        if ((obj as THREE.Mesh).isMesh) gameState.wallMeshes.push(obj as THREE.Mesh);
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const geom = (mesh as any).geometry as THREE.BufferGeometry | undefined;
+        tryBuildBVH(geom);
+        gameState.wallMeshes.push(mesh);
       });
 
       // No YUKA obstacle for buildings — per-wall colliders + keepInside handle it.
@@ -414,6 +457,7 @@ export function disposeBRMap(): void {
     obj.traverse((child) => {
       const mesh = child as THREE.Mesh;
       if (mesh.isMesh) {
+        tryDisposeBVH((mesh as any).geometry as THREE.BufferGeometry | undefined);
         mesh.geometry?.dispose();
         if (Array.isArray(mesh.material)) {
           for (const m of mesh.material) m.dispose();
