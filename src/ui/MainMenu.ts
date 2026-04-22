@@ -97,6 +97,12 @@ const MODES: Array<{ id: GameMode; name: string; subtitle: string; players: stri
     players: '8P · 8 MIN',
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
   },
+  {
+    id: 'br', name: 'BATTLE ROYALE',
+    subtitle: 'Large map — loot weapons, survive the storm. Last one standing wins.',
+    players: '30P · SOLO',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 22h20L12 2z"/><circle cx="12" cy="15" r="3"/></svg>`,
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────

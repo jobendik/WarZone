@@ -23,6 +23,7 @@ export function resetAnnouncerState(): void {
 }
 
 export function updateAnnouncerVoices(dt: number): void {
+  if (gameState.mode === 'br') return;
   if (gameState.roundOver || gameState.warmupTimer > 0) return;
 
   const now = gameState.worldElapsed;

@@ -33,6 +33,7 @@ import {
 } from '@/rendering/AgentAnimations';
 import { setupFuzzy } from '@/ai/FuzzyLogic';
 import { makePersonality } from '@/ai/Personality';
+import { NavAgentRuntime } from '@/ai/navigation/NavAgentRuntime';
 import {
   PatrolState, EngageState, InvestigateState, RetreatState,
   CoverState, FlankState, SeekPickupState, TeamPushState, PeekState,
@@ -163,6 +164,11 @@ function mkBot(name: string, cls: BotClass, x: number, z: number): TDMAgent {
   ag.steering.add(ag.wanderB); ag.steering.add(ag.arriveB);
   ag.steering.add(ag.seekB); ag.steering.add(ag.fleeB);
   ag.steering.add(ag.pursuitB); ag.steering.add(ag.avoidB);
+
+  // Setup NavMesh proper runtime
+  ag.navRuntime = new NavAgentRuntime(ag, gameState.navMeshManager);
+  ag.navRuntime.initFromSpawn(ag.spawnPos);
+
   ag.wanderB.weight = 0;
   ag.arriveB.weight = 0; ag.seekB.weight = 0;
   ag.fleeB.weight = 0; ag.pursuitB.weight = 0;
@@ -533,7 +539,7 @@ function rotateToZone(ag: TDMAgent, innerFactor = 0.5): void {
 // ─────────────────────────────────────────────────────────────────────
 
 function isEffectivelyUnarmed(ag: TDMAgent): boolean {
-  return ag.weaponId === 'unarmed' || ag.weaponId === 'knife';
+  return ag.weaponId === 'unarmed' || ag.weaponId === 'knife' || (ag.ammo <= 0 && !ag.isReloading);
 }
 
 function isEndgame(): boolean {

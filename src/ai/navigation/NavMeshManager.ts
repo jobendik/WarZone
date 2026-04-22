@@ -82,6 +82,7 @@ export class NavMeshManager {
     if (this.components.length) {
       for (const r of this.components[0]) this.mainComponent.add(r);
     }
+    this.buildSpatialGrid();
   }
 
   requireNavMesh(): YUKA.NavMesh {
@@ -120,19 +121,62 @@ export class NavMeshManager {
    * islands (tops of walls, stranded platforms) are snapped back to the
    * walkable floor before use.
    */
+  private _spatialGrid: Map<string, any[]> = new Map();
+  private _gridCellSize = 20;
+
+  /**
+   * Find the closest region BELONGING TO THE MAIN COMPONENT. This uses a
+   * spatial grid to avoid O(N) searches across the entire navmesh.
+   */
   getClosestMainComponentRegion(point: YUKA.Vector3): any {
     if (this.mainComponent.size === 0) return this.getClosestRegion(point);
 
+    // 1. Grid search
+    const gx = Math.floor(point.x / this._gridCellSize);
+    const gz = Math.floor(point.z / this._gridCellSize);
+    
     let best: any = null;
     let bestDistSq = Number.POSITIVE_INFINITY;
     const tmp = new YUKA.Vector3();
+
+    // Check current and 8 neighboring cells
+    for (let ox = -1; ox <= 1; ox++) {
+      for (let oz = -1; oz <= 1; oz++) {
+        const key = `${gx + ox},${gz + oz}`;
+        const cell = this._spatialGrid.get(key);
+        if (!cell) continue;
+
+        for (const region of cell) {
+          const centroid = (region as any)?.centroid;
+          if (!centroid) continue;
+          
+          const approxSq = centroid.squaredDistanceTo(point);
+          if (approxSq >= bestDistSq) continue;
+
+          if (typeof region.getClosestPointToPoint === 'function') {
+            region.getClosestPointToPoint(point, tmp);
+            const d = tmp.squaredDistanceTo(point);
+            if (d < bestDistSq) {
+              bestDistSq = d;
+              best = region;
+            }
+          } else if (approxSq < bestDistSq) {
+            bestDistSq = approxSq;
+            best = region;
+          }
+        }
+      }
+    }
+
+    // 2. Fallback to full search only if the point is far from any populated cell
+    if (best) return best;
+
     for (const region of this.mainComponent) {
       const centroid = (region as any)?.centroid;
       if (!centroid) continue;
       const approxSq = centroid.squaredDistanceTo(point);
       if (approxSq >= bestDistSq) continue;
-      // Cheap centroid pruning; then take the true closest-point distance for a
-      // better tie-break near borders
+      
       if (typeof region.getClosestPointToPoint === 'function') {
         region.getClosestPointToPoint(point, tmp);
         const d = tmp.squaredDistanceTo(point);
@@ -146,6 +190,21 @@ export class NavMeshManager {
       }
     }
     return best;
+  }
+
+  private buildSpatialGrid(): void {
+    this._spatialGrid.clear();
+    for (const region of this.mainComponent) {
+      const centroid = (region as any)?.centroid;
+      if (!centroid) continue;
+
+      const gx = Math.floor(centroid.x / this._gridCellSize);
+      const gz = Math.floor(centroid.z / this._gridCellSize);
+      const key = `${gx},${gz}`;
+      
+      if (!this._spatialGrid.has(key)) this._spatialGrid.set(key, []);
+      this._spatialGrid.get(key)!.push(region);
+    }
   }
 
   getRegionForPoint(point: YUKA.Vector3, epsilon = 1): any {

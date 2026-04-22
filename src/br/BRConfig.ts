@@ -90,7 +90,7 @@ export interface ZonePhase {
 }
 
 export const ZONE_PHASES: ZonePhase[] = [
-  { waitTime: 80,  shrinkTime: 60, finalRadius: 120, damagePerSec: 1 },
+  { waitTime: 30,  shrinkTime: 60, finalRadius: 120, damagePerSec: 1 },
   { waitTime: 55,  shrinkTime: 45, finalRadius: 65,  damagePerSec: 3 },
   { waitTime: 40,  shrinkTime: 35, finalRadius: 30,  damagePerSec: 6 },
   { waitTime: 30,  shrinkTime: 25, finalRadius: 12,  damagePerSec: 12 },

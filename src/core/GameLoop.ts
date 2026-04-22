@@ -108,7 +108,7 @@ function updateHudMatchSlate(): void {
   const scores = getHudScores();
   updateMatchInfo(
     getModeLabel(gameState.mode),
-    gameState.matchTimeRemaining,
+    gameState.mode === 'br' ? null : gameState.matchTimeRemaining,
     scores.blue,
     scores.red,
   );
@@ -219,6 +219,8 @@ export function animate(): void {
       // which is a no-op; YUKA then moves the bot to an unclamped position.
       for (const ag of gameState.agents) {
         if (!ag.active || ag.isDead || ag === gameState.player) continue;
+        // Skip expensive navmesh clamping while high in the air (e.g. falling)
+        if (ag.position.y > 5) continue;
         ag.navRuntime?.update();
       }
       perf.end('entityManager+navRuntime');

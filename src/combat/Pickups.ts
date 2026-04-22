@@ -4,6 +4,7 @@ import { gameState } from '@/core/GameState';
 import { WEAPONS, GRENADE_CONFIG, type WeaponId } from '@/config/weapons';
 import { applyWeaponToAgent } from './Combat';
 import { setViewmodelWeapon } from '@/rendering/WeaponViewmodel';
+import { sampleMapPosition } from '@/core/GameModes';
 
 const BASE_URL = import.meta.env.BASE_URL;
 
@@ -156,27 +157,36 @@ async function attachVisual(anchor: THREE.Mesh, key: PickupVisualKey): Promise<v
 }
 
 export function buildPickups(): void {
-  const defs: { t: PickupType; col: number; x: number; z: number; weaponId?: WeaponId }[] = [
-    { t: 'health', col: 0x22c55e, x: -25, z: 25 },
-    { t: 'health', col: 0x22c55e, x: 25, z: -25 },
-    { t: 'health', col: 0x22c55e, x: 0, z: 0 },
-    { t: 'health', col: 0x22c55e, x: -42, z: 24 },
-    { t: 'health', col: 0x22c55e, x: 42, z: -24 },
-    { t: 'ammo', col: 0xf59e0b, x: -25, z: -25 },
-    { t: 'ammo', col: 0xf59e0b, x: 25, z: 25 },
-    { t: 'ammo', col: 0xf59e0b, x: -40, z: 0 },
-    { t: 'ammo', col: 0xf59e0b, x: 40, z: 0 },
-    { t: 'ammo', col: 0xf59e0b, x: -24, z: -42 },
-    { t: 'ammo', col: 0xf59e0b, x: 24, z: 42 },
-    { t: 'grenade', col: 0x84cc16, x: -10, z: -18 },
-    { t: 'grenade', col: 0x84cc16, x: 10, z: 18 },
-    { t: 'grenade', col: 0x84cc16, x: -8, z: 42 },
-    { t: 'grenade', col: 0x84cc16, x: 8, z: -42 },
-    { t: 'weapon', col: 0x8b5cf6, x: -15, z: 0, weaponId: 'shotgun' },
-    { t: 'weapon', col: 0x8b5cf6, x: 15, z: 0, weaponId: 'sniper_rifle' },
-    { t: 'weapon', col: 0x8b5cf6, x: 0, z: -30, weaponId: 'rocket_launcher' },
-    { t: 'weapon', col: 0x8b5cf6, x: 0, z: 30, weaponId: 'smg' },
+  // Pickups are laid out as normalized [-1,1] coordinates relative to the
+  // current map's walkable bounds, then projected onto the navmesh via
+  // sampleMapPosition(). This keeps them on-surface regardless of which
+  // level glb is loaded.
+  const rels: { t: PickupType; col: number; rx: number; rz: number; weaponId?: WeaponId }[] = [
+    { t: 'health', col: 0x22c55e, rx: -0.45, rz:  0.45 },
+    { t: 'health', col: 0x22c55e, rx:  0.45, rz: -0.45 },
+    { t: 'health', col: 0x22c55e, rx:  0.00, rz:  0.00 },
+    { t: 'health', col: 0x22c55e, rx: -0.80, rz:  0.45 },
+    { t: 'health', col: 0x22c55e, rx:  0.80, rz: -0.45 },
+    { t: 'ammo',   col: 0xf59e0b, rx: -0.45, rz: -0.45 },
+    { t: 'ammo',   col: 0xf59e0b, rx:  0.45, rz:  0.45 },
+    { t: 'ammo',   col: 0xf59e0b, rx: -0.75, rz:  0.00 },
+    { t: 'ammo',   col: 0xf59e0b, rx:  0.75, rz:  0.00 },
+    { t: 'ammo',   col: 0xf59e0b, rx: -0.45, rz: -0.80 },
+    { t: 'ammo',   col: 0xf59e0b, rx:  0.45, rz:  0.80 },
+    { t: 'grenade', col: 0x84cc16, rx: -0.20, rz: -0.35 },
+    { t: 'grenade', col: 0x84cc16, rx:  0.20, rz:  0.35 },
+    { t: 'grenade', col: 0x84cc16, rx: -0.15, rz:  0.80 },
+    { t: 'grenade', col: 0x84cc16, rx:  0.15, rz: -0.80 },
+    { t: 'weapon', col: 0x8b5cf6, rx: -0.30, rz:  0.00, weaponId: 'shotgun' },
+    { t: 'weapon', col: 0x8b5cf6, rx:  0.30, rz:  0.00, weaponId: 'sniper_rifle' },
+    { t: 'weapon', col: 0x8b5cf6, rx:  0.00, rz: -0.55, weaponId: 'rocket_launcher' },
+    { t: 'weapon', col: 0x8b5cf6, rx:  0.00, rz:  0.55, weaponId: 'smg' },
   ];
+
+  const defs = rels.map(r => {
+    const p = sampleMapPosition(r.rx, r.rz);
+    return { t: r.t, col: r.col, x: p.x, z: p.z, weaponId: r.weaponId };
+  });
 
   for (const d of defs) {
     const mesh = createPickupAnchor(d.x, d.z);

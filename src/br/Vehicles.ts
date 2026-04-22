@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { gameState } from '@/core/GameState';
+import { getBRMapData } from './BRMap';
 
 export interface Vehicle {
   id: number;
@@ -209,16 +210,27 @@ export function spawnVehicle(x: number, z: number): Vehicle {
 }
 
 export function populateVehicles(): void {
-  const spawnPoints: [number, number][] = [
-    [-120, -120], [140, -40], [-80, 90], [0, 0], [100, 140],
-    [-150, 40], [40, -150], [160, 160], [-180, -180],
-    [50, 50], [-50, -50], [180, -100], [-100, 180],
-  ];
-
-  for (const [x, z] of spawnPoints) {
-    const jitterX = (Math.random() - 0.5) * 8;
-    const jitterZ = (Math.random() - 0.5) * 8;
-    spawnVehicle(x + jitterX, z + jitterZ);
+  const map = getBRMapData();
+  if (map && map.pois.length > 0) {
+    const numCars = Math.min(15, map.pois.length * 2);
+    for (let i = 0; i < numCars; i++) {
+      const poi = map.pois[i % map.pois.length];
+      const angle = Math.random() * Math.PI * 2;
+      const dist = poi.radius + 4 + Math.random() * 8;
+      spawnVehicle(poi.x + Math.cos(angle) * dist, poi.z + Math.sin(angle) * dist);
+    }
+  } else {
+    // Fallback if no map data
+    const spawnPoints: [number, number][] = [
+      [-120, -120], [140, -40], [-80, 90], [0, 0], [100, 140],
+      [-150, 40], [40, -150], [160, 160], [-180, -180],
+      [50, 50], [-50, -50], [180, -100], [-100, 180],
+    ];
+    for (const [x, z] of spawnPoints) {
+      const jitterX = (Math.random() - 0.5) * 8;
+      const jitterZ = (Math.random() - 0.5) * 8;
+      spawnVehicle(x + jitterX, z + jitterZ);
+    }
   }
 }
 

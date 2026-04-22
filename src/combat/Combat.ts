@@ -817,10 +817,22 @@ function checkGameEnd(): void {
 
 export function resetMatch(mode = gameState.mode): void {
   gameState.mode = mode;
-  if (mode === 'tdm' || mode === 'elimination' || mode === 'ffa') {
+  // Pick a match-intro voice line that matches the active mode. The legacy
+  // code lumped TDM/FFA/elimination together and randomly played the
+  // "team deathmatch" callout in FFA & elimination, which was wrong.
+  let intros: string[] | null = null;
+  if (mode === 'tdm') {
+    intros = ['announcer_tdm', 'announcer_secure', 'announcer_green'];
+  } else if (mode === 'elimination') {
+    intros = ['announcer_eliminate', 'announcer_secure', 'announcer_green'];
+  } else if (mode === 'ffa') {
+    // FFA has no appropriate announcer intro — the available voice lines
+    // are all team/mission specific.  Play nothing.
+    intros = null;
+  }
+  if (intros && intros.length > 0) {
     import('@/audio/AudioManager').then(({ Audio }) => {
-      const intros = ['announcer_tdm', 'announcer_eliminate', 'announcer_secure', 'announcer_green'];
-      Audio.play(intros[Math.floor(Math.random() * intros.length)]);
+      Audio.play(intros![Math.floor(Math.random() * intros!.length)]);
     });
   }
   gameState.roundOver = false;

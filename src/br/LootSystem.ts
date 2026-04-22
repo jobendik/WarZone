@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as YUKA from 'yuka';
 import { gameState } from '@/core/GameState';
 import { RARITY_COLORS, rollRarity, rollWeapon, LOOT_SPAWN_WEIGHTS, type Rarity } from './BRConfig';
 import { WEAPONS, type WeaponId } from '@/config/weapons';
@@ -93,8 +94,8 @@ export const lootGrid = new SpatialGrid<GroundLoot>();
 
 let _nextId = 1;
 let beamInstances: THREE.InstancedMesh | null = null;
-let _freeInstanceSlots: number[] = [];
-const _beamDummy = new THREE.Matrix4().makeScale(0, 0, 0);
+const _freeInstanceSlots: number[] = [];
+const _beamDummy = new THREE.Matrix4().makeTranslation(0, -9999, 0);
 const _beamMatrix = new THREE.Matrix4();
 const _beamColor = new THREE.Color();
 
@@ -127,7 +128,7 @@ function ensureBeamInstances(): void {
   beamInstances.frustumCulled = false;
   beamInstances.count = MAX_LOOT;
 
-  _freeInstanceSlots = [];
+  _freeInstanceSlots.length = 0;
   for (let i = 0; i < MAX_LOOT; i++) {
     beamInstances.setMatrixAt(i, _beamDummy);
     beamInstances.setColorAt(i, new THREE.Color(0));
@@ -498,10 +499,10 @@ function createItem(kind: string, rarity: Rarity): InventoryItem {
     }
     case 'ammo': {
       const types: { id: string; name: string; wid: WeaponId; qty: number }[] = [
-        { id: 'ammo_light', name: 'Light Ammo', wid: 'smg', qty: 25 + (Math.random() * 25 | 0) },
-        { id: 'ammo_med', name: 'Medium Ammo', wid: 'assault_rifle', qty: 20 + (Math.random() * 20 | 0) },
-        { id: 'ammo_heavy', name: 'Heavy Ammo', wid: 'sniper_rifle', qty: 6 + (Math.random() * 6 | 0) },
-        { id: 'ammo_shell', name: 'Shells', wid: 'shotgun', qty: 6 + (Math.random() * 6 | 0) },
+        { id: 'ammo_light', name: 'Light Ammo', wid: 'smg', qty: 75 + (Math.random() * 50 | 0) },
+        { id: 'ammo_med', name: 'Medium Ammo', wid: 'assault_rifle', qty: 60 + (Math.random() * 40 | 0) },
+        { id: 'ammo_heavy', name: 'Heavy Ammo', wid: 'sniper_rifle', qty: 18 + (Math.random() * 12 | 0) },
+        { id: 'ammo_shell', name: 'Shells', wid: 'shotgun', qty: 18 + (Math.random() * 12 | 0) },
       ];
       const p = types[(Math.random() * types.length) | 0];
       return { id: p.id, category: 'ammo', name: p.name, rarity: 'common', stackSize: 200, qty: p.qty, weaponId: p.wid };
@@ -530,21 +531,37 @@ export function populateMapLoot(): void {
   const map = getBRMapData();
   if (!map) return;
 
-  for (const b of map.buildings) {
-    for (const spot of b.lootSpots) {
-      if (Math.random() > 0.7) continue;
-      const items: InventoryItem[] = [rollLootItem()];
-      if (Math.random() < 0.25) items.push(rollLootItem());
-      spawnGroundLoot(spot.x, spot.z, spot.y, items);
-    }
-  }
-
+  // Spawn loot scattered around each POI
   for (const poi of map.pois) {
-    const n = 2 + (Math.random() * 2 | 0);
+    const n = 4 + (Math.random() * 4 | 0);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = Math.random() * poi.radius;
-      spawnGroundLoot(poi.x + Math.cos(a) * r, poi.z + Math.sin(a) * r, 0.4, [rollLootItem()]);
+      const items: InventoryItem[] = [rollLootItem()];
+      if (Math.random() < 0.25) items.push(rollLootItem());
+      const rawPos = new YUKA.Vector3(poi.x + Math.cos(a) * r, 0, poi.z + Math.sin(a) * r);
+      const safePos = gameState.navMeshManager.projectPoint(rawPos);
+      spawnGroundLoot(safePos.x, safePos.z, safePos.y + 0.4, items);
+    }
+  }
+}
+
+let _lootRegenTimer = 0;
+export function updateLootRegen(dt: number): void {
+  _lootRegenTimer += dt;
+  if (_lootRegenTimer > 15) {
+    _lootRegenTimer = 0;
+    // If we've dropped below half the loot cap, gradually regenerate
+    if (groundLoot.length < MAX_LOOT * 0.5) {
+      const map = getBRMapData();
+      if (map && map.pois.length > 0) {
+         const poi = map.pois[Math.floor(Math.random() * map.pois.length)];
+         const a = Math.random() * Math.PI * 2;
+         const r = Math.random() * poi.radius;
+         const rawPos = new YUKA.Vector3(poi.x + Math.cos(a) * r, 0, poi.z + Math.sin(a) * r);
+         const safePos = gameState.navMeshManager.projectPoint(rawPos);
+         spawnGroundLoot(safePos.x, safePos.z, safePos.y + 0.4, [rollLootItem()]);
+      }
     }
   }
 }
@@ -575,5 +592,5 @@ export function clearAllLoot(): void {
   _poolReady = false;
   _visualsReady = false;
   _preloadPromise = null;
-  _freeInstanceSlots = [];
+  _freeInstanceSlots.length = 0;
 }

@@ -47,6 +47,7 @@ import { getSunLight, getAmbientLight } from '@/world/Lights';
 import { initNavDebug } from '@/core/NavDebug';
 import { gameState } from '@/core/GameState';
 import type { GameMode } from '@/core/GameModes';
+import { sampleMapPosition } from '@/core/GameModes';
 import {
   warmCombatProjectilePools,
   attachCombatProjectileWarmupProxies,
@@ -109,12 +110,54 @@ async function precompileSceneViews(): Promise<void> {
 
 function initModeState(mode: GameMode): void {
   switch (mode) {
-    case 'domination': initDomination(gameState.scene); break;
-    case 'hardpoint':  initHardpoint(gameState.scene); break;
-    case 'koth':       initKoth(gameState.scene); break;
-    case 'sd':         initSd(gameState.scene); break;
+    case 'domination': {
+      // Spread three zones across the walkable area along the map's long axis
+      // so they sit on the actual level — not the defunct ±25 symmetric arena.
+      const zones: Array<{ id: 'A' | 'B' | 'C'; pos: [number, number, number] }> = [
+        { id: 'A', pos: toZonePos(sampleMapPosition(-0.6,  0.2)) },
+        { id: 'B', pos: toZonePos(sampleMapPosition( 0.0,  0.0)) },
+        { id: 'C', pos: toZonePos(sampleMapPosition( 0.6, -0.2)) },
+      ];
+      initDomination(gameState.scene, zones);
+      break;
+    }
+    case 'hardpoint': {
+      // Five rotating hills distributed around the map (projected to navmesh).
+      const hp = [
+        { id: 'crossfire', name: 'CROSSFIRE', rel: [-0.55, -0.30] as const },
+        { id: 'bunker',    name: 'BUNKER',    rel: [ 0.10,  0.55] as const },
+        { id: 'overwatch', name: 'OVERWATCH', rel: [ 0.55, -0.20] as const },
+        { id: 'center',    name: 'CENTER',    rel: [ 0.00,  0.00] as const },
+        { id: 'eastyard',  name: 'EAST YARD', rel: [ 0.60,  0.45] as const },
+      ].map(p => {
+        const v = sampleMapPosition(p.rel[0], p.rel[1]);
+        return { id: p.id, name: p.name, position: new THREE.Vector3(v.x, 0.1, v.z), radius: 5.5 };
+      });
+      initHardpoint(gameState.scene, hp);
+      break;
+    }
+    case 'koth': {
+      const center = sampleMapPosition(0, 0);
+      initKoth(gameState.scene, new THREE.Vector3(center.x, 0.1, center.z));
+      break;
+    }
+    case 'sd': {
+      const site = sampleMapPosition(0, 0);
+      const atk = sampleMapPosition(-0.75, 0.55);
+      const def = sampleMapPosition( 0.75, -0.55);
+      initSd(gameState.scene, {
+        bombSite: new THREE.Vector3(site.x, 0, site.z),
+        attackerSpawn: new THREE.Vector3(atk.x, 0, atk.z),
+        defenderSpawn: new THREE.Vector3(def.x, 0, def.z),
+      });
+      break;
+    }
     default: break;
   }
+}
+
+function toZonePos(v: THREE.Vector3): [number, number, number] {
+  return [v.x, 0.1, v.z];
 }
 
 // ─────────────────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@
 import { resetSupplyDrops, scheduleNextSupplyDrop, updateSupplyDrops } from './SupplyDrops';
 import { gameState } from '@/core/GameState';
 import { buildBRMap, disposeBRMap } from './BRMap';
-import { populateMapLoot, spawnGroundLoot, clearAllLoot, updateGroundLoot, preloadLootVisuals } from './LootSystem';
+import { populateMapLoot, spawnGroundLoot, clearAllLoot, updateGroundLoot, preloadLootVisuals, updateLootRegen } from './LootSystem';
 import { startZone, updateZone, disposeZone } from './ZoneSystem';
 import { buildBRBots, clearBRBots, updateBRBot, shouldUpdateBot, landBRBots } from './BRBots';
 import { startDropSequence, updateDropSequence, resetDrop, isPlayerInAir, isPlayerOnPlane } from './DropPlane';
@@ -294,6 +294,7 @@ export function updateBR(dt: number): void {
   }
 
   updateGroundLoot();
+  updateLootRegen(dt);
 
   brState.playersAlive = countAlive();
 

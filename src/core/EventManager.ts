@@ -37,7 +37,7 @@ const defaultKeyMap: Record<ActionKey, string> = {
   reload: 'r', sprint: 'shift', grenade: 'g',
   weapon1: '1', weapon2: '2', weapon3: '3', lastWeapon: 'v',
   jump: ' ', crouch: 'c', leanLeft: 'q', leanRight: 'e',
-  ping: 'x', interact: 'e', melee: 'f', cycleGrenade: '4',
+  ping: 'x', interact: 'f', melee: 'v', cycleGrenade: '4',
 };
 
 let keyMap: Record<ActionKey, string> = { ...defaultKeyMap };
@@ -299,6 +299,7 @@ function onPointerLockChange(): void {
     && !gameState.roundOver
     && !gameState._introActive
     && !gameState.commWheelOpen
+    && !isInventoryOpen()
   ) {
     togglePause(true);
     return;
@@ -363,7 +364,7 @@ export function bindEvents(): void {
         e.preventDefault();
         return;
       }
-      if (k === 'e') {
+      if (isAction(k, 'interact')) {
         pickupNearestLoot();
       }
       if (k === ' ') {

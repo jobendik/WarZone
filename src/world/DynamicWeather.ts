@@ -591,6 +591,9 @@ export function initDynamicWeather(
   camera: THREE.Camera | null = null,
   initialPreset: WeatherPreset = 'clear',
 ): void {
+  // Clean up any existing weather systems before re-initializing
+  disposeDynamicWeather();
+
   state.scene = scene;
   state.ambient = ambient;
   state.sun = sun;
