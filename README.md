@@ -1,4 +1,4 @@
-# WARZONE TDM — Team Deathmatch
+# WarZone
 
 A fast-paced first-person team deathmatch game built with **Three.js** and **YUKA.js** AI framework. Play alongside AI teammates against an enemy AI team in an arena-style shooter.
 

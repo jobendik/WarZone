@@ -1416,7 +1416,7 @@ export const REAL_SOUND_URLS: Record<string, string> = {
   medal_epic:             'announcer/unstopable.mp3',
   victory:                'announcer/victory.mp3',
   defeat:                 'announcer/defeat.mp3',
-  announcer_tdm:          'announcer/team_deathmatch.mp3',
+  announcer_tdm:          'announcer/warzone.mp3',
   announcer_eliminate:    'announcer/eliminate_all_hostile_forces.mp3',
   announcer_enemy_ahead:  'announcer/enemy_is_polling_ahead.mp3',
   announcer_fight_back:   'announcer/fight_back.mp3',

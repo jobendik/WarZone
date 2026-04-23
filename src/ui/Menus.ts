@@ -168,7 +168,7 @@ export function initMenus(): void {
 }
 
 const MODE_DESCRIPTIONS: Record<GameMode, string> = {
-  tdm: 'Team Deathmatch — first to 20 kills. You start armed.',
+  tdm: 'WarZone — first to 20 kills. You start armed.',
   ffa: 'Free For All — start with a knife and loot the map.',
   ctf: 'Capture The Flag — steal the enemy flag and bring it home.',
   elimination: 'Elimination — no respawns. Last team alive wins the round. First to 3.',
