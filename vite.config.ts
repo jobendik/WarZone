@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import path from 'path';
 
 export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/TeamDeathmatch/' : '/',
+  base: command === 'build' ? '/WarZone/' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
