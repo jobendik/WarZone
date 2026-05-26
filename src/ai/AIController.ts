@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as YUKA from 'yuka';
 import { gameState } from '@/core/GameState';
+import { perf } from '@/core/PerfProfiler';
 import { TEAM_BLUE } from '@/config/constants';
 import type { TDMAgent } from '@/entities/TDMAgent';
 import {
@@ -216,8 +217,10 @@ function deliverCalloutsOncePerFrame(): void {
  *  could see the target last frame, aim toward it, but the target moved
  *  behind cover by the time the burst fires). */
 function aiShoot(ag: TDMAgent): void {
-  if (ag.isDead || !ag.currentTarget || ag.currentTarget.isDead) return;
-  if (ag.weaponId === 'unarmed') return;
+  perf.begin('ai.aiShoot');
+  const done = (): void => { perf.end('ai.aiShoot'); };
+  if (ag.isDead || !ag.currentTarget || ag.currentTarget.isDead) { done(); return; }
+  if (ag.weaponId === 'unarmed') { done(); return; }
 
   const { dir, origin } = getAimDirection(ag);
 
@@ -235,6 +238,7 @@ function aiShoot(ag: TDMAgent): void {
   rc.far = distToTarget;
   const wallHits = rc.intersectObjects(gameState.wallMeshes, false);
   if (wallHits.length > 0 && wallHits[0].distance < distToTarget * 0.92) {
+    done();
     return; // aim ray hits a wall before reaching the target — don't fire
   }
 
@@ -254,6 +258,7 @@ function aiShoot(ag: TDMAgent): void {
     hitscanShot(origin, dir, 'ai', ag.team, ag.weaponId, col, ag);
   }
   ag.ammo--;
+  done();
 }
 
 function updateStrafing(ag: TDMAgent, dt: number): void {
@@ -419,7 +424,9 @@ export function updateAI(ag: TDMAgent, dt: number): void {
     }
     ag.stateName = 'PATROL';
     ag.brain.clearSubgoals();
+    perf.begin('ai.brain.arbitrate');
     ag.brain.arbitrate();
+    perf.end('ai.brain.arbitrate');
     setCommitment(ag, 1.5);
   }
 
@@ -524,7 +531,9 @@ export function updateAI(ag: TDMAgent, dt: number): void {
       if (scoreDiff < -3) ag.fuzzyAggr = Math.min(100, ag.fuzzyAggr + 15);
       if (scoreDiff > 5 && ag.hp / ag.maxHP < 0.5) ag.fuzzyAggr = Math.max(0, ag.fuzzyAggr - 10);
 
+      perf.begin('ai.brain.arbitrate');
       ag.brain.arbitrate();
+      perf.end('ai.brain.arbitrate');
       const baseCommit = 0.6 + (p?.patienceBias ?? 0) * 0.8;
       setCommitment(ag, Math.max(0.3, baseCommit));
     }
@@ -662,12 +671,16 @@ export function updateAI(ag: TDMAgent, dt: number): void {
     ag.decisionTimer -= dt;
     if (ag.decisionTimer <= 0 && shouldReplan(ag)) {
       ag.decisionTimer = 0.3 + Math.random() * 0.3;
+      perf.begin('ai.brain.arbitrate');
       ag.brain.arbitrate();
+      perf.end('ai.brain.arbitrate');
       setCommitment(ag, 0.8);
     }
   }
 
+  perf.begin('ai.brain.execute');
   ag.brain.execute();
+  perf.end('ai.brain.execute');
 
   // ── Bot crouch speed modifier ──
   // When crouching, reduce speed to 55% of class baseline (matches player CROUCH_SPEED_MULT)

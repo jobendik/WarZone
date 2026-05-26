@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as YUKA from 'yuka';
 import { gameState } from '@/core/GameState';
+import { perf } from '@/core/PerfProfiler';
 import type { TDMAgent, EnemyMemoryEntry } from '@/entities/TDMAgent';
 import { isEnemy, isFreeForAll } from '@/core/GameModes';
 import { getContextualVisionMod, applySuppression, getHearingAttenuation } from './ContextualPerception';
@@ -59,7 +60,9 @@ export function isOccluded(from: YUKA.Vector3, to: YUKA.Vector3): boolean {
   _dir.normalize();
   _losRaycaster.set(_origin, _dir);
   _losRaycaster.far = dist;
+  perf.begin('los.raycast');
   const hits = _losRaycaster.intersectObjects(gameState.wallMeshes, false);
+  perf.end('los.raycast');
   const result = hits.length > 0 && hits[0].distance < dist;
   _losCache.set(key, result);
   return result;
@@ -317,9 +320,11 @@ if (gameState.mode === 'br') {
 }
 
 export function findBestTarget(ag: TDMAgent): { target: TDMAgent | null; dist: number } {
+  perf.begin('ai.findBestTarget');
   if (ag.currentTarget && !ag.currentTarget.isDead && canSee(ag, ag.currentTarget)) {
     const d = ag.position.distanceTo(ag.currentTarget.position);
     if (!shouldRunPerception(ag)) {
+      perf.end('ai.findBestTarget');
       return { target: ag.currentTarget, dist: d };
     }
   }
@@ -343,6 +348,7 @@ export function findBestTarget(ag: TDMAgent): { target: TDMAgent | null; dist: n
     }
   }
 
+  perf.end('ai.findBestTarget');
   return { target: bestTarget, dist: bestDist };
 }
 

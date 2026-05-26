@@ -258,13 +258,32 @@ function hideRoundSummaryPreview(): void {
 let matchAssetsLoaded = false;
 let matchAssetsLoading: Promise<void> | null = null;
 let _agentWarmupGroup: THREE.Group | null = null;
+let _actualAgentWarmupSnapshots: Array<{
+  obj: THREE.Object3D;
+  pos: THREE.Vector3;
+  quat: THREE.Quaternion;
+  visible: boolean;
+  descendants: Array<{ obj: THREE.Object3D; frustumCulled: boolean; visible: boolean }>;
+}> = [];
+
+const CRITICAL_COMBAT_AUDIO = [
+  'shot_pistol', 'shot_smg', 'shot_ar', 'shot_shotgun', 'shot_sniper', 'shot_rocket',
+  'explosion',
+  'impact_body', 'impact_body_2', 'impact_body_3', 'impact_headshot',
+  'impact_wall', 'impact_wall_2', 'impact_metal', 'impact_wood_1', 'impact_wood_2',
+  'impact_rock_1', 'impact_rock_2',
+  'death', 'death_impact', 'grunt_1', 'grunt_2', 'grunt_3',
+  'reload', 'reload_pistol', 'reload_smg', 'reload_ar', 'reload_shotgun',
+  'reload_sniper', 'reload_rocket',
+] as const;
 
 function attachAgentWarmupProxies(): void {
   if (_agentWarmupGroup || !gameState.scene || !gameState.camera) return;
 
   const group = new THREE.Group();
-  group.position.copy(gameState.camera.position);
-  group.position.z -= 3.2;
+  const forward = new THREE.Vector3();
+  gameState.camera.getWorldDirection(forward);
+  group.position.copy(gameState.camera.position).addScaledVector(forward, 3.2);
   group.position.y -= 0.5;
 
   const placeholderBlue = buildSoldierMesh(TEAM_COLORS[TEAM_BLUE], 'rifleman', TEAM_BLUE);
@@ -301,6 +320,85 @@ function detachAgentWarmupProxies(): void {
   gameState.scene.remove(_agentWarmupGroup);
   _agentWarmupGroup.clear();
   _agentWarmupGroup = null;
+}
+
+function stageActualAgentsForWarmup(): void {
+  if (_actualAgentWarmupSnapshots.length > 0 || !gameState.camera) return;
+
+  const camera = gameState.camera;
+  const forward = new THREE.Vector3();
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  camera.getWorldDirection(forward);
+
+  let index = 0;
+  for (const ag of gameState.agents) {
+    if (ag === gameState.player || !ag.renderComponent) continue;
+    const obj = ag.renderComponent;
+    const descendants: Array<{ obj: THREE.Object3D; frustumCulled: boolean; visible: boolean }> = [];
+    obj.traverse((child) => {
+      descendants.push({ obj: child, frustumCulled: child.frustumCulled, visible: child.visible });
+      child.frustumCulled = false;
+      child.visible = true;
+    });
+    _actualAgentWarmupSnapshots.push({
+      obj,
+      pos: obj.position.clone(),
+      quat: obj.quaternion.clone(),
+      visible: obj.visible,
+      descendants,
+    });
+
+    const col = index % 6;
+    const row = Math.floor(index / 6);
+    obj.visible = true;
+    obj.position.copy(camera.position)
+      .addScaledVector(forward, 4.5 + row * 0.8)
+      .addScaledVector(right, (col - 2.5) * 0.75)
+      .addScaledVector(up, -1.2);
+    obj.quaternion.copy(camera.quaternion);
+    obj.updateMatrixWorld(true);
+    index++;
+  }
+}
+
+async function precompileCurrentSceneView(): Promise<void> {
+  const { renderer, scene, camera } = gameState;
+  if (!renderer || !scene || !camera) return;
+  const compileAndRender = async () => {
+    if (typeof (renderer as any).compileAsync === 'function') {
+      await (renderer as any).compileAsync(scene, camera);
+    } else {
+      renderer.compile(scene, camera);
+    }
+    renderer.render(scene, camera);
+  };
+
+  await compileAndRender();
+
+  const originalFog = scene.fog;
+  if (originalFog) {
+    scene.fog = null;
+    try {
+      await compileAndRender();
+    } finally {
+      scene.fog = originalFog;
+    }
+  }
+}
+
+function restoreActualAgentsAfterWarmup(): void {
+  for (const snap of _actualAgentWarmupSnapshots) {
+    for (const child of snap.descendants) {
+      child.obj.frustumCulled = child.frustumCulled;
+      child.obj.visible = child.visible;
+    }
+    snap.obj.position.copy(snap.pos);
+    snap.obj.quaternion.copy(snap.quat);
+    snap.obj.visible = snap.visible;
+    snap.obj.updateMatrixWorld(true);
+  }
+  _actualAgentWarmupSnapshots = [];
 }
 
 /**
@@ -407,6 +505,9 @@ async function loadMatchAssets(): Promise<void> {
     initParticlePools();
     warmCombatProjectilePools();
 
+    setLoadProgress(84, 'Loading combat audio...');
+    await Audio.preloadSamples(CRITICAL_COMBAT_AUDIO);
+
     initFieldUpgrade();
     initFinishers();
     initEnhancedADS();
@@ -434,6 +535,8 @@ async function loadMatchAssets(): Promise<void> {
       attachCombatFXWarmupProxies();
       attachCombatProjectileWarmupProxies();
       attachAgentWarmupProxies();
+      stageActualAgentsForWarmup();
+      await precompileCurrentSceneView();
       await precompileSceneViews();
       await precompileViewmodelScene();
       // Force actual draw calls for every warmup proxy. compile()/compileAsync
@@ -446,6 +549,7 @@ async function loadMatchAssets(): Promise<void> {
     } catch (err) {
       console.warn('[perf] Shader precompile failed (non-fatal):', err);
     } finally {
+      restoreActualAgentsAfterWarmup();
       detachCombatFXWarmupProxies();
       detachCombatProjectileWarmupProxies();
       detachAgentWarmupProxies();

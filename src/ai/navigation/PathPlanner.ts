@@ -1,4 +1,5 @@
 import * as YUKA from 'yuka';
+import { perf } from '@/core/PerfProfiler';
 import type { NavMeshManager } from './NavMeshManager';
 
 /**
@@ -31,9 +32,12 @@ export class PathPlannerTask extends YUKA.Task {
   execute(): void {
     let path: YUKA.Vector3[] = [];
     try {
+      perf.begin('nav.findPath.core');
       const result = this.planner.navManager.findPath(this.from, this.to);
+      perf.end('nav.findPath.core');
       if (Array.isArray(result)) path = result;
     } catch (err) {
+      perf.end('nav.findPath.core');
       console.warn('[PathPlannerTask] navManager.findPath threw:', err);
     }
     try {
@@ -72,8 +76,10 @@ export class AsyncPathPlanner {
     to: YUKA.Vector3,
     callback: (vehicle: any, path: YUKA.Vector3[]) => void
   ): void {
+    perf.begin('nav.findPath.total');
     const task = new PathPlannerTask(this, vehicle, from, to, callback);
     task.execute();
+    perf.end('nav.findPath.total');
   }
 
   // Kept for API compatibility (GameLoop calls this every frame).

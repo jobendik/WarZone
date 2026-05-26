@@ -1,6 +1,7 @@
 import * as YUKA from 'yuka';
 import { ARENA_MARGIN } from '@/config/constants';
 import { gameState } from '@/core/GameState';
+import { perf } from '@/core/PerfProfiler';
 import { isOccluded } from './Perception';
 import type { TDMAgent } from '@/entities/TDMAgent';
 import { WEAPONS } from '@/config/weapons';
@@ -83,6 +84,7 @@ export function pushOutOfWall(x: number, z: number): { x: number; z: number } {
  * - Safety while reaching: is the approach path exposed?
  */
 export function findCoverFrom(ag: TDMAgent, threat: YUKA.Vector3): YUKA.Vector3 | null {
+  perf.begin('cover.findCoverFrom');
   let bestCover: YUKA.Vector3 | null = null;
   let bestScore = -Infinity;
 
@@ -150,6 +152,7 @@ export function findCoverFrom(ag: TDMAgent, threat: YUKA.Vector3): YUKA.Vector3 
     }
   }
 
+  perf.end('cover.findCoverFrom');
   return bestCover;
 }
 
@@ -157,6 +160,7 @@ export function findCoverFrom(ag: TDMAgent, threat: YUKA.Vector3): YUKA.Vector3 
  * Find aggressive cover — cover that still has a sightline to the target (peek potential).
  */
 export function findPeekCover(ag: TDMAgent, targetPos: YUKA.Vector3): YUKA.Vector3 | null {
+  perf.begin('cover.findPeekCover');
   let bestCover: YUKA.Vector3 | null = null;
   let bestScore = -Infinity;
 
@@ -189,6 +193,7 @@ export function findPeekCover(ag: TDMAgent, targetPos: YUKA.Vector3): YUKA.Vecto
     }
   }
 
+  perf.end('cover.findPeekCover');
   return bestCover;
 }
 
@@ -241,6 +246,7 @@ export function findFlankPosition(ag: TDMAgent, targetPos: YUKA.Vector3): YUKA.V
  * Find a good sniper position — far from enemy, behind cover, with long sightlines.
  */
 export function findSniperNest(ag: TDMAgent, targetPos: YUKA.Vector3): YUKA.Vector3 | null {
+  perf.begin('cover.findSniperNest');
   let bestPos: YUKA.Vector3 | null = null;
   let bestScore = -Infinity;
 
@@ -268,6 +274,7 @@ export function findSniperNest(ag: TDMAgent, targetPos: YUKA.Vector3): YUKA.Vect
     }
   }
 
+  perf.end('cover.findSniperNest');
   return bestPos;
 }
 

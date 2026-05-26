@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
+import { perf } from '@/core/PerfProfiler';
 import { getSettings } from '@/ui/Settings';
 
 // ── Velocity vector pool (ring buffer) ──
@@ -124,6 +125,8 @@ function borrowMesh(pool: PoolEntry[], geo: THREE.BufferGeometry, mat: THREE.Mes
     }
   }
   // Pool exhausted — create new mesh (will be collected normally)
+  perf.begin('particles.poolFallback');
+  perf.end('particles.poolFallback');
   return new THREE.Mesh(geo, mat.clone());
 }
 
@@ -195,8 +198,9 @@ export function attachCombatFXWarmupProxies(): void {
 
   const cam = gameState.camera;
   const group = new THREE.Group();
-  group.position.copy(cam.position);
-  group.position.z -= 2.5;
+  const forward = new THREE.Vector3();
+  cam.getWorldDirection(forward);
+  group.position.copy(cam.position).addScaledVector(forward, 2.5);
   group.position.y += 1.5;
 
   // Every unique material/blend-mode/side combo used during combat.
@@ -958,7 +962,9 @@ export function spawnBloodSplatter(pos: THREE.Vector3, dir: THREE.Vector3): void
   _bloodDecalRc.set(pos, dir);
   _bloodDecalRc.near = 0;
   _bloodDecalRc.far = 3;
+  perf.begin('particles.bloodDecalRaycast');
   const wallHits = _bloodDecalRc.intersectObjects(gameState.wallMeshes, false);
+  perf.end('particles.bloodDecalRaycast');
   if (wallHits.length > 0) {
     const hp = wallHits[0].point;
     const n = wallHits[0].face?.normal?.clone().transformDirection(wallHits[0].object.matrixWorld) ?? null;
@@ -977,6 +983,7 @@ export function spawnBloodSplatter(pos: THREE.Vector3, dir: THREE.Vector3): void
  * Update all particles each frame (gravity, fade, scale).
  */
 export function updateParticles(dt: number): void {
+  perf.begin('particles.update');
   const { particles, scene } = gameState;
 
   // PERF: swap-and-pop removal — O(1) per dead particle instead of O(n)
@@ -1030,6 +1037,7 @@ export function updateParticles(dt: number): void {
     }
   }
   particles.length = writeIdx;
+  perf.end('particles.update');
 }
 
 // ── Ambient dust motes ──

@@ -24,6 +24,7 @@
 
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
+import { perf } from '@/core/PerfProfiler';
 import { Audio } from '@/audio/AudioManager';
 import { getSettings } from '@/ui/Settings';
 
@@ -357,26 +358,31 @@ export interface CalloutSource {
  * priority preemption, TTS playback, and subtitle overlay.
  */
 export function triggerCallout(source: CalloutSource, kind: CalloutKind): boolean {
-  if (!getSettings().enableBotVoice) return false;
+  perf.begin('botvoice.triggerCallout');
+  const done = (result: boolean): boolean => {
+    perf.end('botvoice.triggerCallout');
+    return result;
+  };
+  if (!getSettings().enableBotVoice) return done(false);
   const def = CALLOUTS[kind];
-  if (!def) return false;
+  if (!def) return done(false);
 
   const now = performance.now();
 
   // Chatter personality multiplier — quiet bots speak less
   const chatter = source.personality?.chatter ?? 0.6;
-  if (Math.random() > chatter && def.priority < 6) return false;
+  if (Math.random() > chatter && def.priority < 6) return done(false);
 
   // Per-bot-per-kind cooldown
   const cdKey = `${source.id}:${kind}`;
   const cdExp = cooldowns.get(cdKey) ?? 0;
-  if (now < cdExp) return false;
+  if (now < cdExp) return done(false);
 
   // Global gap — unless high priority
-  if (def.priority < 7 && now - lastGlobalCallout < GLOBAL_MIN_GAP_MS) return false;
+  if (def.priority < 7 && now - lastGlobalCallout < GLOBAL_MIN_GAP_MS) return done(false);
 
   // Priority preemption
-  if (currentUtterance && def.priority <= currentPriority) return false;
+  if (currentUtterance && def.priority <= currentPriority) return done(false);
 
   cooldowns.set(cdKey, now + def.cooldownMs);
   lastGlobalCallout = now;
@@ -433,7 +439,7 @@ export function triggerCallout(source: CalloutSource, kind: CalloutKind): boolea
 
   // Subtitle
   showSubtitle(source.name, source.team, line, def.mood);
-  return true;
+  return done(true);
 }
 
 /**

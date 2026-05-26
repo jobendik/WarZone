@@ -101,8 +101,10 @@ class AudioMgr {
 
       this.initialized = true;
 
-      // Try to load real assets if present
-      this.preloadRealAssets();
+      // Try to load real assets if present. This keeps running in the
+      // background, and match loading can explicitly await combat-critical
+      // sounds through preloadSamples().
+      void this.preloadRealAssets();
     } catch (e) {
       console.warn('[Audio] Failed to init:', e);
       this.enabled = false;
@@ -147,6 +149,19 @@ class AudioMgr {
         // Silent fail — synth fallback will be used
       });
     }
+  }
+
+  async preloadSamples(ids: readonly string[]): Promise<void> {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    const BASE = (import.meta as any).env?.BASE_URL ?? '/';
+    await Promise.all(ids.map(async (id) => {
+      const file = REAL_SOUND_URLS[id];
+      if (!file) return;
+      await this.loadSample(id, `${BASE}audio/${file}`).catch(() => {
+        // Silent fail - synth fallback will be used.
+      });
+    }));
   }
 
   async loadSample(id: string, url: string): Promise<AudioBuffer | null> {
@@ -258,7 +273,13 @@ class AudioMgr {
       src.start();
     } else {
       // Fall back to synth
-      def.synth(this.ctx, dest);
+      const duration = Math.max(0, def.synth(this.ctx, dest) || 0);
+      window.setTimeout(() => {
+        try { callGain.disconnect(); } catch { /* noop */ }
+        if (panner) {
+          try { panner.disconnect(); } catch { /* noop */ }
+        }
+      }, Math.max(50, (duration + 0.1) * 1000));
     }
   }
 

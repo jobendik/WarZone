@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { gameState } from '@/core/GameState';
+import { perf } from '@/core/PerfProfiler';
 import { spawnImpact, spawnWallSparks, spawnTracer, spawnExplosion, spawnRocketTrail, spawnBulletHole, spawnBloodSplatter } from './Particles';
 import { dealDmgPlayer, dealDmgAgent } from './Combat';
 import { TEAM_BLUE, BODY_HIT_RADIUS, HEAD_HIT_RADIUS } from '@/config/constants';
@@ -71,7 +72,6 @@ function initProjectilePools(): void {
     mesh.rotation.x = Math.PI / 2;
     mesh.visible = false;
     const light = new THREE.PointLight(0xff6600, 0, 6);
-    mesh.add(light);
     gameState.scene.add(mesh);
     _rocketPool.push({ mesh, light, inUse: false });
   }
@@ -83,7 +83,6 @@ function initProjectilePools(): void {
     );
     mesh.visible = false;
     const light = new THREE.PointLight(0x88aa00, 0, 3);
-    mesh.add(light);
     gameState.scene.add(mesh);
     _grenadePool.push({ mesh, light, inUse: false });
   }
@@ -116,8 +115,9 @@ export function attachCombatProjectileWarmupProxies(): void {
   initProjectilePools();
 
   const group = new THREE.Group();
-  group.position.copy(gameState.camera.position);
-  group.position.z -= 2.6;
+  const forward = new THREE.Vector3();
+  gameState.camera.getWorldDirection(forward);
+  group.position.copy(gameState.camera.position).addScaledVector(forward, 2.6);
   group.position.y += 1.2;
 
   const rocket = new THREE.Mesh(_rocketGeo, _rocketMat);
@@ -177,6 +177,11 @@ export function hitscanShot(
   ownerAgent: TDMAgent | null = ownerType === 'player' ? gameState.player : null,
   playShotAudio = true,
 ): boolean {
+  perf.begin('combat.hitscanShot');
+  const done = (result: boolean): boolean => {
+    perf.end('combat.hitscanShot');
+    return result;
+  };
   const wep = WEAPONS[weaponId];
   const { agents, wallMeshes } = gameState;
 
@@ -296,7 +301,7 @@ export function hitscanShot(
     spawnImpact(_hsEnd, hitCol, isHeadshot ? 12 : 6);
     spawnBloodSplatter(_hsEnd, _hsDir);
     playImpact(_hsEnd, isHeadshot ? 'headshot' : 'body');
-    return true;
+    return done(true);
   }
 
   if (wallHits.length > 0) {
@@ -350,14 +355,14 @@ export function hitscanShot(
             const hitCol = ag.team === TEAM_BLUE ? 0x38bdf8 : 0xef4444;
             spawnImpact(_hsClosest, hitCol, 4);
             playImpact(_hsClosest, 'body');
-            return true;
+            return done(true);
           }
         }
       }
     }
   }
 
-  return false;
+  return done(false);
 }
 
 export function shotgunBlast(
@@ -416,7 +421,6 @@ export function spawnRocket(
   trail.color.setHex(0xff6600);
   trail.intensity = 2;
   trail.distance = 6;
-  if (!entry) mesh.add(trail);
 
   // dir IS cloned here intentionally — the bullet retains it across frames
   // (integrated in updateProjectiles), so it can't share scratch state
@@ -463,7 +467,6 @@ export function spawnGrenade(
   light.color.setHex(grenadeType === 'flash' ? 0xffffff : 0x88aa00);
   light.intensity = 0.5;
   light.distance = 3;
-  if (!entry) mesh.add(light);
 
   gameState.bullets.push({
     mesh, pl: light, dir: new THREE.Vector3(dir.x * GRENADE_CONFIG.throwSpeed, 6, dir.z * GRENADE_CONFIG.throwSpeed),
